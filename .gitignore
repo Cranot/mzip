@@ -1,0 +1,74 @@
+# Build artifacts
+*.exe
+*.o
+*.obj
+*.dll
+*.so
+*.dylib
+*.bin
+*.gz
+*.br
+*.lzma
+*.hex
+*.zip
+*.bak
+
+# Temp/test files
+_temp*
+_test_*
+_tmp*
+_debug/
+debug_*
+bench_*
+compare_*
+abc
+abc.*
+test*
+verify_*
+rand_*
+repro_*
+trace_*
+opt_*
+simple_*
+multi_*
+minimal_*
+partial_*
+real_*
+greedy_*
+encoder_*
+ref_*
+output*
+nul
+python_ref
+
+# Directories
+benchmark_data/
+alp_sota/
+test_files/
+ziptest/
+
+# Python scripts (experimental)
+*.py
+
+# Batch scripts
+*.bat
+
+# Other temp files
+enwik9
+*.tz
+*.mzip
+*.txt
+*.jsx
+*.png
+snzip*
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# External dependencies (download separately)
+zstd_release/
+mingw64/

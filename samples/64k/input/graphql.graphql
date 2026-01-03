@@ -1,0 +1,5450 @@
+query GetComment {
+  comment(id: "6876") {
+    id
+    email
+    status
+    price
+    content
+  }
+}
+
+subscription OnUserUpdated {
+  uUpdated {
+    id
+    content
+  }
+}
+
+query GetOrderWithRelations {
+  id
+  id
+  cs {
+    id
+    email
+  }
+}
+
+mutation UpdateComment($input: CommentInput!) {
+  updateComment(input: $input) {
+    id
+    content
+  }
+}
+
+mutation DeleteProduct($input: ProductInput!) {
+  deleteProduct(input: $input) {
+    id
+    content
+    id
+  }
+}
+
+mutation CreateComment($input: CommentInput!) {
+  createComment(input: $input) {
+    id
+    title
+    status
+  }
+}
+
+subscription OnUserUpdated {
+  uUpdated {
+    id
+    email
+  }
+}
+
+query GetReviewWithRelations {
+  id
+  title
+  us {
+    id
+    title
+  }
+}
+
+mutation CreateCategory($input: CategoryInput!) {
+  createCategory(input: $input) {
+    id
+    createdAt
+    content
+  }
+}
+
+fragment CategoryFields on Category {
+  id
+  name
+}
+
+fragment PostFields on Post {
+  name
+  price
+  price
+  title
+  email
+  title
+}
+
+query GetCategoryWithRelations {
+  id
+  id
+  cs {
+    id
+    quantity
+  }
+}
+
+query ListReviews($first: Int, $after: String) {
+  rs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        status
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnOrderUpdated {
+  oUpdated {
+    id
+    status
+  }
+}
+
+mutation DeleteUser($input: UserInput!) {
+  deleteUser(input: $input) {
+    id
+    title
+    createdAt
+  }
+}
+
+subscription OnUserUpdated {
+  uUpdated {
+    id
+    content
+  }
+}
+
+query GetProductWithRelations {
+  id
+  content
+  cs {
+    id
+    status
+  }
+}
+
+query GetOrder {
+  order(id: "8033") {
+    email
+    title
+    quantity
+    status
+    email
+    status
+  }
+}
+
+mutation DeleteOrder($input: OrderInput!) {
+  deleteOrder(input: $input) {
+    id
+    status
+    id
+  }
+}
+
+subscription OnCategoryUpdated {
+  cUpdated {
+    id
+    quantity
+  }
+}
+
+fragment ProductFields on Product {
+  title
+  quantity
+}
+
+query GetReview {
+  review(id: "8221") {
+    email
+    email
+    status
+    id
+    id
+  }
+}
+
+subscription OnOrderUpdated {
+  oUpdated {
+    id
+    createdAt
+  }
+}
+
+query GetCategoryWithRelations {
+  id
+  title
+  cs {
+    id
+    createdAt
+  }
+}
+
+fragment ReviewFields on Review {
+  createdAt
+  price
+  content
+  status
+}
+
+query ListOrders($first: Int, $after: String) {
+  os(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        name
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetReview {
+  review(id: "6039") {
+    email
+    email
+    content
+  }
+}
+
+query GetCommentWithRelations {
+  id
+  createdAt
+  rs {
+    id
+    status
+  }
+}
+
+query ListComments($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        id
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        content
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetReview {
+  review(id: "3800") {
+    email
+    createdAt
+    content
+    title
+    name
+    createdAt
+  }
+}
+
+subscription OnUserUpdated {
+  uUpdated {
+    id
+    quantity
+  }
+}
+
+subscription OnProductUpdated {
+  pUpdated {
+    id
+    createdAt
+  }
+}
+
+query GetProduct {
+  product(id: "8487") {
+    price
+    id
+    quantity
+    content
+  }
+}
+
+query GetProductWithRelations {
+  id
+  id
+  os {
+    id
+    content
+  }
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        id
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query ListReviews($first: Int, $after: String) {
+  rs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        id
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetOrderWithRelations {
+  id
+  name
+  ps {
+    id
+    quantity
+  }
+}
+
+subscription OnReviewUpdated {
+  rUpdated {
+    id
+    name
+  }
+}
+
+query GetCategoryWithRelations {
+  id
+  createdAt
+  os {
+    id
+    price
+  }
+}
+
+fragment ProductFields on Product {
+  name
+  title
+}
+
+query GetReviewWithRelations {
+  id
+  status
+  cs {
+    id
+    content
+  }
+}
+
+query GetUserWithRelations {
+  id
+  price
+  os {
+    id
+    email
+  }
+}
+
+query GetCategoryWithRelations {
+  id
+  content
+  cs {
+    id
+    id
+  }
+}
+
+subscription OnReviewUpdated {
+  rUpdated {
+    id
+    name
+  }
+}
+
+subscription OnProductUpdated {
+  pUpdated {
+    id
+    createdAt
+  }
+}
+
+fragment ReviewFields on Review {
+  quantity
+  createdAt
+  title
+  content
+}
+
+fragment UserFields on User {
+  content
+  quantity
+  id
+  createdAt
+  createdAt
+}
+
+fragment PostFields on Post {
+  createdAt
+  content
+  email
+  title
+  status
+  email
+}
+
+query ListComments($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        id
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnProductUpdated {
+  pUpdated {
+    id
+    email
+  }
+}
+
+query GetPostWithRelations {
+  id
+  status
+  cs {
+    id
+    content
+  }
+}
+
+mutation CreatePost($input: PostInput!) {
+  createPost(input: $input) {
+    id
+    createdAt
+  }
+}
+
+subscription OnCategoryUpdated {
+  cUpdated {
+    id
+    quantity
+  }
+}
+
+fragment CategoryFields on Category {
+  name
+  title
+}
+
+query GetPost {
+  post(id: "9667") {
+    price
+    name
+    quantity
+    quantity
+    price
+    name
+  }
+}
+
+query GetProductWithRelations {
+  id
+  status
+  os {
+    id
+    title
+  }
+}
+
+fragment PostFields on Post {
+  email
+  price
+}
+
+query GetCategoryWithRelations {
+  id
+  status
+  us {
+    id
+    createdAt
+  }
+}
+
+mutation DeleteProduct($input: ProductInput!) {
+  deleteProduct(input: $input) {
+    id
+    id
+    createdAt
+  }
+}
+
+subscription OnOrderUpdated {
+  oUpdated {
+    id
+    id
+  }
+}
+
+subscription OnReviewUpdated {
+  rUpdated {
+    id
+    price
+  }
+}
+
+mutation UpdateCategory($input: CategoryInput!) {
+  updateCategory(input: $input) {
+    id
+    content
+    title
+  }
+}
+
+query ListReviews($first: Int, $after: String) {
+  rs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        id
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+mutation CreatePost($input: PostInput!) {
+  createPost(input: $input) {
+    id
+    name
+    title
+  }
+}
+
+query GetComment {
+  comment(id: "9899") {
+    title
+    id
+    price
+    title
+    email
+  }
+}
+
+subscription OnOrderUpdated {
+  oUpdated {
+    id
+    name
+  }
+}
+
+query ListComments($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        status
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        name
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+mutation DeleteOrder($input: OrderInput!) {
+  deleteOrder(input: $input) {
+    id
+    name
+  }
+}
+
+mutation CreatePost($input: PostInput!) {
+  createPost(input: $input) {
+    id
+    createdAt
+    content
+  }
+}
+
+query ListComments($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        createdAt
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetProductWithRelations {
+  id
+  status
+  ps {
+    id
+    price
+  }
+}
+
+fragment PostFields on Post {
+  email
+  name
+  name
+  name
+  content
+  id
+}
+
+mutation UpdateUser($input: UserInput!) {
+  updateUser(input: $input) {
+    id
+    id
+    name
+  }
+}
+
+mutation DeleteUser($input: UserInput!) {
+  deleteUser(input: $input) {
+    id
+    id
+  }
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        createdAt
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetProduct {
+  product(id: "5887") {
+    name
+    status
+    title
+    id
+    price
+    name
+  }
+}
+
+mutation UpdateCategory($input: CategoryInput!) {
+  updateCategory(input: $input) {
+    id
+    content
+    name
+  }
+}
+
+fragment ReviewFields on Review {
+  id
+  createdAt
+  quantity
+  title
+  quantity
+  content
+}
+
+query ListComments($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        name
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+fragment CategoryFields on Category {
+  quantity
+  title
+  content
+}
+
+mutation DeleteReview($input: ReviewInput!) {
+  deleteReview(input: $input) {
+    id
+    price
+  }
+}
+
+fragment ReviewFields on Review {
+  email
+  createdAt
+  content
+  title
+}
+
+subscription OnCommentUpdated {
+  cUpdated {
+    id
+    title
+  }
+}
+
+query GetCommentWithRelations {
+  id
+  quantity
+  us {
+    id
+    title
+  }
+}
+
+subscription OnReviewUpdated {
+  rUpdated {
+    id
+    email
+  }
+}
+
+subscription OnOrderUpdated {
+  oUpdated {
+    id
+    id
+  }
+}
+
+subscription OnProductUpdated {
+  pUpdated {
+    id
+    price
+  }
+}
+
+subscription OnProductUpdated {
+  pUpdated {
+    id
+    id
+  }
+}
+
+fragment ProductFields on Product {
+  id
+  email
+}
+
+query GetPost {
+  post(id: "7824") {
+    title
+    id
+    createdAt
+    quantity
+    email
+    id
+  }
+}
+
+mutation UpdateCategory($input: CategoryInput!) {
+  updateCategory(input: $input) {
+    id
+    quantity
+    price
+  }
+}
+
+subscription OnReviewUpdated {
+  rUpdated {
+    id
+    status
+  }
+}
+
+mutation UpdateUser($input: UserInput!) {
+  updateUser(input: $input) {
+    id
+    createdAt
+  }
+}
+
+mutation UpdateUser($input: UserInput!) {
+  updateUser(input: $input) {
+    id
+    email
+  }
+}
+
+mutation CreateCategory($input: CategoryInput!) {
+  createCategory(input: $input) {
+    id
+    email
+  }
+}
+
+query GetCategoryWithRelations {
+  id
+  price
+  os {
+    id
+    id
+  }
+}
+
+query GetReviewWithRelations {
+  id
+  id
+  cs {
+    id
+    content
+  }
+}
+
+query ListUsers($first: Int, $after: String) {
+  us(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        email
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+mutation UpdatePost($input: PostInput!) {
+  updatePost(input: $input) {
+    id
+    title
+  }
+}
+
+subscription OnPostUpdated {
+  pUpdated {
+    id
+    title
+  }
+}
+
+mutation CreateProduct($input: ProductInput!) {
+  createProduct(input: $input) {
+    id
+    email
+    status
+  }
+}
+
+subscription OnReviewUpdated {
+  rUpdated {
+    id
+    email
+  }
+}
+
+query GetUser {
+  user(id: "3401") {
+    price
+    createdAt
+    createdAt
+    price
+  }
+}
+
+query GetPost {
+  post(id: "9557") {
+    quantity
+    price
+    title
+    name
+    quantity
+    id
+  }
+}
+
+mutation DeleteReview($input: ReviewInput!) {
+  deleteReview(input: $input) {
+    id
+    content
+    price
+  }
+}
+
+query ListReviews($first: Int, $after: String) {
+  rs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        createdAt
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query ListComments($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        title
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnCategoryUpdated {
+  cUpdated {
+    id
+    price
+  }
+}
+
+subscription OnCategoryUpdated {
+  cUpdated {
+    id
+    id
+  }
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        name
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+mutation DeletePost($input: PostInput!) {
+  deletePost(input: $input) {
+    id
+    content
+  }
+}
+
+query GetReviewWithRelations {
+  id
+  name
+  os {
+    id
+    title
+  }
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        id
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnUserUpdated {
+  uUpdated {
+    id
+    name
+  }
+}
+
+fragment CategoryFields on Category {
+  email
+  createdAt
+  name
+  createdAt
+}
+
+query ListUsers($first: Int, $after: String) {
+  us(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        name
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query ListUsers($first: Int, $after: String) {
+  us(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        status
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnUserUpdated {
+  uUpdated {
+    id
+    id
+  }
+}
+
+query ListOrders($first: Int, $after: String) {
+  os(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        name
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+fragment ReviewFields on Review {
+  createdAt
+  email
+  quantity
+  status
+  status
+}
+
+fragment CategoryFields on Category {
+  status
+  email
+  createdAt
+}
+
+mutation DeleteOrder($input: OrderInput!) {
+  deleteOrder(input: $input) {
+    id
+    status
+    content
+  }
+}
+
+query GetCommentWithRelations {
+  id
+  title
+  ps {
+    id
+    content
+  }
+}
+
+query ListReviews($first: Int, $after: String) {
+  rs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        price
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnCommentUpdated {
+  cUpdated {
+    id
+    id
+  }
+}
+
+query GetCategory {
+  category(id: "9540") {
+    title
+    content
+    name
+  }
+}
+
+query GetProduct {
+  product(id: "8879") {
+    status
+    price
+    title
+    quantity
+  }
+}
+
+query GetPostWithRelations {
+  id
+  content
+  us {
+    id
+    name
+  }
+}
+
+query GetProduct {
+  product(id: "2542") {
+    status
+    status
+    status
+  }
+}
+
+query ListCategorys($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        name
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+fragment ProductFields on Product {
+  createdAt
+  status
+}
+
+query GetUser {
+  user(id: "4011") {
+    content
+    email
+    name
+  }
+}
+
+fragment UserFields on User {
+  quantity
+  price
+  name
+  name
+}
+
+mutation UpdateProduct($input: ProductInput!) {
+  updateProduct(input: $input) {
+    id
+    price
+    email
+  }
+}
+
+mutation CreateProduct($input: ProductInput!) {
+  createProduct(input: $input) {
+    id
+    name
+    name
+  }
+}
+
+fragment UserFields on User {
+  status
+  content
+  content
+  createdAt
+}
+
+fragment CommentFields on Comment {
+  price
+  name
+}
+
+mutation CreateOrder($input: OrderInput!) {
+  createOrder(input: $input) {
+    id
+    content
+    email
+  }
+}
+
+subscription OnCategoryUpdated {
+  cUpdated {
+    id
+    title
+  }
+}
+
+query GetPostWithRelations {
+  id
+  email
+  cs {
+    id
+    quantity
+  }
+}
+
+subscription OnUserUpdated {
+  uUpdated {
+    id
+    title
+  }
+}
+
+mutation UpdateProduct($input: ProductInput!) {
+  updateProduct(input: $input) {
+    id
+    price
+  }
+}
+
+query GetOrder {
+  order(id: "9690") {
+    quantity
+    name
+    createdAt
+  }
+}
+
+query ListComments($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        quantity
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetReviewWithRelations {
+  id
+  title
+  ps {
+    id
+    quantity
+  }
+}
+
+query GetReviewWithRelations {
+  id
+  createdAt
+  cs {
+    id
+    email
+  }
+}
+
+mutation DeleteProduct($input: ProductInput!) {
+  deleteProduct(input: $input) {
+    id
+    status
+    content
+  }
+}
+
+query GetCategoryWithRelations {
+  id
+  createdAt
+  ps {
+    id
+    price
+  }
+}
+
+mutation DeleteProduct($input: ProductInput!) {
+  deleteProduct(input: $input) {
+    id
+    id
+    email
+  }
+}
+
+query GetPostWithRelations {
+  id
+  price
+  us {
+    id
+    quantity
+  }
+}
+
+mutation UpdateCategory($input: CategoryInput!) {
+  updateCategory(input: $input) {
+    id
+    email
+  }
+}
+
+query GetCategory {
+  category(id: "7033") {
+    name
+    id
+    status
+  }
+}
+
+query GetCommentWithRelations {
+  id
+  status
+  cs {
+    id
+    content
+  }
+}
+
+mutation UpdateOrder($input: OrderInput!) {
+  updateOrder(input: $input) {
+    id
+    title
+    content
+  }
+}
+
+fragment ProductFields on Product {
+  title
+  price
+  id
+  status
+}
+
+query GetComment {
+  comment(id: "6482") {
+    createdAt
+    id
+    quantity
+  }
+}
+
+mutation CreatePost($input: PostInput!) {
+  createPost(input: $input) {
+    id
+    quantity
+    id
+  }
+}
+
+query GetCategoryWithRelations {
+  id
+  title
+  ps {
+    id
+    price
+  }
+}
+
+query GetUser {
+  user(id: "2114") {
+    status
+    quantity
+    content
+    createdAt
+    content
+    price
+  }
+}
+
+subscription OnProductUpdated {
+  pUpdated {
+    id
+    id
+  }
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        createdAt
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query ListCategorys($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        title
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query ListOrders($first: Int, $after: String) {
+  os(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        content
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetReview {
+  review(id: "4612") {
+    email
+    status
+    price
+    status
+    email
+  }
+}
+
+mutation CreateCategory($input: CategoryInput!) {
+  createCategory(input: $input) {
+    id
+    id
+  }
+}
+
+mutation UpdateReview($input: ReviewInput!) {
+  updateReview(input: $input) {
+    id
+    price
+  }
+}
+
+query GetPostWithRelations {
+  id
+  status
+  rs {
+    id
+    content
+  }
+}
+
+query ListReviews($first: Int, $after: String) {
+  rs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        email
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+fragment CategoryFields on Category {
+  status
+  content
+  email
+  id
+  title
+}
+
+mutation UpdateComment($input: CommentInput!) {
+  updateComment(input: $input) {
+    id
+    email
+    createdAt
+  }
+}
+
+query GetUserWithRelations {
+  id
+  status
+  ps {
+    id
+    createdAt
+  }
+}
+
+mutation UpdateProduct($input: ProductInput!) {
+  updateProduct(input: $input) {
+    id
+    name
+    content
+  }
+}
+
+query ListProducts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        content
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query ListUsers($first: Int, $after: String) {
+  us(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        email
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+fragment UserFields on User {
+  status
+  title
+  id
+  content
+  quantity
+  email
+}
+
+query ListReviews($first: Int, $after: String) {
+  rs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        createdAt
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetProduct {
+  product(id: "6477") {
+    email
+    email
+    name
+    id
+    content
+  }
+}
+
+subscription OnCategoryUpdated {
+  cUpdated {
+    id
+    price
+  }
+}
+
+subscription OnCommentUpdated {
+  cUpdated {
+    id
+    title
+  }
+}
+
+query GetUserWithRelations {
+  id
+  status
+  us {
+    id
+    name
+  }
+}
+
+subscription OnPostUpdated {
+  pUpdated {
+    id
+    title
+  }
+}
+
+query ListCategorys($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        id
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query ListCategorys($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        quantity
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+mutation CreateProduct($input: ProductInput!) {
+  createProduct(input: $input) {
+    id
+    title
+    quantity
+  }
+}
+
+mutation DeleteCategory($input: CategoryInput!) {
+  deleteCategory(input: $input) {
+    id
+    name
+  }
+}
+
+fragment CategoryFields on Category {
+  email
+  id
+  id
+  email
+}
+
+query GetProductWithRelations {
+  id
+  quantity
+  ps {
+    id
+    name
+  }
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        name
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+fragment CategoryFields on Category {
+  createdAt
+  createdAt
+  quantity
+}
+
+mutation UpdateCategory($input: CategoryInput!) {
+  updateCategory(input: $input) {
+    id
+    quantity
+  }
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        email
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+mutation CreatePost($input: PostInput!) {
+  createPost(input: $input) {
+    id
+    status
+    content
+  }
+}
+
+mutation UpdateReview($input: ReviewInput!) {
+  updateReview(input: $input) {
+    id
+    title
+    status
+  }
+}
+
+fragment ProductFields on Product {
+  quantity
+  status
+  createdAt
+}
+
+mutation CreateProduct($input: ProductInput!) {
+  createProduct(input: $input) {
+    id
+    content
+    price
+  }
+}
+
+subscription OnPostUpdated {
+  pUpdated {
+    id
+    id
+  }
+}
+
+query ListCategorys($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        email
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnReviewUpdated {
+  rUpdated {
+    id
+    quantity
+  }
+}
+
+mutation DeleteProduct($input: ProductInput!) {
+  deleteProduct(input: $input) {
+    id
+    title
+  }
+}
+
+query ListUsers($first: Int, $after: String) {
+  us(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        title
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query ListCategorys($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        id
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetPostWithRelations {
+  id
+  email
+  cs {
+    id
+    quantity
+  }
+}
+
+fragment OrderFields on Order {
+  quantity
+  status
+  title
+  content
+  status
+}
+
+fragment UserFields on User {
+  status
+  title
+  createdAt
+  content
+}
+
+query GetPostWithRelations {
+  id
+  createdAt
+  os {
+    id
+    email
+  }
+}
+
+query GetProductWithRelations {
+  id
+  email
+  cs {
+    id
+    id
+  }
+}
+
+mutation UpdatePost($input: PostInput!) {
+  updatePost(input: $input) {
+    id
+    price
+  }
+}
+
+query ListProducts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        status
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnCommentUpdated {
+  cUpdated {
+    id
+    id
+  }
+}
+
+query GetPost {
+  post(id: "2116") {
+    price
+    quantity
+    price
+    quantity
+  }
+}
+
+query ListCategorys($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        price
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+mutation DeleteProduct($input: ProductInput!) {
+  deleteProduct(input: $input) {
+    id
+    id
+    quantity
+  }
+}
+
+fragment CategoryFields on Category {
+  price
+  id
+}
+
+fragment CategoryFields on Category {
+  price
+  createdAt
+  quantity
+  id
+  status
+  price
+}
+
+subscription OnUserUpdated {
+  uUpdated {
+    id
+    content
+  }
+}
+
+mutation UpdateProduct($input: ProductInput!) {
+  updateProduct(input: $input) {
+    id
+    name
+  }
+}
+
+query GetCommentWithRelations {
+  id
+  id
+  ps {
+    id
+    content
+  }
+}
+
+subscription OnUserUpdated {
+  uUpdated {
+    id
+    quantity
+  }
+}
+
+subscription OnProductUpdated {
+  pUpdated {
+    id
+    content
+  }
+}
+
+query ListUsers($first: Int, $after: String) {
+  us(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        id
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetProductWithRelations {
+  id
+  id
+  ps {
+    id
+    content
+  }
+}
+
+subscription OnPostUpdated {
+  pUpdated {
+    id
+    email
+  }
+}
+
+query GetUser {
+  user(id: "1013") {
+    title
+    price
+    title
+    id
+    quantity
+    id
+  }
+}
+
+mutation CreateProduct($input: ProductInput!) {
+  createProduct(input: $input) {
+    id
+    email
+  }
+}
+
+mutation CreateOrder($input: OrderInput!) {
+  createOrder(input: $input) {
+    id
+    content
+  }
+}
+
+subscription OnProductUpdated {
+  pUpdated {
+    id
+    status
+  }
+}
+
+subscription OnCategoryUpdated {
+  cUpdated {
+    id
+    id
+  }
+}
+
+query GetComment {
+  comment(id: "4") {
+    quantity
+    id
+    name
+  }
+}
+
+query ListOrders($first: Int, $after: String) {
+  os(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        id
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnCategoryUpdated {
+  cUpdated {
+    id
+    createdAt
+  }
+}
+
+query ListReviews($first: Int, $after: String) {
+  rs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        email
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query ListCategorys($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        id
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnOrderUpdated {
+  oUpdated {
+    id
+    status
+  }
+}
+
+fragment CommentFields on Comment {
+  content
+  id
+  price
+  createdAt
+  status
+  createdAt
+}
+
+query GetReviewWithRelations {
+  id
+  name
+  cs {
+    id
+    email
+  }
+}
+
+mutation UpdateProduct($input: ProductInput!) {
+  updateProduct(input: $input) {
+    id
+    name
+  }
+}
+
+fragment CommentFields on Comment {
+  title
+  name
+}
+
+mutation UpdateProduct($input: ProductInput!) {
+  updateProduct(input: $input) {
+    id
+    name
+  }
+}
+
+query GetCategory {
+  category(id: "8609") {
+    email
+    content
+    email
+    email
+    content
+    email
+  }
+}
+
+query GetCategoryWithRelations {
+  id
+  name
+  rs {
+    id
+    name
+  }
+}
+
+subscription OnPostUpdated {
+  pUpdated {
+    id
+    quantity
+  }
+}
+
+mutation UpdateUser($input: UserInput!) {
+  updateUser(input: $input) {
+    id
+    content
+    name
+  }
+}
+
+query ListCategorys($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        createdAt
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetOrderWithRelations {
+  id
+  price
+  rs {
+    id
+    name
+  }
+}
+
+subscription OnCategoryUpdated {
+  cUpdated {
+    id
+    quantity
+  }
+}
+
+mutation UpdateCategory($input: CategoryInput!) {
+  updateCategory(input: $input) {
+    id
+    email
+  }
+}
+
+query GetReviewWithRelations {
+  id
+  status
+  rs {
+    id
+    createdAt
+  }
+}
+
+query GetPost {
+  post(id: "389") {
+    content
+    email
+    createdAt
+    id
+  }
+}
+
+fragment OrderFields on Order {
+  quantity
+  email
+  createdAt
+  title
+  email
+  quantity
+}
+
+query GetUserWithRelations {
+  id
+  content
+  us {
+    id
+    title
+  }
+}
+
+query ListComments($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        email
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+mutation CreateCategory($input: CategoryInput!) {
+  createCategory(input: $input) {
+    id
+    createdAt
+  }
+}
+
+query GetOrder {
+  order(id: "872") {
+    price
+    name
+    quantity
+    quantity
+    content
+  }
+}
+
+query ListComments($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        id
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+fragment CommentFields on Comment {
+  email
+  content
+  title
+  email
+  quantity
+}
+
+subscription OnCommentUpdated {
+  cUpdated {
+    id
+    content
+  }
+}
+
+query ListReviews($first: Int, $after: String) {
+  rs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        email
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetUser {
+  user(id: "5022") {
+    name
+    status
+    title
+    content
+  }
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        quantity
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnCategoryUpdated {
+  cUpdated {
+    id
+    createdAt
+  }
+}
+
+fragment CommentFields on Comment {
+  id
+  name
+  price
+  quantity
+  content
+}
+
+query GetPost {
+  post(id: "3012") {
+    quantity
+    id
+    content
+  }
+}
+
+query GetComment {
+  comment(id: "5589") {
+    quantity
+    content
+    content
+    quantity
+    title
+  }
+}
+
+fragment PostFields on Post {
+  id
+  price
+}
+
+query GetUserWithRelations {
+  id
+  email
+  os {
+    id
+    name
+  }
+}
+
+mutation CreateUser($input: UserInput!) {
+  createUser(input: $input) {
+    id
+    status
+  }
+}
+
+subscription OnUserUpdated {
+  uUpdated {
+    id
+    price
+  }
+}
+
+mutation DeleteComment($input: CommentInput!) {
+  deleteComment(input: $input) {
+    id
+    email
+    price
+  }
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        email
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+fragment OrderFields on Order {
+  status
+  status
+  price
+}
+
+query ListCategorys($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        email
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetReviewWithRelations {
+  id
+  createdAt
+  ps {
+    id
+    status
+  }
+}
+
+fragment UserFields on User {
+  id
+  price
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        email
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+mutation UpdateReview($input: ReviewInput!) {
+  updateReview(input: $input) {
+    id
+    status
+    title
+  }
+}
+
+mutation CreateOrder($input: OrderInput!) {
+  createOrder(input: $input) {
+    id
+    createdAt
+  }
+}
+
+mutation DeletePost($input: PostInput!) {
+  deletePost(input: $input) {
+    id
+    price
+  }
+}
+
+subscription OnOrderUpdated {
+  oUpdated {
+    id
+    price
+  }
+}
+
+mutation UpdateUser($input: UserInput!) {
+  updateUser(input: $input) {
+    id
+    createdAt
+    content
+  }
+}
+
+query ListOrders($first: Int, $after: String) {
+  os(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        quantity
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnUserUpdated {
+  uUpdated {
+    id
+    title
+  }
+}
+
+query GetProductWithRelations {
+  id
+  price
+  us {
+    id
+    content
+  }
+}
+
+query ListUsers($first: Int, $after: String) {
+  us(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        email
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetComment {
+  comment(id: "7821") {
+    createdAt
+    name
+    createdAt
+    quantity
+    createdAt
+  }
+}
+
+subscription OnReviewUpdated {
+  rUpdated {
+    id
+    name
+  }
+}
+
+subscription OnUserUpdated {
+  uUpdated {
+    id
+    content
+  }
+}
+
+subscription OnProductUpdated {
+  pUpdated {
+    id
+    id
+  }
+}
+
+query ListOrders($first: Int, $after: String) {
+  os(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        title
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+mutation UpdateOrder($input: OrderInput!) {
+  updateOrder(input: $input) {
+    id
+    email
+  }
+}
+
+mutation DeleteOrder($input: OrderInput!) {
+  deleteOrder(input: $input) {
+    id
+    createdAt
+    content
+  }
+}
+
+fragment CategoryFields on Category {
+  email
+  status
+  id
+  title
+  status
+  email
+}
+
+subscription OnCommentUpdated {
+  cUpdated {
+    id
+    email
+  }
+}
+
+query ListProducts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        content
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnProductUpdated {
+  pUpdated {
+    id
+    status
+  }
+}
+
+query GetUser {
+  user(id: "3981") {
+    id
+    id
+    title
+    status
+    id
+    email
+  }
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        id
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetProductWithRelations {
+  id
+  email
+  cs {
+    id
+    createdAt
+  }
+}
+
+fragment ProductFields on Product {
+  title
+  title
+  id
+}
+
+query ListOrders($first: Int, $after: String) {
+  os(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        status
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetCategoryWithRelations {
+  id
+  quantity
+  os {
+    id
+    createdAt
+  }
+}
+
+mutation UpdateCategory($input: CategoryInput!) {
+  updateCategory(input: $input) {
+    id
+    price
+  }
+}
+
+query ListComments($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        content
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetCategory {
+  category(id: "9203") {
+    createdAt
+    content
+    quantity
+  }
+}
+
+query GetOrder {
+  order(id: "1018") {
+    name
+    quantity
+    title
+    status
+    status
+  }
+}
+
+fragment ProductFields on Product {
+  price
+  createdAt
+  title
+  title
+  email
+}
+
+query GetProduct {
+  product(id: "4899") {
+    createdAt
+    createdAt
+    status
+  }
+}
+
+query GetPostWithRelations {
+  id
+  content
+  us {
+    id
+    title
+  }
+}
+
+query GetCategory {
+  category(id: "1147") {
+    quantity
+    price
+    price
+  }
+}
+
+query GetComment {
+  comment(id: "9843") {
+    id
+    content
+    price
+    price
+    id
+    status
+  }
+}
+
+fragment PostFields on Post {
+  price
+  title
+  price
+}
+
+query GetPostWithRelations {
+  id
+  price
+  cs {
+    id
+    name
+  }
+}
+
+mutation UpdateReview($input: ReviewInput!) {
+  updateReview(input: $input) {
+    id
+    status
+    createdAt
+  }
+}
+
+query GetProductWithRelations {
+  id
+  title
+  cs {
+    id
+    quantity
+  }
+}
+
+query ListProducts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        price
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnUserUpdated {
+  uUpdated {
+    id
+    title
+  }
+}
+
+query ListProducts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        createdAt
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnOrderUpdated {
+  oUpdated {
+    id
+    id
+  }
+}
+
+query GetPostWithRelations {
+  id
+  status
+  ps {
+    id
+    name
+  }
+}
+
+fragment OrderFields on Order {
+  name
+  quantity
+  content
+  title
+}
+
+query GetProductWithRelations {
+  id
+  price
+  cs {
+    id
+    status
+  }
+}
+
+query ListProducts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        content
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+fragment PostFields on Post {
+  createdAt
+  name
+  email
+  price
+}
+
+query GetProductWithRelations {
+  id
+  content
+  cs {
+    id
+    id
+  }
+}
+
+query GetReview {
+  review(id: "7924") {
+    name
+    status
+    title
+  }
+}
+
+query GetPostWithRelations {
+  id
+  content
+  ps {
+    id
+    status
+  }
+}
+
+mutation CreateOrder($input: OrderInput!) {
+  createOrder(input: $input) {
+    id
+    quantity
+    id
+  }
+}
+
+query ListUsers($first: Int, $after: String) {
+  us(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        email
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+mutation UpdateComment($input: CommentInput!) {
+  updateComment(input: $input) {
+    id
+    createdAt
+  }
+}
+
+query GetReviewWithRelations {
+  id
+  quantity
+  os {
+    id
+    title
+  }
+}
+
+subscription OnCategoryUpdated {
+  cUpdated {
+    id
+    name
+  }
+}
+
+fragment ReviewFields on Review {
+  id
+  status
+  id
+}
+
+query GetUserWithRelations {
+  id
+  price
+  ps {
+    id
+    price
+  }
+}
+
+fragment ProductFields on Product {
+  quantity
+  id
+  id
+}
+
+mutation DeletePost($input: PostInput!) {
+  deletePost(input: $input) {
+    id
+    name
+    status
+  }
+}
+
+subscription OnCategoryUpdated {
+  cUpdated {
+    id
+    status
+  }
+}
+
+mutation CreateOrder($input: OrderInput!) {
+  createOrder(input: $input) {
+    id
+    content
+    status
+  }
+}
+
+mutation DeleteOrder($input: OrderInput!) {
+  deleteOrder(input: $input) {
+    id
+    createdAt
+    name
+  }
+}
+
+fragment PostFields on Post {
+  status
+  id
+  createdAt
+  createdAt
+  content
+}
+
+fragment ProductFields on Product {
+  id
+  id
+  content
+  status
+  price
+  id
+}
+
+fragment CategoryFields on Category {
+  id
+  title
+}
+
+subscription OnPostUpdated {
+  pUpdated {
+    id
+    price
+  }
+}
+
+query GetReview {
+  review(id: "5360") {
+    content
+    status
+    title
+    name
+    content
+    status
+  }
+}
+
+subscription OnProductUpdated {
+  pUpdated {
+    id
+    price
+  }
+}
+
+subscription OnReviewUpdated {
+  rUpdated {
+    id
+    price
+  }
+}
+
+query ListComments($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        name
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+fragment CategoryFields on Category {
+  name
+  quantity
+}
+
+query GetCategory {
+  category(id: "3190") {
+    name
+    quantity
+    status
+    status
+    id
+  }
+}
+
+subscription OnProductUpdated {
+  pUpdated {
+    id
+    createdAt
+  }
+}
+
+query GetUser {
+  user(id: "3458") {
+    email
+    id
+    price
+    status
+    title
+  }
+}
+
+query GetProduct {
+  product(id: "7783") {
+    email
+    title
+    quantity
+    price
+  }
+}
+
+subscription OnPostUpdated {
+  pUpdated {
+    id
+    createdAt
+  }
+}
+
+query ListProducts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        createdAt
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+mutation DeleteReview($input: ReviewInput!) {
+  deleteReview(input: $input) {
+    id
+    content
+    id
+  }
+}
+
+mutation CreateProduct($input: ProductInput!) {
+  createProduct(input: $input) {
+    id
+    quantity
+  }
+}
+
+query ListComments($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        email
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetUser {
+  user(id: "4284") {
+    quantity
+    status
+    quantity
+    id
+    name
+    id
+  }
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        id
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnReviewUpdated {
+  rUpdated {
+    id
+    price
+  }
+}
+
+query GetProductWithRelations {
+  id
+  id
+  us {
+    id
+    name
+  }
+}
+
+subscription OnProductUpdated {
+  pUpdated {
+    id
+    title
+  }
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        email
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnReviewUpdated {
+  rUpdated {
+    id
+    id
+  }
+}
+
+fragment ReviewFields on Review {
+  name
+  content
+  price
+  content
+  content
+}
+
+query GetPostWithRelations {
+  id
+  id
+  cs {
+    id
+    quantity
+  }
+}
+
+query ListCategorys($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        status
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetProduct {
+  product(id: "1160") {
+    content
+    status
+    title
+    name
+    id
+    id
+  }
+}
+
+mutation CreateReview($input: ReviewInput!) {
+  createReview(input: $input) {
+    id
+    id
+    title
+  }
+}
+
+query GetPostWithRelations {
+  id
+  title
+  ps {
+    id
+    id
+  }
+}
+
+query GetCommentWithRelations {
+  id
+  createdAt
+  ps {
+    id
+    createdAt
+  }
+}
+
+mutation DeletePost($input: PostInput!) {
+  deletePost(input: $input) {
+    id
+    createdAt
+    content
+  }
+}
+
+query GetUser {
+  user(id: "5429") {
+    createdAt
+    id
+    title
+    title
+  }
+}
+
+subscription OnCategoryUpdated {
+  cUpdated {
+    id
+    status
+  }
+}
+
+query GetPostWithRelations {
+  id
+  email
+  us {
+    id
+    email
+  }
+}
+
+subscription OnUserUpdated {
+  uUpdated {
+    id
+    name
+  }
+}
+
+query GetPost {
+  post(id: "3894") {
+    content
+    email
+    name
+    email
+  }
+}
+
+subscription OnUserUpdated {
+  uUpdated {
+    id
+    name
+  }
+}
+
+subscription OnCategoryUpdated {
+  cUpdated {
+    id
+    title
+  }
+}
+
+mutation UpdateOrder($input: OrderInput!) {
+  updateOrder(input: $input) {
+    id
+    email
+  }
+}
+
+query GetProductWithRelations {
+  id
+  email
+  cs {
+    id
+    status
+  }
+}
+
+query GetProduct {
+  product(id: "151") {
+    createdAt
+    price
+    name
+    title
+    email
+  }
+}
+
+fragment UserFields on User {
+  quantity
+  id
+  createdAt
+  title
+  quantity
+}
+
+mutation CreateUser($input: UserInput!) {
+  createUser(input: $input) {
+    id
+    name
+    name
+  }
+}
+
+query GetUserWithRelations {
+  id
+  id
+  cs {
+    id
+    price
+  }
+}
+
+query GetReviewWithRelations {
+  id
+  quantity
+  ps {
+    id
+    quantity
+  }
+}
+
+query GetComment {
+  comment(id: "2904") {
+    status
+    createdAt
+    name
+    status
+  }
+}
+
+fragment CategoryFields on Category {
+  quantity
+  content
+  createdAt
+  content
+  name
+  content
+}
+
+query GetReviewWithRelations {
+  id
+  status
+  cs {
+    id
+    status
+  }
+}
+
+mutation UpdateOrder($input: OrderInput!) {
+  updateOrder(input: $input) {
+    id
+    content
+    content
+  }
+}
+
+subscription OnCommentUpdated {
+  cUpdated {
+    id
+    createdAt
+  }
+}
+
+mutation UpdateComment($input: CommentInput!) {
+  updateComment(input: $input) {
+    id
+    status
+  }
+}
+
+query ListComments($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        content
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetPost {
+  post(id: "9886") {
+    id
+    createdAt
+    content
+    quantity
+    email
+    email
+  }
+}
+
+query GetPost {
+  post(id: "3014") {
+    id
+    quantity
+    email
+  }
+}
+
+fragment CategoryFields on Category {
+  quantity
+  title
+  quantity
+  title
+  email
+}
+
+query GetCategoryWithRelations {
+  id
+  content
+  os {
+    id
+    status
+  }
+}
+
+mutation UpdateComment($input: CommentInput!) {
+  updateComment(input: $input) {
+    id
+    price
+  }
+}
+
+fragment CategoryFields on Category {
+  status
+  price
+  id
+  id
+  name
+}
+
+query GetCommentWithRelations {
+  id
+  createdAt
+  us {
+    id
+    status
+  }
+}
+
+mutation CreateOrder($input: OrderInput!) {
+  createOrder(input: $input) {
+    id
+    quantity
+    email
+  }
+}
+
+mutation DeleteCategory($input: CategoryInput!) {
+  deleteCategory(input: $input) {
+    id
+    id
+    createdAt
+  }
+}
+
+subscription OnOrderUpdated {
+  oUpdated {
+    id
+    quantity
+  }
+}
+
+subscription OnUserUpdated {
+  uUpdated {
+    id
+    title
+  }
+}
+
+query GetProductWithRelations {
+  id
+  title
+  ps {
+    id
+    email
+  }
+}
+
+query GetUserWithRelations {
+  id
+  id
+  ps {
+    id
+    createdAt
+  }
+}
+
+query GetComment {
+  comment(id: "3339") {
+    quantity
+    createdAt
+    createdAt
+    status
+    title
+  }
+}
+
+subscription OnProductUpdated {
+  pUpdated {
+    id
+    quantity
+  }
+}
+
+subscription OnUserUpdated {
+  uUpdated {
+    id
+    price
+  }
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        price
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+mutation CreateReview($input: ReviewInput!) {
+  createReview(input: $input) {
+    id
+    email
+    quantity
+  }
+}
+
+mutation CreateComment($input: CommentInput!) {
+  createComment(input: $input) {
+    id
+    price
+  }
+}
+
+mutation UpdatePost($input: PostInput!) {
+  updatePost(input: $input) {
+    id
+    email
+  }
+}
+
+query GetUserWithRelations {
+  id
+  content
+  rs {
+    id
+    email
+  }
+}
+
+query ListReviews($first: Int, $after: String) {
+  rs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        price
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetComment {
+  comment(id: "5448") {
+    status
+    price
+    email
+    name
+    status
+    id
+  }
+}
+
+query GetReviewWithRelations {
+  id
+  quantity
+  us {
+    id
+    quantity
+  }
+}
+
+query GetUser {
+  user(id: "2528") {
+    content
+    createdAt
+    id
+    title
+    status
+  }
+}
+
+mutation CreatePost($input: PostInput!) {
+  createPost(input: $input) {
+    id
+    price
+  }
+}
+
+fragment UserFields on User {
+  createdAt
+  price
+}
+
+query GetCategoryWithRelations {
+  id
+  content
+  ps {
+    id
+    id
+  }
+}
+
+fragment CommentFields on Comment {
+  email
+  price
+  id
+  price
+  title
+}
+
+subscription OnProductUpdated {
+  pUpdated {
+    id
+    title
+  }
+}
+
+subscription OnPostUpdated {
+  pUpdated {
+    id
+    content
+  }
+}
+
+mutation CreateOrder($input: OrderInput!) {
+  createOrder(input: $input) {
+    id
+    name
+    id
+  }
+}
+
+query GetOrder {
+  order(id: "4499") {
+    id
+    quantity
+    price
+    title
+    title
+  }
+}
+
+query GetCategory {
+  category(id: "396") {
+    status
+    price
+    id
+    title
+  }
+}
+
+mutation CreateUser($input: UserInput!) {
+  createUser(input: $input) {
+    id
+    quantity
+  }
+}
+
+subscription OnCategoryUpdated {
+  cUpdated {
+    id
+    id
+  }
+}
+
+query GetPost {
+  post(id: "4110") {
+    content
+    email
+    name
+    title
+    quantity
+  }
+}
+
+query GetReviewWithRelations {
+  id
+  id
+  cs {
+    id
+    quantity
+  }
+}
+
+subscription OnCommentUpdated {
+  cUpdated {
+    id
+    price
+  }
+}
+
+query ListComments($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        name
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+mutation DeleteUser($input: UserInput!) {
+  deleteUser(input: $input) {
+    id
+    name
+    content
+  }
+}
+
+query GetUserWithRelations {
+  id
+  content
+  rs {
+    id
+    quantity
+  }
+}
+
+query GetPost {
+  post(id: "5882") {
+    email
+    quantity
+    id
+  }
+}
+
+subscription OnProductUpdated {
+  pUpdated {
+    id
+    createdAt
+  }
+}
+
+query GetCategoryWithRelations {
+  id
+  name
+  cs {
+    id
+    status
+  }
+}
+
+query GetUserWithRelations {
+  id
+  price
+  cs {
+    id
+    quantity
+  }
+}
+
+query GetOrder {
+  order(id: "4961") {
+    quantity
+    price
+    email
+    title
+    name
+    status
+  }
+}
+
+subscription OnOrderUpdated {
+  oUpdated {
+    id
+    name
+  }
+}
+
+subscription OnCategoryUpdated {
+  cUpdated {
+    id
+    content
+  }
+}
+
+mutation UpdatePost($input: PostInput!) {
+  updatePost(input: $input) {
+    id
+    email
+  }
+}
+
+query GetProductWithRelations {
+  id
+  title
+  ps {
+    id
+    quantity
+  }
+}
+
+mutation CreateReview($input: ReviewInput!) {
+  createReview(input: $input) {
+    id
+    email
+  }
+}
+
+mutation UpdateProduct($input: ProductInput!) {
+  updateProduct(input: $input) {
+    id
+    quantity
+  }
+}
+
+query ListUsers($first: Int, $after: String) {
+  us(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        content
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnCategoryUpdated {
+  cUpdated {
+    id
+    title
+  }
+}
+
+mutation UpdateProduct($input: ProductInput!) {
+  updateProduct(input: $input) {
+    id
+    price
+  }
+}
+
+query GetComment {
+  comment(id: "5816") {
+    title
+    quantity
+    status
+  }
+}
+
+query GetPost {
+  post(id: "3955") {
+    price
+    name
+    price
+    id
+    title
+  }
+}
+
+query GetPost {
+  post(id: "9449") {
+    id
+    title
+    content
+  }
+}
+
+fragment PostFields on Post {
+  createdAt
+  content
+}
+
+subscription OnPostUpdated {
+  pUpdated {
+    id
+    id
+  }
+}
+
+fragment ReviewFields on Review {
+  price
+  status
+  status
+  email
+}
+
+query GetPost {
+  post(id: "9423") {
+    content
+    id
+    quantity
+  }
+}
+
+query ListComments($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        quantity
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetCategoryWithRelations {
+  id
+  quantity
+  rs {
+    id
+    title
+  }
+}
+
+query GetProduct {
+  product(id: "3055") {
+    name
+    price
+    quantity
+    name
+  }
+}
+
+query GetUserWithRelations {
+  id
+  price
+  os {
+    id
+    title
+  }
+}
+
+subscription OnCommentUpdated {
+  cUpdated {
+    id
+    content
+  }
+}
+
+query ListCategorys($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        content
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+mutation UpdateReview($input: ReviewInput!) {
+  updateReview(input: $input) {
+    id
+    quantity
+    title
+  }
+}
+
+query GetOrderWithRelations {
+  id
+  price
+  us {
+    id
+    status
+  }
+}
+
+query GetPostWithRelations {
+  id
+  quantity
+  ps {
+    id
+    price
+  }
+}
+
+mutation CreateCategory($input: CategoryInput!) {
+  createCategory(input: $input) {
+    id
+    email
+    status
+  }
+}
+
+mutation CreateComment($input: CommentInput!) {
+  createComment(input: $input) {
+    id
+    title
+    content
+  }
+}
+
+query GetCategory {
+  category(id: "5644") {
+    id
+    name
+    email
+    id
+    email
+    status
+  }
+}
+
+query GetProductWithRelations {
+  id
+  price
+  rs {
+    id
+    createdAt
+  }
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        title
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnReviewUpdated {
+  rUpdated {
+    id
+    email
+  }
+}
+
+subscription OnPostUpdated {
+  pUpdated {
+    id
+    price
+  }
+}
+
+query GetPostWithRelations {
+  id
+  status
+  cs {
+    id
+    content
+  }
+}
+
+query GetUser {
+  user(id: "8426") {
+    content
+    quantity
+    title
+    id
+    quantity
+    quantity
+  }
+}
+
+query ListProducts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        title
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetCategory {
+  category(id: "8715") {
+    createdAt
+    createdAt
+    content
+    title
+    title
+    name
+  }
+}
+
+query GetCategoryWithRelations {
+  id
+  email
+  cs {
+    id
+    createdAt
+  }
+}
+
+query GetReview {
+  review(id: "3610") {
+    content
+    title
+    id
+  }
+}
+
+query GetOrder {
+  order(id: "7756") {
+    content
+    name
+    quantity
+    price
+    status
+  }
+}
+
+mutation DeleteCategory($input: CategoryInput!) {
+  deleteCategory(input: $input) {
+    id
+    content
+  }
+}
+
+subscription OnPostUpdated {
+  pUpdated {
+    id
+    content
+  }
+}
+
+query GetCategoryWithRelations {
+  id
+  status
+  cs {
+    id
+    name
+  }
+}
+
+query ListCategorys($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        email
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+fragment ProductFields on Product {
+  title
+  title
+}
+
+fragment CategoryFields on Category {
+  status
+  quantity
+  name
+  email
+  quantity
+}
+
+mutation DeleteCategory($input: CategoryInput!) {
+  deleteCategory(input: $input) {
+    id
+    content
+    name
+  }
+}
+
+query GetCategory {
+  category(id: "491") {
+    name
+    price
+    status
+    title
+    status
+    name
+  }
+}
+
+query GetProduct {
+  product(id: "8149") {
+    createdAt
+    id
+    email
+  }
+}
+
+fragment ProductFields on Product {
+  status
+  createdAt
+  status
+  content
+  id
+  price
+}
+
+fragment ProductFields on Product {
+  createdAt
+  status
+  title
+}
+
+subscription OnReviewUpdated {
+  rUpdated {
+    id
+    title
+  }
+}
+
+query GetPost {
+  post(id: "4747") {
+    createdAt
+    name
+    status
+    status
+  }
+}
+
+query GetReviewWithRelations {
+  id
+  email
+  ps {
+    id
+    createdAt
+  }
+}
+
+query GetCategory {
+  category(id: "3727") {
+    title
+    quantity
+    price
+    name
+    price
+  }
+}
+
+query GetComment {
+  comment(id: "5975") {
+    createdAt
+    content
+    title
+    createdAt
+    name
+    price
+  }
+}
+
+query GetComment {
+  comment(id: "1485") {
+    quantity
+    title
+    id
+  }
+}
+
+mutation UpdateUser($input: UserInput!) {
+  updateUser(input: $input) {
+    id
+    quantity
+  }
+}
+
+fragment OrderFields on Order {
+  content
+  price
+}
+
+fragment PostFields on Post {
+  id
+  price
+  name
+  id
+  status
+  id
+}
+
+query ListProducts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        createdAt
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+fragment CommentFields on Comment {
+  title
+  content
+}
+
+query GetCommentWithRelations {
+  id
+  title
+  us {
+    id
+    status
+  }
+}
+
+mutation DeleteProduct($input: ProductInput!) {
+  deleteProduct(input: $input) {
+    id
+    title
+    content
+  }
+}
+
+query ListComments($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        email
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetOrder {
+  order(id: "3151") {
+    content
+    name
+    content
+    title
+    quantity
+    title
+  }
+}
+
+query ListCategorys($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        email
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+fragment CategoryFields on Category {
+  content
+  price
+}
+
+mutation UpdateUser($input: UserInput!) {
+  updateUser(input: $input) {
+    id
+    quantity
+  }
+}
+
+query GetReviewWithRelations {
+  id
+  email
+  cs {
+    id
+    quantity
+  }
+}
+
+mutation UpdateComment($input: CommentInput!) {
+  updateComment(input: $input) {
+    id
+    title
+  }
+}
+
+query ListOrders($first: Int, $after: String) {
+  os(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        name
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+fragment CategoryFields on Category {
+  quantity
+  content
+  id
+  name
+  title
+}
+
+query GetComment {
+  comment(id: "7991") {
+    name
+    id
+    price
+  }
+}
+
+fragment ReviewFields on Review {
+  price
+  content
+}
+
+mutation DeleteCategory($input: CategoryInput!) {
+  deleteCategory(input: $input) {
+    id
+    title
+  }
+}
+
+fragment ReviewFields on Review {
+  email
+  createdAt
+  title
+  status
+  status
+}
+
+fragment PostFields on Post {
+  email
+  email
+  createdAt
+  id
+  status
+  title
+}
+
+fragment ReviewFields on Review {
+  id
+  content
+  content
+  name
+}
+
+query ListReviews($first: Int, $after: String) {
+  rs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        price
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+mutation UpdateCategory($input: CategoryInput!) {
+  updateCategory(input: $input) {
+    id
+    content
+    quantity
+  }
+}
+
+query ListProducts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        quantity
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetReview {
+  review(id: "741") {
+    title
+    id
+    title
+  }
+}
+
+subscription OnUserUpdated {
+  uUpdated {
+    id
+    price
+  }
+}
+
+query ListCategorys($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        content
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+fragment UserFields on User {
+  createdAt
+  email
+}
+
+query ListOrders($first: Int, $after: String) {
+  os(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        name
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+fragment CategoryFields on Category {
+  createdAt
+  price
+  content
+  content
+}
+
+query GetCategoryWithRelations {
+  id
+  email
+  us {
+    id
+    title
+  }
+}
+
+query GetCommentWithRelations {
+  id
+  content
+  cs {
+    id
+    status
+  }
+}
+
+query ListUsers($first: Int, $after: String) {
+  us(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        name
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query ListReviews($first: Int, $after: String) {
+  rs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        name
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetCategory {
+  category(id: "4232") {
+    content
+    createdAt
+    content
+    id
+    quantity
+    price
+  }
+}
+
+subscription OnReviewUpdated {
+  rUpdated {
+    id
+    status
+  }
+}
+
+mutation DeleteCategory($input: CategoryInput!) {
+  deleteCategory(input: $input) {
+    id
+    name
+  }
+}
+
+query GetCategoryWithRelations {
+  id
+  quantity
+  os {
+    id
+    name
+  }
+}
+
+subscription OnUserUpdated {
+  uUpdated {
+    id
+    email
+  }
+}
+
+mutation DeleteComment($input: CommentInput!) {
+  deleteComment(input: $input) {
+    id
+    name
+  }
+}
+
+query GetOrder {
+  order(id: "4135") {
+    title
+    createdAt
+    status
+    quantity
+    price
+  }
+}
+
+subscription OnCommentUpdated {
+  cUpdated {
+    id
+    name
+  }
+}
+
+query GetReview {
+  review(id: "2494") {
+    content
+    email
+    content
+  }
+}
+
+query GetCategory {
+  category(id: "6955") {
+    content
+    createdAt
+    content
+    createdAt
+    id
+    name
+  }
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        email
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnCategoryUpdated {
+  cUpdated {
+    id
+    quantity
+  }
+}
+
+query GetOrderWithRelations {
+  id
+  title
+  ps {
+    id
+    status
+  }
+}
+
+query GetUser {
+  user(id: "4194") {
+    id
+    price
+    quantity
+    email
+  }
+}
+
+query GetUserWithRelations {
+  id
+  email
+  us {
+    id
+    id
+  }
+}
+
+subscription OnCommentUpdated {
+  cUpdated {
+    id
+    name
+  }
+}
+
+fragment ProductFields on Product {
+  status
+  status
+  quantity
+  content
+  id
+}
+
+query ListCategorys($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        content
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query ListReviews($first: Int, $after: String) {
+  rs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        quantity
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query ListOrders($first: Int, $after: String) {
+  os(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        id
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+fragment OrderFields on Order {
+  name
+  email
+  createdAt
+  createdAt
+}
+
+fragment ReviewFields on Review {
+  createdAt
+  createdAt
+  name
+}
+
+subscription OnReviewUpdated {
+  rUpdated {
+    id
+    status
+  }
+}
+
+query ListOrders($first: Int, $after: String) {
+  os(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        quantity
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        status
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetReviewWithRelations {
+  id
+  createdAt
+  ps {
+    id
+    id
+  }
+}
+
+query GetOrder {
+  order(id: "9366") {
+    price
+    price
+    createdAt
+    name
+  }
+}
+
+fragment CategoryFields on Category {
+  createdAt
+  status
+  createdAt
+}
+
+query GetCategory {
+  category(id: "2970") {
+    createdAt
+    id
+    content
+    createdAt
+    title
+    content
+  }
+}
+
+query ListComments($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        id
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetOrderWithRelations {
+  id
+  content
+  cs {
+    id
+    id
+  }
+}
+
+fragment UserFields on User {
+  email
+  title
+  price
+  content
+}
+
+query GetPost {
+  post(id: "6360") {
+    content
+    title
+    createdAt
+  }
+}
+
+query ListOrders($first: Int, $after: String) {
+  os(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        name
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query ListComments($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        name
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+fragment ReviewFields on Review {
+  createdAt
+  name
+  name
+  status
+  content
+}
+
+subscription OnPostUpdated {
+  pUpdated {
+    id
+    email
+  }
+}
+
+query ListComments($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        price
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        title
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+subscription OnOrderUpdated {
+  oUpdated {
+    id
+    status
+  }
+}
+
+query ListOrders($first: Int, $after: String) {
+  os(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        name
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetUserWithRelations {
+  id
+  content
+  cs {
+    id
+    title
+  }
+}
+
+query GetProduct {
+  product(id: "194") {
+    content
+    status
+    price
+    quantity
+    status
+    title
+  }
+}
+
+query GetOrder {
+  order(id: "4533") {
+    content
+    price
+    name
+    quantity
+  }
+}
+
+mutation UpdatePost($input: PostInput!) {
+  updatePost(input: $input) {
+    id
+    id
+  }
+}
+
+query GetCategoryWithRelations {
+  id
+  id
+  ps {
+    id
+    content
+  }
+}
+
+mutation DeleteUser($input: UserInput!) {
+  deleteUser(input: $input) {
+    id
+    status
+  }
+}
+
+fragment ProductFields on Product {
+  email
+  status
+}
+
+mutation DeleteComment($input: CommentInput!) {
+  deleteComment(input: $input) {
+    id
+    quantity
+    content
+  }
+}
+
+query GetOrderWithRelations {
+  id
+  createdAt
+  ps {
+    id
+    createdAt
+  }
+}
+
+mutation UpdateProduct($input: ProductInput!) {
+  updateProduct(input: $input) {
+    id
+    id
+  }
+}
+
+query GetReview {
+  review(id: "8602") {
+    id
+    content
+    createdAt
+    price
+    quantity
+  }
+}
+
+query GetCategoryWithRelations {
+  id
+  quantity
+  us {
+    id
+    status
+  }
+}
+
+fragment ReviewFields on Review {
+  name
+  id
+}
+
+mutation CreateCategory($input: CategoryInput!) {
+  createCategory(input: $input) {
+    id
+    quantity
+    name
+  }
+}
+
+subscription OnUserUpdated {
+  uUpdated {
+    id
+    createdAt
+  }
+}
+
+query GetPostWithRelations {
+  id
+  status
+  ps {
+    id
+    name
+  }
+}
+
+mutation CreateCategory($input: CategoryInput!) {
+  createCategory(input: $input) {
+    id
+    content
+    content
+  }
+}
+
+query ListOrders($first: Int, $after: String) {
+  os(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        createdAt
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+mutation DeleteUser($input: UserInput!) {
+  deleteUser(input: $input) {
+    id
+    price
+  }
+}
+
+query ListOrders($first: Int, $after: String) {
+  os(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        title
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetReviewWithRelations {
+  id
+  status
+  os {
+    id
+    title
+  }
+}
+
+mutation CreateCategory($input: CategoryInput!) {
+  createCategory(input: $input) {
+    id
+    id
+    price
+  }
+}
+
+fragment ReviewFields on Review {
+  title
+  quantity
+  price
+  content
+  status
+  title
+}
+
+query GetCategory {
+  category(id: "3470") {
+    name
+    status
+    status
+    quantity
+    quantity
+  }
+}
+
+subscription OnOrderUpdated {
+  oUpdated {
+    id
+    createdAt
+  }
+}
+
+subscription OnReviewUpdated {
+  rUpdated {
+    id
+    quantity
+  }
+}
+
+mutation CreateReview($input: ReviewInput!) {
+  createReview(input: $input) {
+    id
+    id
+  }
+}
+
+mutation CreatePost($input: PostInput!) {
+  createPost(input: $input) {
+    id
+    content
+  }
+}
+
+fragment CommentFields on Comment {
+  quantity
+  quantity
+  content
+}
+
+query GetUserWithRelations {
+  id
+  createdAt
+  os {
+    id
+    status
+  }
+}
+
+query GetOrder {
+  order(id: "3026") {
+    quantity
+    content
+    price
+    name
+    title
+    status
+  }
+}
+
+query GetUserWithRelations {
+  id
+  email
+  ps {
+    id
+    price
+  }
+}
+
+query GetOrder {
+  order(id: "896") {
+    email
+    name
+    id
+    price
+  }
+}
+
+subscription OnOrderUpdated {
+  oUpdated {
+    id
+    status
+  }
+}
+
+query GetOrderWithRelations {
+  id
+  quantity
+  us {
+    id
+    title
+  }
+}
+
+query ListPosts($first: Int, $after: String) {
+  ps(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        createdAt
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query ListCategorys($first: Int, $after: String) {
+  cs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        content
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+query GetUserWithRelations {
+  id
+  quantity
+  cs {
+    id
+    content
+  }
+}
+
+mutation DeleteReview($input: ReviewInput!) {
+  deleteReview(input: $input) {
+    id
+    createdAt
+  }
+}
+
+query ListReviews($first: Int, $after: String) {
+  rs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        price
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+mutation DeleteReview($input: ReviewInput!) {
+  deleteReview(input: $input) {
+    id
+    status
+    content
+  }
+}
+
+mutation CreateReview($input: ReviewInput!) {
+  createReview(input: $input) {
+    id
+    email
+  }
+}
+
+fragment ProductFields on Product {
+  quantity
+  createdAt
+  email
+  quantity
+}
+
+query ListReviews($first: Int, $after: String) {
+  rs(first: $first, after: $after) {
+    edges {
+      node {
+        id
+        title
+      }
+      cursor
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+

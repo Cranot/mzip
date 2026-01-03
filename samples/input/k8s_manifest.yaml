@@ -1,0 +1,3987 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-0
+  labels:
+    app: service-0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-0
+  template:
+    spec:
+      containers:
+      - name: container-0
+        image: registry/app:0
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-1
+  labels:
+    app: service-1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-1
+  template:
+    spec:
+      containers:
+      - name: container-1
+        image: registry/app:1
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-2
+  labels:
+    app: service-2
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-2
+  template:
+    spec:
+      containers:
+      - name: container-2
+        image: registry/app:2
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-3
+  labels:
+    app: service-3
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-3
+  template:
+    spec:
+      containers:
+      - name: container-3
+        image: registry/app:3
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-4
+  labels:
+    app: service-4
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-4
+  template:
+    spec:
+      containers:
+      - name: container-4
+        image: registry/app:4
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-5
+  labels:
+    app: service-5
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-5
+  template:
+    spec:
+      containers:
+      - name: container-5
+        image: registry/app:5
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-6
+  labels:
+    app: service-6
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-6
+  template:
+    spec:
+      containers:
+      - name: container-6
+        image: registry/app:6
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-7
+  labels:
+    app: service-7
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-7
+  template:
+    spec:
+      containers:
+      - name: container-7
+        image: registry/app:7
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-8
+  labels:
+    app: service-8
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-8
+  template:
+    spec:
+      containers:
+      - name: container-8
+        image: registry/app:8
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-9
+  labels:
+    app: service-9
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-9
+  template:
+    spec:
+      containers:
+      - name: container-9
+        image: registry/app:9
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-10
+  labels:
+    app: service-10
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-10
+  template:
+    spec:
+      containers:
+      - name: container-10
+        image: registry/app:10
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-11
+  labels:
+    app: service-11
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-11
+  template:
+    spec:
+      containers:
+      - name: container-11
+        image: registry/app:11
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-12
+  labels:
+    app: service-12
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-12
+  template:
+    spec:
+      containers:
+      - name: container-12
+        image: registry/app:12
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-13
+  labels:
+    app: service-13
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-13
+  template:
+    spec:
+      containers:
+      - name: container-13
+        image: registry/app:13
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-14
+  labels:
+    app: service-14
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-14
+  template:
+    spec:
+      containers:
+      - name: container-14
+        image: registry/app:14
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-15
+  labels:
+    app: service-15
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-15
+  template:
+    spec:
+      containers:
+      - name: container-15
+        image: registry/app:15
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-16
+  labels:
+    app: service-16
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-16
+  template:
+    spec:
+      containers:
+      - name: container-16
+        image: registry/app:16
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-17
+  labels:
+    app: service-17
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-17
+  template:
+    spec:
+      containers:
+      - name: container-17
+        image: registry/app:17
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-18
+  labels:
+    app: service-18
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-18
+  template:
+    spec:
+      containers:
+      - name: container-18
+        image: registry/app:18
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-19
+  labels:
+    app: service-19
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-19
+  template:
+    spec:
+      containers:
+      - name: container-19
+        image: registry/app:19
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-20
+  labels:
+    app: service-20
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-20
+  template:
+    spec:
+      containers:
+      - name: container-20
+        image: registry/app:20
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-21
+  labels:
+    app: service-21
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-21
+  template:
+    spec:
+      containers:
+      - name: container-21
+        image: registry/app:21
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-22
+  labels:
+    app: service-22
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-22
+  template:
+    spec:
+      containers:
+      - name: container-22
+        image: registry/app:22
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-23
+  labels:
+    app: service-23
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-23
+  template:
+    spec:
+      containers:
+      - name: container-23
+        image: registry/app:23
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-24
+  labels:
+    app: service-24
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-24
+  template:
+    spec:
+      containers:
+      - name: container-24
+        image: registry/app:24
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-25
+  labels:
+    app: service-25
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-25
+  template:
+    spec:
+      containers:
+      - name: container-25
+        image: registry/app:25
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-26
+  labels:
+    app: service-26
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-26
+  template:
+    spec:
+      containers:
+      - name: container-26
+        image: registry/app:26
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-27
+  labels:
+    app: service-27
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-27
+  template:
+    spec:
+      containers:
+      - name: container-27
+        image: registry/app:27
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-28
+  labels:
+    app: service-28
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-28
+  template:
+    spec:
+      containers:
+      - name: container-28
+        image: registry/app:28
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-29
+  labels:
+    app: service-29
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-29
+  template:
+    spec:
+      containers:
+      - name: container-29
+        image: registry/app:29
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-30
+  labels:
+    app: service-30
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-30
+  template:
+    spec:
+      containers:
+      - name: container-30
+        image: registry/app:30
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-31
+  labels:
+    app: service-31
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-31
+  template:
+    spec:
+      containers:
+      - name: container-31
+        image: registry/app:31
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-32
+  labels:
+    app: service-32
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-32
+  template:
+    spec:
+      containers:
+      - name: container-32
+        image: registry/app:32
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-33
+  labels:
+    app: service-33
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-33
+  template:
+    spec:
+      containers:
+      - name: container-33
+        image: registry/app:33
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-34
+  labels:
+    app: service-34
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-34
+  template:
+    spec:
+      containers:
+      - name: container-34
+        image: registry/app:34
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-35
+  labels:
+    app: service-35
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-35
+  template:
+    spec:
+      containers:
+      - name: container-35
+        image: registry/app:35
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-36
+  labels:
+    app: service-36
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-36
+  template:
+    spec:
+      containers:
+      - name: container-36
+        image: registry/app:36
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-37
+  labels:
+    app: service-37
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-37
+  template:
+    spec:
+      containers:
+      - name: container-37
+        image: registry/app:37
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-38
+  labels:
+    app: service-38
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-38
+  template:
+    spec:
+      containers:
+      - name: container-38
+        image: registry/app:38
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-39
+  labels:
+    app: service-39
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-39
+  template:
+    spec:
+      containers:
+      - name: container-39
+        image: registry/app:39
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-40
+  labels:
+    app: service-40
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-40
+  template:
+    spec:
+      containers:
+      - name: container-40
+        image: registry/app:40
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-41
+  labels:
+    app: service-41
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-41
+  template:
+    spec:
+      containers:
+      - name: container-41
+        image: registry/app:41
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-42
+  labels:
+    app: service-42
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-42
+  template:
+    spec:
+      containers:
+      - name: container-42
+        image: registry/app:42
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-43
+  labels:
+    app: service-43
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-43
+  template:
+    spec:
+      containers:
+      - name: container-43
+        image: registry/app:43
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-44
+  labels:
+    app: service-44
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-44
+  template:
+    spec:
+      containers:
+      - name: container-44
+        image: registry/app:44
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-45
+  labels:
+    app: service-45
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-45
+  template:
+    spec:
+      containers:
+      - name: container-45
+        image: registry/app:45
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-46
+  labels:
+    app: service-46
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-46
+  template:
+    spec:
+      containers:
+      - name: container-46
+        image: registry/app:46
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-47
+  labels:
+    app: service-47
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-47
+  template:
+    spec:
+      containers:
+      - name: container-47
+        image: registry/app:47
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-48
+  labels:
+    app: service-48
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-48
+  template:
+    spec:
+      containers:
+      - name: container-48
+        image: registry/app:48
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-49
+  labels:
+    app: service-49
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-49
+  template:
+    spec:
+      containers:
+      - name: container-49
+        image: registry/app:49
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-50
+  labels:
+    app: service-50
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-50
+  template:
+    spec:
+      containers:
+      - name: container-50
+        image: registry/app:50
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-51
+  labels:
+    app: service-51
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-51
+  template:
+    spec:
+      containers:
+      - name: container-51
+        image: registry/app:51
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-52
+  labels:
+    app: service-52
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-52
+  template:
+    spec:
+      containers:
+      - name: container-52
+        image: registry/app:52
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-53
+  labels:
+    app: service-53
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-53
+  template:
+    spec:
+      containers:
+      - name: container-53
+        image: registry/app:53
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-54
+  labels:
+    app: service-54
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-54
+  template:
+    spec:
+      containers:
+      - name: container-54
+        image: registry/app:54
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-55
+  labels:
+    app: service-55
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-55
+  template:
+    spec:
+      containers:
+      - name: container-55
+        image: registry/app:55
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-56
+  labels:
+    app: service-56
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-56
+  template:
+    spec:
+      containers:
+      - name: container-56
+        image: registry/app:56
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-57
+  labels:
+    app: service-57
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-57
+  template:
+    spec:
+      containers:
+      - name: container-57
+        image: registry/app:57
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-58
+  labels:
+    app: service-58
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-58
+  template:
+    spec:
+      containers:
+      - name: container-58
+        image: registry/app:58
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-59
+  labels:
+    app: service-59
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-59
+  template:
+    spec:
+      containers:
+      - name: container-59
+        image: registry/app:59
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-60
+  labels:
+    app: service-60
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-60
+  template:
+    spec:
+      containers:
+      - name: container-60
+        image: registry/app:60
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-61
+  labels:
+    app: service-61
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-61
+  template:
+    spec:
+      containers:
+      - name: container-61
+        image: registry/app:61
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-62
+  labels:
+    app: service-62
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-62
+  template:
+    spec:
+      containers:
+      - name: container-62
+        image: registry/app:62
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-63
+  labels:
+    app: service-63
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-63
+  template:
+    spec:
+      containers:
+      - name: container-63
+        image: registry/app:63
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-64
+  labels:
+    app: service-64
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-64
+  template:
+    spec:
+      containers:
+      - name: container-64
+        image: registry/app:64
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-65
+  labels:
+    app: service-65
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-65
+  template:
+    spec:
+      containers:
+      - name: container-65
+        image: registry/app:65
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-66
+  labels:
+    app: service-66
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-66
+  template:
+    spec:
+      containers:
+      - name: container-66
+        image: registry/app:66
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-67
+  labels:
+    app: service-67
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-67
+  template:
+    spec:
+      containers:
+      - name: container-67
+        image: registry/app:67
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-68
+  labels:
+    app: service-68
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-68
+  template:
+    spec:
+      containers:
+      - name: container-68
+        image: registry/app:68
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-69
+  labels:
+    app: service-69
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-69
+  template:
+    spec:
+      containers:
+      - name: container-69
+        image: registry/app:69
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-70
+  labels:
+    app: service-70
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-70
+  template:
+    spec:
+      containers:
+      - name: container-70
+        image: registry/app:70
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-71
+  labels:
+    app: service-71
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-71
+  template:
+    spec:
+      containers:
+      - name: container-71
+        image: registry/app:71
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-72
+  labels:
+    app: service-72
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-72
+  template:
+    spec:
+      containers:
+      - name: container-72
+        image: registry/app:72
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-73
+  labels:
+    app: service-73
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-73
+  template:
+    spec:
+      containers:
+      - name: container-73
+        image: registry/app:73
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-74
+  labels:
+    app: service-74
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-74
+  template:
+    spec:
+      containers:
+      - name: container-74
+        image: registry/app:74
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-75
+  labels:
+    app: service-75
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-75
+  template:
+    spec:
+      containers:
+      - name: container-75
+        image: registry/app:75
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-76
+  labels:
+    app: service-76
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-76
+  template:
+    spec:
+      containers:
+      - name: container-76
+        image: registry/app:76
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-77
+  labels:
+    app: service-77
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-77
+  template:
+    spec:
+      containers:
+      - name: container-77
+        image: registry/app:77
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-78
+  labels:
+    app: service-78
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-78
+  template:
+    spec:
+      containers:
+      - name: container-78
+        image: registry/app:78
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-79
+  labels:
+    app: service-79
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-79
+  template:
+    spec:
+      containers:
+      - name: container-79
+        image: registry/app:79
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-80
+  labels:
+    app: service-80
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-80
+  template:
+    spec:
+      containers:
+      - name: container-80
+        image: registry/app:80
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-81
+  labels:
+    app: service-81
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-81
+  template:
+    spec:
+      containers:
+      - name: container-81
+        image: registry/app:81
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-82
+  labels:
+    app: service-82
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-82
+  template:
+    spec:
+      containers:
+      - name: container-82
+        image: registry/app:82
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-83
+  labels:
+    app: service-83
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-83
+  template:
+    spec:
+      containers:
+      - name: container-83
+        image: registry/app:83
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-84
+  labels:
+    app: service-84
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-84
+  template:
+    spec:
+      containers:
+      - name: container-84
+        image: registry/app:84
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-85
+  labels:
+    app: service-85
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-85
+  template:
+    spec:
+      containers:
+      - name: container-85
+        image: registry/app:85
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-86
+  labels:
+    app: service-86
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-86
+  template:
+    spec:
+      containers:
+      - name: container-86
+        image: registry/app:86
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-87
+  labels:
+    app: service-87
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-87
+  template:
+    spec:
+      containers:
+      - name: container-87
+        image: registry/app:87
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-88
+  labels:
+    app: service-88
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-88
+  template:
+    spec:
+      containers:
+      - name: container-88
+        image: registry/app:88
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-89
+  labels:
+    app: service-89
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-89
+  template:
+    spec:
+      containers:
+      - name: container-89
+        image: registry/app:89
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-90
+  labels:
+    app: service-90
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-90
+  template:
+    spec:
+      containers:
+      - name: container-90
+        image: registry/app:90
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-91
+  labels:
+    app: service-91
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-91
+  template:
+    spec:
+      containers:
+      - name: container-91
+        image: registry/app:91
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-92
+  labels:
+    app: service-92
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-92
+  template:
+    spec:
+      containers:
+      - name: container-92
+        image: registry/app:92
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-93
+  labels:
+    app: service-93
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-93
+  template:
+    spec:
+      containers:
+      - name: container-93
+        image: registry/app:93
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-94
+  labels:
+    app: service-94
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-94
+  template:
+    spec:
+      containers:
+      - name: container-94
+        image: registry/app:94
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-95
+  labels:
+    app: service-95
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-95
+  template:
+    spec:
+      containers:
+      - name: container-95
+        image: registry/app:95
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-96
+  labels:
+    app: service-96
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-96
+  template:
+    spec:
+      containers:
+      - name: container-96
+        image: registry/app:96
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-97
+  labels:
+    app: service-97
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-97
+  template:
+    spec:
+      containers:
+      - name: container-97
+        image: registry/app:97
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-98
+  labels:
+    app: service-98
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-98
+  template:
+    spec:
+      containers:
+      - name: container-98
+        image: registry/app:98
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-99
+  labels:
+    app: service-99
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-99
+  template:
+    spec:
+      containers:
+      - name: container-99
+        image: registry/app:99
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-100
+  labels:
+    app: service-100
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-100
+  template:
+    spec:
+      containers:
+      - name: container-100
+        image: registry/app:100
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-101
+  labels:
+    app: service-101
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-101
+  template:
+    spec:
+      containers:
+      - name: container-101
+        image: registry/app:101
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-102
+  labels:
+    app: service-102
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-102
+  template:
+    spec:
+      containers:
+      - name: container-102
+        image: registry/app:102
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-103
+  labels:
+    app: service-103
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-103
+  template:
+    spec:
+      containers:
+      - name: container-103
+        image: registry/app:103
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-104
+  labels:
+    app: service-104
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-104
+  template:
+    spec:
+      containers:
+      - name: container-104
+        image: registry/app:104
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-105
+  labels:
+    app: service-105
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-105
+  template:
+    spec:
+      containers:
+      - name: container-105
+        image: registry/app:105
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-106
+  labels:
+    app: service-106
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-106
+  template:
+    spec:
+      containers:
+      - name: container-106
+        image: registry/app:106
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-107
+  labels:
+    app: service-107
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-107
+  template:
+    spec:
+      containers:
+      - name: container-107
+        image: registry/app:107
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-108
+  labels:
+    app: service-108
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-108
+  template:
+    spec:
+      containers:
+      - name: container-108
+        image: registry/app:108
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-109
+  labels:
+    app: service-109
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-109
+  template:
+    spec:
+      containers:
+      - name: container-109
+        image: registry/app:109
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-110
+  labels:
+    app: service-110
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-110
+  template:
+    spec:
+      containers:
+      - name: container-110
+        image: registry/app:110
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-111
+  labels:
+    app: service-111
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-111
+  template:
+    spec:
+      containers:
+      - name: container-111
+        image: registry/app:111
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-112
+  labels:
+    app: service-112
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-112
+  template:
+    spec:
+      containers:
+      - name: container-112
+        image: registry/app:112
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-113
+  labels:
+    app: service-113
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-113
+  template:
+    spec:
+      containers:
+      - name: container-113
+        image: registry/app:113
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-114
+  labels:
+    app: service-114
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-114
+  template:
+    spec:
+      containers:
+      - name: container-114
+        image: registry/app:114
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-115
+  labels:
+    app: service-115
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-115
+  template:
+    spec:
+      containers:
+      - name: container-115
+        image: registry/app:115
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-116
+  labels:
+    app: service-116
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-116
+  template:
+    spec:
+      containers:
+      - name: container-116
+        image: registry/app:116
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-117
+  labels:
+    app: service-117
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-117
+  template:
+    spec:
+      containers:
+      - name: container-117
+        image: registry/app:117
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-118
+  labels:
+    app: service-118
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-118
+  template:
+    spec:
+      containers:
+      - name: container-118
+        image: registry/app:118
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-119
+  labels:
+    app: service-119
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-119
+  template:
+    spec:
+      containers:
+      - name: container-119
+        image: registry/app:119
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-120
+  labels:
+    app: service-120
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-120
+  template:
+    spec:
+      containers:
+      - name: container-120
+        image: registry/app:120
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-121
+  labels:
+    app: service-121
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-121
+  template:
+    spec:
+      containers:
+      - name: container-121
+        image: registry/app:121
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-122
+  labels:
+    app: service-122
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-122
+  template:
+    spec:
+      containers:
+      - name: container-122
+        image: registry/app:122
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-123
+  labels:
+    app: service-123
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-123
+  template:
+    spec:
+      containers:
+      - name: container-123
+        image: registry/app:123
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-124
+  labels:
+    app: service-124
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-124
+  template:
+    spec:
+      containers:
+      - name: container-124
+        image: registry/app:124
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-125
+  labels:
+    app: service-125
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-125
+  template:
+    spec:
+      containers:
+      - name: container-125
+        image: registry/app:125
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-126
+  labels:
+    app: service-126
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-126
+  template:
+    spec:
+      containers:
+      - name: container-126
+        image: registry/app:126
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-127
+  labels:
+    app: service-127
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-127
+  template:
+    spec:
+      containers:
+      - name: container-127
+        image: registry/app:127
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-128
+  labels:
+    app: service-128
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-128
+  template:
+    spec:
+      containers:
+      - name: container-128
+        image: registry/app:128
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-129
+  labels:
+    app: service-129
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-129
+  template:
+    spec:
+      containers:
+      - name: container-129
+        image: registry/app:129
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-130
+  labels:
+    app: service-130
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-130
+  template:
+    spec:
+      containers:
+      - name: container-130
+        image: registry/app:130
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-131
+  labels:
+    app: service-131
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-131
+  template:
+    spec:
+      containers:
+      - name: container-131
+        image: registry/app:131
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-132
+  labels:
+    app: service-132
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-132
+  template:
+    spec:
+      containers:
+      - name: container-132
+        image: registry/app:132
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-133
+  labels:
+    app: service-133
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-133
+  template:
+    spec:
+      containers:
+      - name: container-133
+        image: registry/app:133
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-134
+  labels:
+    app: service-134
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-134
+  template:
+    spec:
+      containers:
+      - name: container-134
+        image: registry/app:134
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-135
+  labels:
+    app: service-135
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-135
+  template:
+    spec:
+      containers:
+      - name: container-135
+        image: registry/app:135
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-136
+  labels:
+    app: service-136
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-136
+  template:
+    spec:
+      containers:
+      - name: container-136
+        image: registry/app:136
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-137
+  labels:
+    app: service-137
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-137
+  template:
+    spec:
+      containers:
+      - name: container-137
+        image: registry/app:137
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-138
+  labels:
+    app: service-138
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-138
+  template:
+    spec:
+      containers:
+      - name: container-138
+        image: registry/app:138
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-139
+  labels:
+    app: service-139
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-139
+  template:
+    spec:
+      containers:
+      - name: container-139
+        image: registry/app:139
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-140
+  labels:
+    app: service-140
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-140
+  template:
+    spec:
+      containers:
+      - name: container-140
+        image: registry/app:140
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-141
+  labels:
+    app: service-141
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-141
+  template:
+    spec:
+      containers:
+      - name: container-141
+        image: registry/app:141
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-142
+  labels:
+    app: service-142
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-142
+  template:
+    spec:
+      containers:
+      - name: container-142
+        image: registry/app:142
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-143
+  labels:
+    app: service-143
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-143
+  template:
+    spec:
+      containers:
+      - name: container-143
+        image: registry/app:143
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-144
+  labels:
+    app: service-144
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-144
+  template:
+    spec:
+      containers:
+      - name: container-144
+        image: registry/app:144
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-145
+  labels:
+    app: service-145
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-145
+  template:
+    spec:
+      containers:
+      - name: container-145
+        image: registry/app:145
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-146
+  labels:
+    app: service-146
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-146
+  template:
+    spec:
+      containers:
+      - name: container-146
+        image: registry/app:146
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-147
+  labels:
+    app: service-147
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-147
+  template:
+    spec:
+      containers:
+      - name: container-147
+        image: registry/app:147
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-148
+  labels:
+    app: service-148
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-148
+  template:
+    spec:
+      containers:
+      - name: container-148
+        image: registry/app:148
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-149
+  labels:
+    app: service-149
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-149
+  template:
+    spec:
+      containers:
+      - name: container-149
+        image: registry/app:149
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-150
+  labels:
+    app: service-150
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-150
+  template:
+    spec:
+      containers:
+      - name: container-150
+        image: registry/app:150
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-151
+  labels:
+    app: service-151
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-151
+  template:
+    spec:
+      containers:
+      - name: container-151
+        image: registry/app:151
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-152
+  labels:
+    app: service-152
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-152
+  template:
+    spec:
+      containers:
+      - name: container-152
+        image: registry/app:152
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-153
+  labels:
+    app: service-153
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-153
+  template:
+    spec:
+      containers:
+      - name: container-153
+        image: registry/app:153
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-154
+  labels:
+    app: service-154
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-154
+  template:
+    spec:
+      containers:
+      - name: container-154
+        image: registry/app:154
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-155
+  labels:
+    app: service-155
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-155
+  template:
+    spec:
+      containers:
+      - name: container-155
+        image: registry/app:155
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-156
+  labels:
+    app: service-156
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-156
+  template:
+    spec:
+      containers:
+      - name: container-156
+        image: registry/app:156
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-157
+  labels:
+    app: service-157
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-157
+  template:
+    spec:
+      containers:
+      - name: container-157
+        image: registry/app:157
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-158
+  labels:
+    app: service-158
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-158
+  template:
+    spec:
+      containers:
+      - name: container-158
+        image: registry/app:158
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-159
+  labels:
+    app: service-159
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-159
+  template:
+    spec:
+      containers:
+      - name: container-159
+        image: registry/app:159
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-160
+  labels:
+    app: service-160
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-160
+  template:
+    spec:
+      containers:
+      - name: container-160
+        image: registry/app:160
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-161
+  labels:
+    app: service-161
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-161
+  template:
+    spec:
+      containers:
+      - name: container-161
+        image: registry/app:161
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-162
+  labels:
+    app: service-162
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-162
+  template:
+    spec:
+      containers:
+      - name: container-162
+        image: registry/app:162
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-163
+  labels:
+    app: service-163
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-163
+  template:
+    spec:
+      containers:
+      - name: container-163
+        image: registry/app:163
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-164
+  labels:
+    app: service-164
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-164
+  template:
+    spec:
+      containers:
+      - name: container-164
+        image: registry/app:164
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-165
+  labels:
+    app: service-165
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-165
+  template:
+    spec:
+      containers:
+      - name: container-165
+        image: registry/app:165
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-166
+  labels:
+    app: service-166
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-166
+  template:
+    spec:
+      containers:
+      - name: container-166
+        image: registry/app:166
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-167
+  labels:
+    app: service-167
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-167
+  template:
+    spec:
+      containers:
+      - name: container-167
+        image: registry/app:167
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-168
+  labels:
+    app: service-168
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-168
+  template:
+    spec:
+      containers:
+      - name: container-168
+        image: registry/app:168
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-169
+  labels:
+    app: service-169
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-169
+  template:
+    spec:
+      containers:
+      - name: container-169
+        image: registry/app:169
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-170
+  labels:
+    app: service-170
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-170
+  template:
+    spec:
+      containers:
+      - name: container-170
+        image: registry/app:170
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-171
+  labels:
+    app: service-171
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-171
+  template:
+    spec:
+      containers:
+      - name: container-171
+        image: registry/app:171
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-172
+  labels:
+    app: service-172
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-172
+  template:
+    spec:
+      containers:
+      - name: container-172
+        image: registry/app:172
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-173
+  labels:
+    app: service-173
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-173
+  template:
+    spec:
+      containers:
+      - name: container-173
+        image: registry/app:173
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-174
+  labels:
+    app: service-174
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-174
+  template:
+    spec:
+      containers:
+      - name: container-174
+        image: registry/app:174
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-175
+  labels:
+    app: service-175
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-175
+  template:
+    spec:
+      containers:
+      - name: container-175
+        image: registry/app:175
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-176
+  labels:
+    app: service-176
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-176
+  template:
+    spec:
+      containers:
+      - name: container-176
+        image: registry/app:176
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-177
+  labels:
+    app: service-177
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-177
+  template:
+    spec:
+      containers:
+      - name: container-177
+        image: registry/app:177
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-178
+  labels:
+    app: service-178
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-178
+  template:
+    spec:
+      containers:
+      - name: container-178
+        image: registry/app:178
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-179
+  labels:
+    app: service-179
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-179
+  template:
+    spec:
+      containers:
+      - name: container-179
+        image: registry/app:179
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-180
+  labels:
+    app: service-180
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-180
+  template:
+    spec:
+      containers:
+      - name: container-180
+        image: registry/app:180
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-181
+  labels:
+    app: service-181
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-181
+  template:
+    spec:
+      containers:
+      - name: container-181
+        image: registry/app:181
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-182
+  labels:
+    app: service-182
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-182
+  template:
+    spec:
+      containers:
+      - name: container-182
+        image: registry/app:182
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-183
+  labels:
+    app: service-183
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-183
+  template:
+    spec:
+      containers:
+      - name: container-183
+        image: registry/app:183
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-184
+  labels:
+    app: service-184
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-184
+  template:
+    spec:
+      containers:
+      - name: container-184
+        image: registry/app:184
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-185
+  labels:
+    app: service-185
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-185
+  template:
+    spec:
+      containers:
+      - name: container-185
+        image: registry/app:185
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-186
+  labels:
+    app: service-186
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-186
+  template:
+    spec:
+      containers:
+      - name: container-186
+        image: registry/app:186
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-187
+  labels:
+    app: service-187
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-187
+  template:
+    spec:
+      containers:
+      - name: container-187
+        image: registry/app:187
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-188
+  labels:
+    app: service-188
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-188
+  template:
+    spec:
+      containers:
+      - name: container-188
+        image: registry/app:188
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-189
+  labels:
+    app: service-189
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-189
+  template:
+    spec:
+      containers:
+      - name: container-189
+        image: registry/app:189
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-190
+  labels:
+    app: service-190
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-190
+  template:
+    spec:
+      containers:
+      - name: container-190
+        image: registry/app:190
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-191
+  labels:
+    app: service-191
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-191
+  template:
+    spec:
+      containers:
+      - name: container-191
+        image: registry/app:191
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-192
+  labels:
+    app: service-192
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-192
+  template:
+    spec:
+      containers:
+      - name: container-192
+        image: registry/app:192
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-193
+  labels:
+    app: service-193
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-193
+  template:
+    spec:
+      containers:
+      - name: container-193
+        image: registry/app:193
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-194
+  labels:
+    app: service-194
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-194
+  template:
+    spec:
+      containers:
+      - name: container-194
+        image: registry/app:194
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-195
+  labels:
+    app: service-195
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-195
+  template:
+    spec:
+      containers:
+      - name: container-195
+        image: registry/app:195
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-196
+  labels:
+    app: service-196
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-196
+  template:
+    spec:
+      containers:
+      - name: container-196
+        image: registry/app:196
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-197
+  labels:
+    app: service-197
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-197
+  template:
+    spec:
+      containers:
+      - name: container-197
+        image: registry/app:197
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-198
+  labels:
+    app: service-198
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-198
+  template:
+    spec:
+      containers:
+      - name: container-198
+        image: registry/app:198
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-199
+  labels:
+    app: service-199
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-199
+  template:
+    spec:
+      containers:
+      - name: container-199
+        image: registry/app:199
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-200
+  labels:
+    app: service-200
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-200
+  template:
+    spec:
+      containers:
+      - name: container-200
+        image: registry/app:200
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-201
+  labels:
+    app: service-201
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-201
+  template:
+    spec:
+      containers:
+      - name: container-201
+        image: registry/app:201
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-202
+  labels:
+    app: service-202
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-202
+  template:
+    spec:
+      containers:
+      - name: container-202
+        image: registry/app:202
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-203
+  labels:
+    app: service-203
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-203
+  template:
+    spec:
+      containers:
+      - name: container-203
+        image: registry/app:203
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-204
+  labels:
+    app: service-204
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-204
+  template:
+    spec:
+      containers:
+      - name: container-204
+        image: registry/app:204
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-205
+  labels:
+    app: service-205
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-205
+  template:
+    spec:
+      containers:
+      - name: container-205
+        image: registry/app:205
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-206
+  labels:
+    app: service-206
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-206
+  template:
+    spec:
+      containers:
+      - name: container-206
+        image: registry/app:206
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-207
+  labels:
+    app: service-207
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-207
+  template:
+    spec:
+      containers:
+      - name: container-207
+        image: registry/app:207
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-208
+  labels:
+    app: service-208
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-208
+  template:
+    spec:
+      containers:
+      - name: container-208
+        image: registry/app:208
+        ports:
+        - containerPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-209
+  labels:
+    app: service-209
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: service-209
+  template:
+    spec:
+      containers:
+      - name: container-209
+        image: re

@@ -1,0 +1,3722 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-deployment
+  namespace: staging
+  labels:
+    app: worker
+    env: staging
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+      - name: worker
+        image: redis:1.15
+        ports:
+        - containerPort: 6620
+        resources:
+          limits:
+            cpu: 924m
+            memory: 870Mi
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-hpa
+  namespace: staging
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-deployment
+  minReplicas: 3
+  maxReplicas: 14
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 71
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: worker-ingress
+  namespace: staging
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: worker.staging.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: worker-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-secret
+  namespace: staging
+type: Opaque
+stringData:
+  DB_PASSWORD: e70fd34
+  API_KEY: key-31073
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: worker-hpa
+  namespace: staging
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker-deployment
+  minReplicas: 3
+  maxReplicas: 14
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 57
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cache-service
+  namespace: production
+spec:
+  type: ClusterIP
+  ports:
+  - port: 96
+    targetPort: 4733
+  selector:
+    app: cache
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: worker-ingress
+  namespace: development
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: worker.development.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: worker-service
+            port:
+              number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-ingress
+  namespace: development
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: api.development.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  namespace: production
+  labels:
+    app: backend
+    env: production
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: redis:1.3
+        ports:
+        - containerPort: 3294
+        resources:
+          limits:
+            cpu: 793m
+            memory: 189Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db-deployment
+  namespace: staging
+  labels:
+    app: db
+    env: staging
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+      - name: db
+        image: node:1.19
+        ports:
+        - containerPort: 4215
+        resources:
+          limits:
+            cpu: 384m
+            memory: 642Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+  namespace: production
+  labels:
+    app: api
+    env: production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+      - name: api
+        image: postgres:1.10
+        ports:
+        - containerPort: 5561
+        resources:
+          limits:
+            cpu: 223m
+            memory: 984Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-service
+  namespace: development
+spec:
+  type: ClusterIP
+  ports:
+  - port: 123
+    targetPort: 7553
+  selector:
+    app: db
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: backend.production.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-service
+  namespace: development
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 481
+    targetPort: 6636
+  selector:
+    app: gateway
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gateway-secret
+  namespace: development
+type: Opaque
+stringData:
+  DB_PASSWORD: e8c938cd
+  API_KEY: key-92528
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+  namespace: staging
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend-deployment
+  minReplicas: 3
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 59
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-service
+  namespace: staging
+spec:
+  type: ClusterIP
+  ports:
+  - port: 227
+    targetPort: 7564
+  selector:
+    app: db
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: backend.production.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-service
+            port:
+              number: 80
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend-deployment
+  minReplicas: 1
+  maxReplicas: 12
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 75
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-deployment
+  namespace: production
+  labels:
+    app: auth
+    env: production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: auth
+  template:
+    metadata:
+      labels:
+        app: auth
+    spec:
+      containers:
+      - name: auth
+        image: node:1.10
+        ports:
+        - containerPort: 4139
+        resources:
+          limits:
+            cpu: 120m
+            memory: 829Mi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cache-secret
+  namespace: development
+type: Opaque
+stringData:
+  DB_PASSWORD: bf505eec
+  API_KEY: key-35217
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cache-config
+  namespace: production
+data:
+  LOG_LEVEL: info
+  API_URL: http://frontend-service:8080
+  CACHE_TTL: "3399"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: worker-hpa
+  namespace: development
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker-deployment
+  minReplicas: 3
+  maxReplicas: 15
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 66
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend-ingress
+  namespace: staging
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: frontend.staging.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+  namespace: development
+  labels:
+    app: frontend
+    env: development
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: golang:1.19
+        ports:
+        - containerPort: 5335
+        resources:
+          limits:
+            cpu: 582m
+            memory: 522Mi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: staging
+data:
+  LOG_LEVEL: debug
+  API_URL: http://api-service:8080
+  CACHE_TTL: "1356"
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cache-ingress
+  namespace: staging
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: cache.staging.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: cache-service
+            port:
+              number: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  namespace: production
+  labels:
+    app: backend
+    env: production
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: redis:1.0
+        ports:
+        - containerPort: 3063
+        resources:
+          limits:
+            cpu: 247m
+            memory: 545Mi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-config
+  namespace: development
+data:
+  LOG_LEVEL: debug
+  API_URL: http://db-service:8080
+  CACHE_TTL: "2995"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: development
+data:
+  LOG_LEVEL: info
+  API_URL: http://db-service:8080
+  CACHE_TTL: "182"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+  namespace: staging
+  labels:
+    app: frontend
+    env: staging
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: golang:1.1
+        ports:
+        - containerPort: 5090
+        resources:
+          limits:
+            cpu: 680m
+            memory: 516Mi
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: gateway-hpa
+  namespace: staging
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: gateway-deployment
+  minReplicas: 3
+  maxReplicas: 17
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 64
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-deployment
+  namespace: staging
+  labels:
+    app: gateway
+    env: staging
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: gateway
+  template:
+    metadata:
+      labels:
+        app: gateway
+    spec:
+      containers:
+      - name: gateway
+        image: golang:1.11
+        ports:
+        - containerPort: 3156
+        resources:
+          limits:
+            cpu: 594m
+            memory: 574Mi
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: gateway-hpa
+  namespace: development
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: gateway-deployment
+  minReplicas: 1
+  maxReplicas: 17
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 65
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-service
+  namespace: development
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 416
+    targetPort: 4228
+  selector:
+    app: db
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: api.production.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 80
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cache-hpa
+  namespace: development
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cache-deployment
+  minReplicas: 3
+  maxReplicas: 18
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 78
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: worker-secret
+  namespace: development
+type: Opaque
+stringData:
+  DB_PASSWORD: 9fd5aaa9
+  API_KEY: key-50604
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-hpa
+  namespace: development
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend-deployment
+  minReplicas: 1
+  maxReplicas: 6
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 77
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: worker-secret
+  namespace: production
+type: Opaque
+stringData:
+  DB_PASSWORD: e47ebf1d
+  API_KEY: key-59837
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-deployment
+  namespace: staging
+  labels:
+    app: auth
+    env: staging
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: auth
+  template:
+    metadata:
+      labels:
+        app: auth
+    spec:
+      containers:
+      - name: auth
+        image: postgres:1.16
+        ports:
+        - containerPort: 7502
+        resources:
+          limits:
+            cpu: 925m
+            memory: 864Mi
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend-ingress
+  namespace: staging
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: frontend.staging.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-hpa
+  namespace: staging
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend-deployment
+  minReplicas: 3
+  maxReplicas: 9
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 68
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db-deployment
+  namespace: production
+  labels:
+    app: db
+    env: production
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+      - name: db
+        image: python:1.13
+        ports:
+        - containerPort: 3764
+        resources:
+          limits:
+            cpu: 512m
+            memory: 562Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker-service
+  namespace: production
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 502
+    targetPort: 4037
+  selector:
+    app: worker
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: auth-secret
+  namespace: production
+type: Opaque
+stringData:
+  DB_PASSWORD: b3f90ce8
+  API_KEY: key-63155
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: db-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: db.production.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: db-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker-service
+  namespace: development
+spec:
+  type: ClusterIP
+  ports:
+  - port: 193
+    targetPort: 4049
+  selector:
+    app: worker
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+  namespace: staging
+  labels:
+    app: frontend
+    env: staging
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: golang:1.0
+        ports:
+        - containerPort: 3738
+        resources:
+          limits:
+            cpu: 364m
+            memory: 385Mi
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: worker-hpa
+  namespace: development
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker-deployment
+  minReplicas: 3
+  maxReplicas: 19
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 57
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend-ingress
+  namespace: development
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: frontend.development.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: development
+spec:
+  type: ClusterIP
+  ports:
+  - port: 501
+    targetPort: 4479
+  selector:
+    app: backend
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: auth-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: auth-deployment
+  minReplicas: 3
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 58
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-service
+  namespace: staging
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 134
+    targetPort: 4535
+  selector:
+    app: api
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: worker-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: worker.production.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: worker-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-service
+  namespace: production
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 111
+    targetPort: 4191
+  selector:
+    app: db
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+  namespace: production
+  labels:
+    app: frontend
+    env: production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: nginx:1.3
+        ports:
+        - containerPort: 5900
+        resources:
+          limits:
+            cpu: 778m
+            memory: 659Mi
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-hpa
+  namespace: staging
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-deployment
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 54
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-ingress
+  namespace: staging
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: api.staging.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-service
+  namespace: development
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 389
+    targetPort: 6823
+  selector:
+    app: gateway
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gateway-secret
+  namespace: development
+type: Opaque
+stringData:
+  DB_PASSWORD: d6742b67
+  API_KEY: key-47936
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: worker-ingress
+  namespace: development
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: worker.development.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: worker-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: staging
+data:
+  LOG_LEVEL: debug
+  API_URL: http://db-service:8080
+  CACHE_TTL: "501"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-config
+  namespace: development
+data:
+  LOG_LEVEL: info
+  API_URL: http://backend-service:8080
+  CACHE_TTL: "1771"
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: worker-ingress
+  namespace: staging
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: worker.staging.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: worker-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: production
+data:
+  LOG_LEVEL: info
+  API_URL: http://db-service:8080
+  CACHE_TTL: "391"
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cache-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: cache.production.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: cache-service
+            port:
+              number: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-deployment
+  namespace: development
+  labels:
+    app: gateway
+    env: development
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gateway
+  template:
+    metadata:
+      labels:
+        app: gateway
+    spec:
+      containers:
+      - name: gateway
+        image: node:1.10
+        ports:
+        - containerPort: 3887
+        resources:
+          limits:
+            cpu: 403m
+            memory: 386Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: production
+spec:
+  type: ClusterIP
+  ports:
+  - port: 515
+    targetPort: 7919
+  selector:
+    app: auth
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-secret
+  namespace: staging
+type: Opaque
+stringData:
+  DB_PASSWORD: 29607fc7
+  API_KEY: key-12387
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: auth-secret
+  namespace: development
+type: Opaque
+stringData:
+  DB_PASSWORD: 94a7e0fd
+  API_KEY: key-1026
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secret
+  namespace: production
+type: Opaque
+stringData:
+  DB_PASSWORD: a9db4062
+  API_KEY: key-54360
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  namespace: production
+  labels:
+    app: backend
+    env: production
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: redis:1.9
+        ports:
+        - containerPort: 5253
+        resources:
+          limits:
+            cpu: 410m
+            memory: 975Mi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: development
+data:
+  LOG_LEVEL: debug
+  API_URL: http://worker-service:8080
+  CACHE_TTL: "716"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cache-hpa
+  namespace: development
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cache-deployment
+  minReplicas: 2
+  maxReplicas: 17
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 73
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gateway-secret
+  namespace: development
+type: Opaque
+stringData:
+  DB_PASSWORD: a8595190
+  API_KEY: key-11039
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-config
+  namespace: development
+data:
+  LOG_LEVEL: debug
+  API_URL: http://api-service:8080
+  CACHE_TTL: "1457"
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: db-ingress
+  namespace: development
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: db.development.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: db-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secret
+  namespace: development
+type: Opaque
+stringData:
+  DB_PASSWORD: 64a20d6c
+  API_KEY: key-41618
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: auth-secret
+  namespace: development
+type: Opaque
+stringData:
+  DB_PASSWORD: 6f34781a
+  API_KEY: key-88545
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db-deployment
+  namespace: staging
+  labels:
+    app: db
+    env: staging
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+      - name: db
+        image: golang:1.11
+        ports:
+        - containerPort: 4424
+        resources:
+          limits:
+            cpu: 844m
+            memory: 891Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-deployment
+  namespace: staging
+  labels:
+    app: auth
+    env: staging
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: auth
+  template:
+    metadata:
+      labels:
+        app: auth
+    spec:
+      containers:
+      - name: auth
+        image: golang:1.7
+        ports:
+        - containerPort: 5416
+        resources:
+          limits:
+            cpu: 399m
+            memory: 400Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker-service
+  namespace: staging
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 262
+    targetPort: 5628
+  selector:
+    app: worker
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-service
+  namespace: staging
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 324
+    targetPort: 5879
+  selector:
+    app: api
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend-ingress
+  namespace: development
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: frontend.development.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gateway-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: gateway.production.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: gateway-service
+            port:
+              number: 80
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend-deployment
+  minReplicas: 3
+  maxReplicas: 6
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 74
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: gateway-hpa
+  namespace: staging
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: gateway-deployment
+  minReplicas: 1
+  maxReplicas: 16
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 63
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend-deployment
+  minReplicas: 3
+  maxReplicas: 19
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 79
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-deployment
+  namespace: production
+  labels:
+    app: auth
+    env: production
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: auth
+  template:
+    metadata:
+      labels:
+        app: auth
+    spec:
+      containers:
+      - name: auth
+        image: redis:1.15
+        ports:
+        - containerPort: 7438
+        resources:
+          limits:
+            cpu: 117m
+            memory: 918Mi
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: gateway-hpa
+  namespace: development
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: gateway-deployment
+  minReplicas: 1
+  maxReplicas: 16
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 55
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-config
+  namespace: development
+data:
+  LOG_LEVEL: debug
+  API_URL: http://api-service:8080
+  CACHE_TTL: "2817"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-service
+  namespace: development
+spec:
+  type: ClusterIP
+  ports:
+  - port: 424
+    targetPort: 3049
+  selector:
+    app: gateway
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  namespace: staging
+  labels:
+    app: backend
+    env: staging
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: node:1.7
+        ports:
+        - containerPort: 6905
+        resources:
+          limits:
+            cpu: 206m
+            memory: 568Mi
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cache-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cache-deployment
+  minReplicas: 1
+  maxReplicas: 13
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 59
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: auth-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: auth-deployment
+  minReplicas: 1
+  maxReplicas: 6
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 56
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: worker-ingress
+  namespace: staging
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: worker.staging.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: worker-service
+            port:
+              number: 80
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: auth-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: auth-deployment
+  minReplicas: 3
+  maxReplicas: 11
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 78
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend-ingress
+  namespace: staging
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: backend.staging.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cache-secret
+  namespace: development
+type: Opaque
+stringData:
+  DB_PASSWORD: 9740d939
+  API_KEY: key-9721
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: frontend-secret
+  namespace: development
+type: Opaque
+stringData:
+  DB_PASSWORD: 9f112a9
+  API_KEY: key-42501
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: db-ingress
+  namespace: staging
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: db.staging.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: db-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cache-secret
+  namespace: staging
+type: Opaque
+stringData:
+  DB_PASSWORD: d3ef3907
+  API_KEY: key-97140
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: worker-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker-deployment
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 57
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cache-secret
+  namespace: production
+type: Opaque
+stringData:
+  DB_PASSWORD: 8806db73
+  API_KEY: key-51581
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+  namespace: staging
+  labels:
+    app: api
+    env: staging
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+      - name: api
+        image: postgres:1.11
+        ports:
+        - containerPort: 5748
+        resources:
+          limits:
+            cpu: 237m
+            memory: 763Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-service
+  namespace: development
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 417
+    targetPort: 3678
+  selector:
+    app: db
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: worker-config
+  namespace: production
+data:
+  LOG_LEVEL: debug
+  API_URL: http://backend-service:8080
+  CACHE_TTL: "2272"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cache-hpa
+  namespace: development
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cache-deployment
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cache-hpa
+  namespace: development
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cache-deployment
+  minReplicas: 1
+  maxReplicas: 9
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 78
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  namespace: development
+  labels:
+    app: backend
+    env: development
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: envoy:1.7
+        ports:
+        - containerPort: 6480
+        resources:
+          limits:
+            cpu: 619m
+            memory: 236Mi
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend-ingress
+  namespace: development
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: frontend.development.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gateway-ingress
+  namespace: staging
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: gateway.staging.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: gateway-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cache-config
+  namespace: staging
+data:
+  LOG_LEVEL: debug
+  API_URL: http://gateway-service:8080
+  CACHE_TTL: "2062"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secret
+  namespace: production
+type: Opaque
+stringData:
+  DB_PASSWORD: 289d0db2
+  API_KEY: key-24260
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend-deployment
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 74
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend-ingress
+  namespace: staging
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: frontend.staging.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secret
+  namespace: development
+type: Opaque
+stringData:
+  DB_PASSWORD: 2ce271c4
+  API_KEY: key-61099
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: staging
+spec:
+  type: ClusterIP
+  ports:
+  - port: 179
+    targetPort: 3766
+  selector:
+    app: backend
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: frontend-secret
+  namespace: staging
+type: Opaque
+stringData:
+  DB_PASSWORD: 6f10e6dd
+  API_KEY: key-56708
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend-ingress
+  namespace: staging
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: backend.staging.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cache-secret
+  namespace: production
+type: Opaque
+stringData:
+  DB_PASSWORD: b990b21
+  API_KEY: key-29587
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: backend.production.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: development
+data:
+  LOG_LEVEL: debug
+  API_URL: http://auth-service:8080
+  CACHE_TTL: "448"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-deployment
+  namespace: staging
+  labels:
+    app: worker
+    env: staging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+      - name: worker
+        image: redis:1.2
+        ports:
+        - containerPort: 7729
+        resources:
+          limits:
+            cpu: 900m
+            memory: 731Mi
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: auth-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: auth-deployment
+  minReplicas: 3
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 53
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-service
+  namespace: staging
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 454
+    targetPort: 3420
+  selector:
+    app: api
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: api.production.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-secret
+  namespace: development
+type: Opaque
+stringData:
+  DB_PASSWORD: f61095a0
+  API_KEY: key-5767
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-secret
+  namespace: development
+type: Opaque
+stringData:
+  DB_PASSWORD: 4622511c
+  API_KEY: key-4524
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gateway-secret
+  namespace: development
+type: Opaque
+stringData:
+  DB_PASSWORD: 4aa2f81
+  API_KEY: key-45404
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: production
+data:
+  LOG_LEVEL: debug
+  API_URL: http://frontend-service:8080
+  CACHE_TTL: "2149"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cache-service
+  namespace: production
+spec:
+  type: ClusterIP
+  ports:
+  - port: 422
+    targetPort: 4389
+  selector:
+    app: cache
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-service
+  namespace: development
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 484
+    targetPort: 4433
+  selector:
+    app: api
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: development
+data:
+  LOG_LEVEL: debug
+  API_URL: http://cache-service:8080
+  CACHE_TTL: "451"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: development
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 341
+    targetPort: 4315
+  selector:
+    app: frontend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cache-service
+  namespace: staging
+spec:
+  type: ClusterIP
+  ports:
+  - port: 395
+    targetPort: 5186
+  selector:
+    app: cache
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: development
+data:
+  LOG_LEVEL: info
+  API_URL: http://backend-service:8080
+  CACHE_TTL: "924"
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: auth-ingress
+  namespace: development
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: auth.development.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: auth-service
+            port:
+              number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: db-ingress
+  namespace: staging
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: db.staging.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: db-service
+            port:
+              number: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-deployment
+  namespace: development
+  labels:
+    app: worker
+    env: development
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+      - name: worker
+        image: nginx:1.6
+        ports:
+        - containerPort: 4984
+        resources:
+          limits:
+            cpu: 282m
+            memory: 360Mi
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend-deployment
+  minReplicas: 2
+  maxReplicas: 17
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 71
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db-deployment
+  namespace: production
+  labels:
+    app: db
+    env: production
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+      - name: db
+        image: postgres:1.16
+        ports:
+        - containerPort: 5603
+        resources:
+          limits:
+            cpu: 339m
+            memory: 444Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+  namespace: production
+  labels:
+    app: api
+    env: production
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+      - name: api
+        image: golang:1.7
+        ports:
+        - containerPort: 3069
+        resources:
+          limits:
+            cpu: 806m
+            memory: 255Mi
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-deployment
+  minReplicas: 2
+  maxReplicas: 13
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 58
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: api.production.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: worker-ingress
+  namespace: staging
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: worker.staging.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: worker-service
+            port:
+              number: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-deployment
+  namespace: development
+  labels:
+    app: worker
+    env: development
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+      - name: worker
+        image: node:1.0
+        ports:
+        - containerPort: 4758
+        resources:
+          limits:
+            cpu: 512m
+            memory: 692Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: production
+spec:
+  type: ClusterIP
+  ports:
+  - port: 374
+    targetPort: 7793
+  selector:
+    app: backend
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-ingress
+  namespace: development
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: api.development.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-ingress
+  namespace: staging
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: api.staging.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-service
+  namespace: staging
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 5473
+  selector:
+    app: gateway
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: frontend-secret
+  namespace: development
+type: Opaque
+stringData:
+  DB_PASSWORD: d6a6ace5
+  API_KEY: key-35974
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cache-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cache-deployment
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 75
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: development
+data:
+  LOG_LEVEL: debug
+  API_URL: http://cache-service:8080
+  CACHE_TTL: "1264"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-hpa
+  namespace: staging
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-deployment
+  minReplicas: 2
+  maxReplicas: 9
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 72
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: worker-secret
+  namespace: staging
+type: Opaque
+stringData:
+  DB_PASSWORD: f27ee1fe
+  API_KEY: key-14758
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cache-ingress
+  namespace: development
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: cache.development.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: cache-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secret
+  namespace: development
+type: Opaque
+stringData:
+  DB_PASSWORD: 15604d9e
+  API_KEY: key-43954
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-deployment
+  namespace: production
+  labels:
+    app: worker
+    env: production
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+      - name: worker
+        image: envoy:1.9
+        ports:
+        - containerPort: 5457
+        resources:
+          limits:
+            cpu: 526m
+            memory: 166Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-service
+  namespace: development
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 306
+    targetPort: 5139
+  selector:
+    app: api
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: production
+spec:
+  type: ClusterIP
+  ports:
+  - port: 359
+    targetPort: 4388
+  selector:
+    app: backend
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+  namespace: staging
+  labels:
+    app: frontend
+    env: staging
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: nginx:1.12
+        ports:
+        - containerPort: 5523
+        resources:
+          limits:
+            cpu: 345m
+            memory: 632Mi
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: worker-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: worker.production.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: worker-service
+            port:
+              number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: auth-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: auth.production.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: auth-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cache-service
+  namespace: production
+spec:
+  type: ClusterIP
+  ports:
+  - port: 454
+    targetPort: 4372
+  selector:
+    app: cache
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cache-service
+  namespace: development
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 114
+    targetPort: 7943
+  selector:
+    app: cache
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cache-service
+  namespace: development
+spec:
+  type: ClusterIP
+  ports:
+  - port: 255
+    targetPort: 7483
+  selector:
+    app: cache
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: production
+data:
+  LOG_LEVEL: debug
+  API_URL: http://backend-service:8080
+  CACHE_TTL: "2698"
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: frontend.production.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-config
+  namespace: development
+data:
+  LOG_LEVEL: debug
+  API_URL: http://db-service:8080
+  CACHE_TTL: "529"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-deployment
+  namespace: production
+  labels:
+    app: auth
+    env: production
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: auth
+  template:
+    metadata:
+      labels:
+        app: auth
+    spec:
+      containers:
+      - name: auth
+        image: nginx:1.11
+        ports:
+        - containerPort: 3465
+        resources:
+          limits:
+            cpu: 371m
+            memory: 143Mi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secret
+  namespace: development
+type: Opaque
+stringData:
+  DB_PASSWORD: 1b545d97
+  API_KEY: key-49243
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-config
+  namespace: production
+data:
+  LOG_LEVEL: info
+  API_URL: http://worker-service:8080
+  CACHE_TTL: "2757"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secret
+  namespace: production
+type: Opaque
+stringData:
+  DB_PASSWORD: 956a7cb1
+  API_KEY: key-94715
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cache-service
+  namespace: production
+spec:
+  type: ClusterIP
+  ports:
+  - port: 263
+    targetPort: 7618
+  selector:
+    app: cache
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: gateway-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: gateway-deployment
+  minReplicas: 2
+  maxReplicas: 11
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 52
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cache-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cache-deployment
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-secret
+  namespace: staging
+type: Opaque
+stringData:
+  DB_PASSWORD: f0c6b185
+  API_KEY: key-59569
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: auth-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: auth.production.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: auth-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: development
+data:
+  LOG_LEVEL: info
+  API_URL: http://auth-service:8080
+  CACHE_TTL: "3273"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-service
+  namespace: production
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 406
+    targetPort: 5287
+  selector:
+    app: api
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: db-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: db.production.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: db-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: production
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 204
+    targetPort: 4988
+  selector:
+    app: auth
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gateway-secret
+  namespace: production
+type: Opaque
+stringData:
+  DB_PASSWORD: f84c4f55
+  API_KEY: key-33210
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+  namespace: development
+  labels:
+    app: frontend
+    env: development
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: envoy:1.12
+        ports:
+        - containerPort: 4194
+        resources:
+          limits:
+            cpu: 294m
+            memory: 256Mi
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: auth-ingress
+  namespace: staging
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: auth.staging.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: auth-service
+            port:
+              number: 80
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: worker-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker-deployment
+  minReplicas: 1
+  maxReplicas: 13
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 76
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-deployment
+  minReplicas: 3
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 78
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend-ingress
+  namespace: staging
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: backend.staging.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: production
+data:
+  LOG_LEVEL: info
+  API_URL: http://frontend-service:8080
+  CACHE_TTL: "729"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+  namespace: development
+  labels:
+    app: api
+    env: development
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+      - name: api
+        image: envoy:1.13
+        ports:
+        - containerPort: 7024
+        resources:
+          limits:
+            cpu: 564m
+            memory: 999Mi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secret
+  namespace: staging
+type: Opaque
+stringData:
+  DB_PASSWORD: 44c7b85e
+  API_KEY: key-26151
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: staging
+data:
+  LOG_LEVEL: info
+  API_URL: http://db-service:8080
+  CACHE_TTL: "2689"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+  namespace: staging
+  labels:
+    app: api
+    env: staging
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+      - name: api
+        image: node:1.13
+        ports:
+        - containerPort: 3659
+        resources:
+          limits:
+            cpu: 344m
+            memory: 989Mi
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-hpa
+  namespace: staging
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-deployment
+  minReplicas: 2
+  maxReplicas: 18
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 68
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-config
+  namespace: production
+data:
+  LOG_LEVEL: debug
+  API_URL: http://cache-service:8080
+  CACHE_TTL: "2969"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-secret
+  namespace: production
+type: Opaque
+stringData:
+  DB_PASSWORD: e734e866
+  API_KEY: key-11013
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker-service
+  namespace: development
+spec:
+  type: ClusterIP
+  ports:
+  - port: 373
+    targetPort: 5153
+  selector:
+    app: worker
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secret
+  namespace: development
+type: Opaque
+stringData:
+  DB_PASSWORD: 6ffe5b5a
+  API_KEY: key-50994
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  namespace: development
+  labels:
+    app: backend
+    env: development
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: golang:1.0
+        ports:
+        - containerPort: 7055
+        resources:
+          limits:
+            cpu: 266m
+            memory: 1019Mi
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: gateway-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: gateway-deployment
+  minReplicas: 1
+  maxReplicas: 13
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 74
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: worker-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: worker.production.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: worker-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: production
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 246
+    targetPort: 4363
+  selector:
+    app: frontend
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cache-hpa
+  namespace: staging
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cache-deployment
+  minReplicas: 3
+  maxReplicas: 12
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 67
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db-deployment
+  namespace: production
+  labels:
+    app: db
+    env: production
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+      - name: db
+        image: nginx:1.6
+        ports:
+        - containerPort: 3514
+        resources:
+          limits:
+            cpu: 914m
+            memory: 760Mi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-config
+  namespace: staging
+data:
+  LOG_LEVEL: debug
+  API_URL: http://api-service:8080
+  CACHE_TTL: "1025"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: development
+spec:
+  type: ClusterIP
+  ports:
+  - port: 118
+    targetPort: 7687
+  selector:
+    app: auth
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-ingress
+  namespace: production
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: api.production.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+  namespace: production
+  labels:
+    app: api
+    env: production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+      - name: api
+        image: node:1.0
+        ports:
+        - containerPort: 3065
+        resources:
+          limits:
+            cpu: 434m
+            memory: 402Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cache-deployment
+  namespace: staging
+  labels:
+    app: cache
+    env: staging
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cache
+  template:
+    metadata:
+      labels:
+        app: cache
+    spec:
+      containers:
+      - name: cache
+        image: golang:1.8
+        ports:
+        - containerPort: 3085
+        resources:
+          limits:
+            cpu: 984m
+            memory: 581Mi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cache-config
+  namespace: development
+data:
+  LOG_LEVEL: info
+  API_URL: http://backend-service:8080
+  CACHE_TTL: "2761"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend-deployment
+  minReplicas: 2
+  maxReplicas: 12
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 72
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend-ingress
+  namespace: staging
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: backend.staging.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-service
+            port:
+     

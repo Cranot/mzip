@@ -1,0 +1,4513 @@
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/queue/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 1
+  max: 10
+  target_cpu: 60
+  scale_down_delay: 224s
+
+auth:
+  enabled: false
+  port: 8014
+  host: localhost
+  logging:
+    level: warn
+    format: json
+  resources:
+    cpu: 572m
+    memory: 995Mi
+
+metrics:
+  enabled: false
+  port: 8749
+  host: localhost
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 999m
+    memory: 413Mi
+
+database:
+  driver: mysql
+  host: db.metrics.local
+  port: 5651
+  pool:
+    min: 3
+    max: 40
+    idle_timeout: 145s
+
+replicas:
+  min: 3
+  max: 9
+  target_cpu: 79
+  scale_down_delay: 116s
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/cache/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/metrics/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/metrics/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 1
+  max: 7
+  target_cpu: 50
+  scale_down_delay: 249s
+
+db:
+  enabled: false
+  port: 3499
+  host: 0.0.0.0
+  logging:
+    level: debug
+    format: text
+  resources:
+    cpu: 508m
+    memory: 434Mi
+
+queue:
+  enabled: false
+  port: 7470
+  host: 0.0.0.0
+  logging:
+    level: error
+    format: text
+  resources:
+    cpu: 611m
+    memory: 653Mi
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/api/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+features:
+  auth_enabled: true
+  db_beta: true
+  metrics_beta: false
+  api_enabled: true
+  db_enabled: true
+
+auth:
+  enabled: true
+  port: 8861
+  host: localhost
+  logging:
+    level: warn
+    format: json
+  resources:
+    cpu: 937m
+    memory: 171Mi
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/worker/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/gateway/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+gateway:
+  enabled: true
+  port: 7221
+  host: localhost
+  logging:
+    level: error
+    format: text
+  resources:
+    cpu: 629m
+    memory: 807Mi
+
+features:
+  queue_enabled: false
+  metrics_enabled: false
+  db_enabled: false
+
+gateway:
+  enabled: false
+  port: 5576
+  host: localhost
+  logging:
+    level: warn
+    format: text
+  resources:
+    cpu: 639m
+    memory: 768Mi
+
+metrics:
+  enabled: true
+  port: 7382
+  host: localhost
+  logging:
+    level: warn
+    format: text
+  resources:
+    cpu: 107m
+    memory: 802Mi
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/cache/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/gateway/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+features:
+  db_beta: false
+  db_enabled: false
+  gateway_beta: true
+  queue_beta: true
+  worker_beta: false
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/gateway/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+database:
+  driver: redis
+  host: db.api.local
+  port: 6108
+  pool:
+    min: 1
+    max: 10
+    idle_timeout: 226s
+
+replicas:
+  min: 1
+  max: 19
+  target_cpu: 62
+  scale_down_delay: 250s
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/auth/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+database:
+  driver: postgres
+  host: db.cache.local
+  port: 5758
+  pool:
+    min: 5
+    max: 74
+    idle_timeout: 98s
+
+replicas:
+  min: 1
+  max: 5
+  target_cpu: 69
+  scale_down_delay: 249s
+
+database:
+  driver: redis
+  host: db.gateway.local
+  port: 5660
+  pool:
+    min: 3
+    max: 84
+    idle_timeout: 60s
+
+database:
+  driver: postgres
+  host: db.metrics.local
+  port: 6022
+  pool:
+    min: 4
+    max: 68
+    idle_timeout: 69s
+
+database:
+  driver: mysql
+  host: db.auth.local
+  port: 6036
+  pool:
+    min: 2
+    max: 90
+    idle_timeout: 128s
+
+db:
+  enabled: true
+  port: 7539
+  host: 0.0.0.0
+  logging:
+    level: error
+    format: json
+  resources:
+    cpu: 637m
+    memory: 842Mi
+
+features:
+  gateway_enabled: false
+  worker_beta: false
+  cache_enabled: false
+  queue_beta: false
+  worker_enabled: false
+
+features:
+  api_beta: true
+  metrics_beta: false
+  metrics_enabled: true
+
+api:
+  enabled: true
+  port: 7272
+  host: 0.0.0.0
+  logging:
+    level: error
+    format: json
+  resources:
+    cpu: 933m
+    memory: 806Mi
+
+replicas:
+  min: 1
+  max: 7
+  target_cpu: 66
+  scale_down_delay: 92s
+
+api:
+  enabled: false
+  port: 3864
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 273m
+    memory: 470Mi
+
+replicas:
+  min: 2
+  max: 6
+  target_cpu: 72
+  scale_down_delay: 62s
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/queue/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+auth:
+  enabled: true
+  port: 4733
+  host: 0.0.0.0
+  logging:
+    level: warn
+    format: json
+  resources:
+    cpu: 190m
+    memory: 330Mi
+
+cache:
+  enabled: false
+  port: 6406
+  host: 0.0.0.0
+  logging:
+    level: error
+    format: text
+  resources:
+    cpu: 951m
+    memory: 353Mi
+
+database:
+  driver: mysql
+  host: db.cache.local
+  port: 5654
+  pool:
+    min: 5
+    max: 31
+    idle_timeout: 276s
+
+db:
+  enabled: false
+  port: 3885
+  host: 0.0.0.0
+  logging:
+    level: debug
+    format: text
+  resources:
+    cpu: 975m
+    memory: 891Mi
+
+replicas:
+  min: 2
+  max: 18
+  target_cpu: 53
+  scale_down_delay: 94s
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/db/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+features:
+  db_beta: false
+  metrics_beta: true
+  api_beta: true
+
+auth:
+  enabled: false
+  port: 6342
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 254m
+    memory: 251Mi
+
+replicas:
+  min: 2
+  max: 6
+  target_cpu: 66
+  scale_down_delay: 159s
+
+database:
+  driver: postgres
+  host: db.auth.local
+  port: 5488
+  pool:
+    min: 3
+    max: 11
+    idle_timeout: 271s
+
+queue:
+  enabled: true
+  port: 7074
+  host: localhost
+  logging:
+    level: debug
+    format: text
+  resources:
+    cpu: 982m
+    memory: 530Mi
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/cache/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 1
+  max: 8
+  target_cpu: 79
+  scale_down_delay: 220s
+
+replicas:
+  min: 1
+  max: 18
+  target_cpu: 72
+  scale_down_delay: 163s
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/metrics/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 1
+  max: 16
+  target_cpu: 59
+  scale_down_delay: 297s
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/api/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+database:
+  driver: mysql
+  host: db.metrics.local
+  port: 6221
+  pool:
+    min: 2
+    max: 79
+    idle_timeout: 33s
+
+metrics:
+  enabled: false
+  port: 4352
+  host: 0.0.0.0
+  logging:
+    level: debug
+    format: json
+  resources:
+    cpu: 756m
+    memory: 781Mi
+
+database:
+  driver: mongodb
+  host: db.db.local
+  port: 5879
+  pool:
+    min: 4
+    max: 49
+    idle_timeout: 258s
+
+features:
+  metrics_beta: true
+  cache_beta: true
+  worker_enabled: true
+  worker_beta: false
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/cache/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+queue:
+  enabled: true
+  port: 8824
+  host: 0.0.0.0
+  logging:
+    level: warn
+    format: json
+  resources:
+    cpu: 324m
+    memory: 452Mi
+
+features:
+  metrics_beta: true
+  metrics_beta: true
+  db_enabled: true
+
+replicas:
+  min: 1
+  max: 15
+  target_cpu: 50
+  scale_down_delay: 247s
+
+queue:
+  enabled: true
+  port: 4756
+  host: localhost
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 138m
+    memory: 994Mi
+
+database:
+  driver: postgres
+  host: db.db.local
+  port: 5814
+  pool:
+    min: 2
+    max: 64
+    idle_timeout: 149s
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/metrics/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+database:
+  driver: mongodb
+  host: db.auth.local
+  port: 5656
+  pool:
+    min: 2
+    max: 12
+    idle_timeout: 59s
+
+replicas:
+  min: 1
+  max: 12
+  target_cpu: 59
+  scale_down_delay: 99s
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/gateway/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/auth/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 3
+  max: 11
+  target_cpu: 61
+  scale_down_delay: 245s
+
+database:
+  driver: mongodb
+  host: db.api.local
+  port: 5568
+  pool:
+    min: 5
+    max: 67
+    idle_timeout: 205s
+
+features:
+  auth_beta: true
+  auth_beta: true
+  db_enabled: false
+
+queue:
+  enabled: true
+  port: 4824
+  host: 0.0.0.0
+  logging:
+    level: error
+    format: json
+  resources:
+    cpu: 603m
+    memory: 525Mi
+
+replicas:
+  min: 2
+  max: 11
+  target_cpu: 54
+  scale_down_delay: 247s
+
+features:
+  metrics_beta: false
+  cache_beta: true
+  worker_beta: true
+  auth_enabled: false
+  auth_enabled: false
+
+database:
+  driver: mongodb
+  host: db.queue.local
+  port: 6128
+  pool:
+    min: 5
+    max: 80
+    idle_timeout: 293s
+
+db:
+  enabled: false
+  port: 3918
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 703m
+    memory: 371Mi
+
+database:
+  driver: redis
+  host: db.cache.local
+  port: 6030
+  pool:
+    min: 2
+    max: 37
+    idle_timeout: 131s
+
+features:
+  db_enabled: true
+  api_enabled: false
+  db_enabled: false
+  queue_enabled: false
+
+database:
+  driver: redis
+  host: db.api.local
+  port: 5987
+  pool:
+    min: 1
+    max: 54
+    idle_timeout: 123s
+
+replicas:
+  min: 2
+  max: 11
+  target_cpu: 67
+  scale_down_delay: 299s
+
+replicas:
+  min: 2
+  max: 7
+  target_cpu: 50
+  scale_down_delay: 99s
+
+database:
+  driver: postgres
+  host: db.api.local
+  port: 5583
+  pool:
+    min: 3
+    max: 40
+    idle_timeout: 49s
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/worker/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 2
+  max: 12
+  target_cpu: 71
+  scale_down_delay: 181s
+
+features:
+  queue_enabled: false
+  worker_enabled: false
+  api_enabled: true
+  db_beta: true
+  auth_enabled: true
+
+database:
+  driver: mongodb
+  host: db.api.local
+  port: 6277
+  pool:
+    min: 4
+    max: 88
+    idle_timeout: 292s
+
+features:
+  worker_beta: true
+  db_beta: true
+  cache_enabled: true
+
+features:
+  queue_enabled: true
+  metrics_beta: true
+  db_enabled: true
+  db_enabled: true
+
+replicas:
+  min: 2
+  max: 10
+  target_cpu: 62
+  scale_down_delay: 120s
+
+features:
+  queue_enabled: false
+  api_enabled: true
+  db_beta: false
+  gateway_enabled: true
+
+database:
+  driver: mysql
+  host: db.cache.local
+  port: 5798
+  pool:
+    min: 3
+    max: 29
+    idle_timeout: 205s
+
+replicas:
+  min: 1
+  max: 10
+  target_cpu: 67
+  scale_down_delay: 89s
+
+replicas:
+  min: 2
+  max: 7
+  target_cpu: 56
+  scale_down_delay: 271s
+
+features:
+  auth_beta: false
+  metrics_enabled: false
+  queue_beta: true
+  queue_beta: true
+  cache_beta: false
+  db_enabled: false
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/gateway/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+metrics:
+  enabled: false
+  port: 4707
+  host: localhost
+  logging:
+    level: warn
+    format: text
+  resources:
+    cpu: 226m
+    memory: 984Mi
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/worker/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+database:
+  driver: postgres
+  host: db.worker.local
+  port: 5499
+  pool:
+    min: 2
+    max: 52
+    idle_timeout: 211s
+
+replicas:
+  min: 3
+  max: 11
+  target_cpu: 56
+  scale_down_delay: 223s
+
+replicas:
+  min: 1
+  max: 5
+  target_cpu: 54
+  scale_down_delay: 231s
+
+replicas:
+  min: 1
+  max: 12
+  target_cpu: 79
+  scale_down_delay: 106s
+
+features:
+  cache_enabled: false
+  queue_beta: false
+  api_enabled: false
+
+database:
+  driver: postgres
+  host: db.gateway.local
+  port: 6407
+  pool:
+    min: 1
+    max: 78
+    idle_timeout: 172s
+
+features:
+  auth_beta: true
+  auth_beta: false
+  queue_beta: false
+  gateway_enabled: false
+
+features:
+  api_beta: true
+  worker_beta: true
+  api_enabled: false
+  auth_beta: false
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/metrics/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+queue:
+  enabled: false
+  port: 4269
+  host: 0.0.0.0
+  logging:
+    level: debug
+    format: text
+  resources:
+    cpu: 158m
+    memory: 600Mi
+
+replicas:
+  min: 3
+  max: 17
+  target_cpu: 77
+  scale_down_delay: 119s
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/queue/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+database:
+  driver: mysql
+  host: db.gateway.local
+  port: 6106
+  pool:
+    min: 5
+    max: 27
+    idle_timeout: 186s
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/cache/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/auth/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 2
+  max: 19
+  target_cpu: 65
+  scale_down_delay: 167s
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/gateway/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+gateway:
+  enabled: false
+  port: 3050
+  host: localhost
+  logging:
+    level: error
+    format: json
+  resources:
+    cpu: 148m
+    memory: 574Mi
+
+database:
+  driver: postgres
+  host: db.api.local
+  port: 6287
+  pool:
+    min: 5
+    max: 95
+    idle_timeout: 286s
+
+auth:
+  enabled: true
+  port: 6372
+  host: 0.0.0.0
+  logging:
+    level: debug
+    format: text
+  resources:
+    cpu: 470m
+    memory: 916Mi
+
+features:
+  queue_beta: true
+  db_beta: false
+  api_enabled: false
+
+database:
+  driver: mysql
+  host: db.gateway.local
+  port: 5438
+  pool:
+    min: 4
+    max: 18
+    idle_timeout: 135s
+
+replicas:
+  min: 1
+  max: 15
+  target_cpu: 56
+  scale_down_delay: 212s
+
+database:
+  driver: mongodb
+  host: db.auth.local
+  port: 5703
+  pool:
+    min: 1
+    max: 61
+    idle_timeout: 73s
+
+replicas:
+  min: 2
+  max: 18
+  target_cpu: 52
+  scale_down_delay: 211s
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/db/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/auth/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 2
+  max: 10
+  target_cpu: 69
+  scale_down_delay: 192s
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/metrics/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+features:
+  gateway_beta: false
+  queue_enabled: false
+  metrics_beta: false
+  cache_beta: true
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/queue/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+api:
+  enabled: true
+  port: 6737
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 898m
+    memory: 364Mi
+
+replicas:
+  min: 1
+  max: 12
+  target_cpu: 54
+  scale_down_delay: 273s
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/metrics/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 3
+  max: 6
+  target_cpu: 58
+  scale_down_delay: 117s
+
+api:
+  enabled: true
+  port: 8210
+  host: localhost
+  logging:
+    level: debug
+    format: text
+  resources:
+    cpu: 316m
+    memory: 225Mi
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/gateway/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/metrics/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 3
+  max: 5
+  target_cpu: 68
+  scale_down_delay: 288s
+
+features:
+  worker_beta: false
+  queue_beta: false
+  auth_beta: false
+
+features:
+  worker_beta: false
+  queue_enabled: true
+  api_enabled: true
+  db_beta: true
+  auth_enabled: true
+
+replicas:
+  min: 1
+  max: 7
+  target_cpu: 69
+  scale_down_delay: 279s
+
+database:
+  driver: mysql
+  host: db.db.local
+  port: 5676
+  pool:
+    min: 5
+    max: 57
+    idle_timeout: 58s
+
+api:
+  enabled: true
+  port: 4758
+  host: localhost
+  logging:
+    level: warn
+    format: text
+  resources:
+    cpu: 816m
+    memory: 852Mi
+
+replicas:
+  min: 1
+  max: 7
+  target_cpu: 68
+  scale_down_delay: 242s
+
+features:
+  db_enabled: true
+  auth_enabled: true
+  cache_beta: false
+  db_beta: true
+
+gateway:
+  enabled: true
+  port: 7109
+  host: localhost
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 708m
+    memory: 900Mi
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/auth/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+features:
+  auth_beta: true
+  metrics_beta: true
+  queue_enabled: false
+  cache_beta: true
+  cache_beta: false
+
+replicas:
+  min: 2
+  max: 13
+  target_cpu: 64
+  scale_down_delay: 65s
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/db/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 1
+  max: 12
+  target_cpu: 78
+  scale_down_delay: 206s
+
+cache:
+  enabled: false
+  port: 5652
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 965m
+    memory: 434Mi
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/queue/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 2
+  max: 16
+  target_cpu: 78
+  scale_down_delay: 65s
+
+replicas:
+  min: 2
+  max: 19
+  target_cpu: 70
+  scale_down_delay: 116s
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/worker/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/worker/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/cache/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+auth:
+  enabled: false
+  port: 4726
+  host: localhost
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 435m
+    memory: 733Mi
+
+replicas:
+  min: 2
+  max: 10
+  target_cpu: 58
+  scale_down_delay: 252s
+
+database:
+  driver: mongodb
+  host: db.api.local
+  port: 6199
+  pool:
+    min: 2
+    max: 36
+    idle_timeout: 210s
+
+gateway:
+  enabled: false
+  port: 4566
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 725m
+    memory: 923Mi
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/metrics/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/auth/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+cache:
+  enabled: true
+  port: 7850
+  host: localhost
+  logging:
+    level: warn
+    format: text
+  resources:
+    cpu: 878m
+    memory: 877Mi
+
+replicas:
+  min: 2
+  max: 8
+  target_cpu: 58
+  scale_down_delay: 205s
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/cache/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/metrics/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/queue/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+features:
+  gateway_beta: false
+  worker_enabled: true
+  api_beta: false
+  api_enabled: true
+  api_beta: true
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/worker/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+features:
+  metrics_enabled: false
+  cache_enabled: false
+  worker_enabled: true
+  auth_beta: true
+  queue_enabled: false
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/worker/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/worker/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+database:
+  driver: mongodb
+  host: db.db.local
+  port: 5869
+  pool:
+    min: 5
+    max: 13
+    idle_timeout: 159s
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/metrics/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+database:
+  driver: postgres
+  host: db.gateway.local
+  port: 6106
+  pool:
+    min: 3
+    max: 38
+    idle_timeout: 235s
+
+db:
+  enabled: true
+  port: 6422
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 203m
+    memory: 970Mi
+
+features:
+  worker_enabled: false
+  metrics_enabled: false
+  api_enabled: false
+  metrics_enabled: false
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/worker/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+features:
+  db_beta: true
+  db_beta: true
+  api_enabled: true
+  worker_beta: true
+  gateway_enabled: false
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/worker/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 3
+  max: 18
+  target_cpu: 72
+  scale_down_delay: 130s
+
+replicas:
+  min: 3
+  max: 9
+  target_cpu: 72
+  scale_down_delay: 291s
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/api/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+queue:
+  enabled: false
+  port: 4808
+  host: localhost
+  logging:
+    level: warn
+    format: text
+  resources:
+    cpu: 311m
+    memory: 549Mi
+
+replicas:
+  min: 2
+  max: 16
+  target_cpu: 70
+  scale_down_delay: 284s
+
+database:
+  driver: mysql
+  host: db.db.local
+  port: 5451
+  pool:
+    min: 2
+    max: 43
+    idle_timeout: 274s
+
+cache:
+  enabled: false
+  port: 3065
+  host: 0.0.0.0
+  logging:
+    level: warn
+    format: text
+  resources:
+    cpu: 852m
+    memory: 679Mi
+
+replicas:
+  min: 1
+  max: 18
+  target_cpu: 61
+  scale_down_delay: 184s
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/api/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+worker:
+  enabled: true
+  port: 5925
+  host: localhost
+  logging:
+    level: debug
+    format: text
+  resources:
+    cpu: 980m
+    memory: 210Mi
+
+replicas:
+  min: 2
+  max: 19
+  target_cpu: 67
+  scale_down_delay: 207s
+
+database:
+  driver: postgres
+  host: db.auth.local
+  port: 6336
+  pool:
+    min: 3
+    max: 19
+    idle_timeout: 235s
+
+replicas:
+  min: 1
+  max: 6
+  target_cpu: 51
+  scale_down_delay: 126s
+
+worker:
+  enabled: false
+  port: 6846
+  host: localhost
+  logging:
+    level: warn
+    format: text
+  resources:
+    cpu: 244m
+    memory: 528Mi
+
+gateway:
+  enabled: false
+  port: 5465
+  host: 0.0.0.0
+  logging:
+    level: debug
+    format: json
+  resources:
+    cpu: 751m
+    memory: 818Mi
+
+features:
+  worker_enabled: false
+  cache_enabled: true
+  db_beta: false
+
+database:
+  driver: mongodb
+  host: db.worker.local
+  port: 5830
+  pool:
+    min: 5
+    max: 53
+    idle_timeout: 70s
+
+replicas:
+  min: 2
+  max: 14
+  target_cpu: 50
+  scale_down_delay: 128s
+
+features:
+  api_enabled: true
+  auth_enabled: false
+  auth_beta: true
+  queue_beta: false
+  queue_enabled: true
+  gateway_beta: true
+
+gateway:
+  enabled: true
+  port: 6147
+  host: localhost
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 726m
+    memory: 370Mi
+
+replicas:
+  min: 1
+  max: 10
+  target_cpu: 71
+  scale_down_delay: 214s
+
+database:
+  driver: postgres
+  host: db.db.local
+  port: 5666
+  pool:
+    min: 3
+    max: 49
+    idle_timeout: 131s
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/metrics/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+features:
+  auth_enabled: false
+  auth_beta: true
+  auth_beta: false
+  metrics_enabled: false
+  db_enabled: true
+  queue_enabled: false
+
+replicas:
+  min: 1
+  max: 16
+  target_cpu: 75
+  scale_down_delay: 298s
+
+api:
+  enabled: true
+  port: 6442
+  host: localhost
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 212m
+    memory: 725Mi
+
+replicas:
+  min: 2
+  max: 13
+  target_cpu: 59
+  scale_down_delay: 256s
+
+database:
+  driver: mysql
+  host: db.worker.local
+  port: 5515
+  pool:
+    min: 4
+    max: 22
+    idle_timeout: 164s
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/worker/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/metrics/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/gateway/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/api/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/api/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+features:
+  api_beta: false
+  api_enabled: false
+  auth_beta: true
+  auth_beta: false
+  cache_beta: true
+
+database:
+  driver: mysql
+  host: db.metrics.local
+  port: 5792
+  pool:
+    min: 2
+    max: 31
+    idle_timeout: 49s
+
+database:
+  driver: mongodb
+  host: db.api.local
+  port: 6368
+  pool:
+    min: 4
+    max: 58
+    idle_timeout: 188s
+
+features:
+  db_enabled: false
+  gateway_beta: true
+  api_enabled: true
+  db_beta: false
+  api_beta: false
+  queue_enabled: false
+
+features:
+  cache_enabled: true
+  queue_beta: false
+  worker_enabled: true
+  auth_beta: true
+  gateway_enabled: true
+
+api:
+  enabled: true
+  port: 3077
+  host: 0.0.0.0
+  logging:
+    level: warn
+    format: text
+  resources:
+    cpu: 783m
+    memory: 768Mi
+
+replicas:
+  min: 2
+  max: 15
+  target_cpu: 50
+  scale_down_delay: 94s
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/auth/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+features:
+  auth_enabled: false
+  gateway_enabled: true
+  gateway_beta: true
+
+gateway:
+  enabled: false
+  port: 7711
+  host: localhost
+  logging:
+    level: warn
+    format: text
+  resources:
+    cpu: 424m
+    memory: 583Mi
+
+api:
+  enabled: false
+  port: 6284
+  host: localhost
+  logging:
+    level: warn
+    format: text
+  resources:
+    cpu: 919m
+    memory: 878Mi
+
+replicas:
+  min: 1
+  max: 17
+  target_cpu: 77
+  scale_down_delay: 243s
+
+metrics:
+  enabled: true
+  port: 7989
+  host: localhost
+  logging:
+    level: error
+    format: json
+  resources:
+    cpu: 783m
+    memory: 676Mi
+
+database:
+  driver: postgres
+  host: db.worker.local
+  port: 6366
+  pool:
+    min: 1
+    max: 59
+    idle_timeout: 73s
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/gateway/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+gateway:
+  enabled: false
+  port: 5962
+  host: 0.0.0.0
+  logging:
+    level: debug
+    format: text
+  resources:
+    cpu: 719m
+    memory: 540Mi
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/auth/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+features:
+  queue_enabled: false
+  gateway_enabled: false
+  gateway_enabled: true
+
+replicas:
+  min: 3
+  max: 8
+  target_cpu: 65
+  scale_down_delay: 148s
+
+features:
+  db_beta: true
+  worker_enabled: true
+  auth_enabled: true
+  worker_beta: true
+  api_enabled: false
+
+database:
+  driver: postgres
+  host: db.metrics.local
+  port: 5497
+  pool:
+    min: 2
+    max: 58
+    idle_timeout: 94s
+
+worker:
+  enabled: true
+  port: 5058
+  host: 0.0.0.0
+  logging:
+    level: error
+    format: json
+  resources:
+    cpu: 337m
+    memory: 668Mi
+
+features:
+  gateway_beta: false
+  auth_enabled: false
+  db_beta: true
+  api_beta: false
+
+features:
+  gateway_beta: true
+  queue_beta: false
+  worker_beta: true
+  db_beta: false
+
+replicas:
+  min: 1
+  max: 18
+  target_cpu: 70
+  scale_down_delay: 181s
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/worker/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+worker:
+  enabled: true
+  port: 8985
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 372m
+    memory: 690Mi
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/cache/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+queue:
+  enabled: false
+  port: 5890
+  host: 0.0.0.0
+  logging:
+    level: warn
+    format: json
+  resources:
+    cpu: 483m
+    memory: 624Mi
+
+features:
+  metrics_beta: true
+  gateway_beta: true
+  worker_beta: true
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/gateway/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/cache/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/api/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/queue/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+database:
+  driver: mysql
+  host: db.api.local
+  port: 6145
+  pool:
+    min: 5
+    max: 90
+    idle_timeout: 202s
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/api/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 1
+  max: 18
+  target_cpu: 70
+  scale_down_delay: 67s
+
+features:
+  gateway_beta: false
+  queue_enabled: true
+  worker_enabled: true
+  cache_beta: true
+  cache_beta: false
+
+api:
+  enabled: false
+  port: 6328
+  host: localhost
+  logging:
+    level: error
+    format: json
+  resources:
+    cpu: 207m
+    memory: 471Mi
+
+metrics:
+  enabled: false
+  port: 8748
+  host: localhost
+  logging:
+    level: warn
+    format: text
+  resources:
+    cpu: 505m
+    memory: 463Mi
+
+metrics:
+  enabled: false
+  port: 3033
+  host: localhost
+  logging:
+    level: error
+    format: text
+  resources:
+    cpu: 958m
+    memory: 153Mi
+
+queue:
+  enabled: true
+  port: 7878
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 938m
+    memory: 400Mi
+
+database:
+  driver: mysql
+  host: db.queue.local
+  port: 6405
+  pool:
+    min: 4
+    max: 42
+    idle_timeout: 147s
+
+database:
+  driver: postgres
+  host: db.gateway.local
+  port: 5696
+  pool:
+    min: 5
+    max: 89
+    idle_timeout: 37s
+
+replicas:
+  min: 1
+  max: 11
+  target_cpu: 56
+  scale_down_delay: 285s
+
+worker:
+  enabled: true
+  port: 3038
+  host: localhost
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 741m
+    memory: 230Mi
+
+database:
+  driver: mysql
+  host: db.gateway.local
+  port: 6207
+  pool:
+    min: 4
+    max: 99
+    idle_timeout: 33s
+
+features:
+  cache_beta: false
+  auth_beta: false
+  gateway_beta: true
+
+database:
+  driver: postgres
+  host: db.worker.local
+  port: 6008
+  pool:
+    min: 1
+    max: 93
+    idle_timeout: 282s
+
+queue:
+  enabled: true
+  port: 6131
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 210m
+    memory: 553Mi
+
+features:
+  cache_beta: false
+  auth_enabled: true
+  cache_beta: true
+  queue_enabled: false
+
+queue:
+  enabled: true
+  port: 8448
+  host: 0.0.0.0
+  logging:
+    level: error
+    format: json
+  resources:
+    cpu: 318m
+    memory: 760Mi
+
+features:
+  api_beta: false
+  queue_beta: true
+  cache_beta: true
+  worker_enabled: true
+
+database:
+  driver: postgres
+  host: db.api.local
+  port: 6327
+  pool:
+    min: 2
+    max: 10
+    idle_timeout: 263s
+
+replicas:
+  min: 3
+  max: 18
+  target_cpu: 54
+  scale_down_delay: 148s
+
+database:
+  driver: mongodb
+  host: db.db.local
+  port: 5570
+  pool:
+    min: 3
+    max: 60
+    idle_timeout: 120s
+
+cache:
+  enabled: true
+  port: 8749
+  host: localhost
+  logging:
+    level: error
+    format: text
+  resources:
+    cpu: 833m
+    memory: 599Mi
+
+database:
+  driver: mysql
+  host: db.queue.local
+  port: 6265
+  pool:
+    min: 2
+    max: 28
+    idle_timeout: 71s
+
+replicas:
+  min: 2
+  max: 14
+  target_cpu: 71
+  scale_down_delay: 200s
+
+replicas:
+  min: 1
+  max: 17
+  target_cpu: 50
+  scale_down_delay: 136s
+
+features:
+  cache_enabled: false
+  api_beta: true
+  metrics_enabled: false
+
+features:
+  gateway_beta: false
+  db_enabled: false
+  cache_enabled: false
+  auth_enabled: false
+  cache_enabled: false
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/queue/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+features:
+  api_enabled: true
+  auth_beta: false
+  cache_beta: true
+
+replicas:
+  min: 3
+  max: 8
+  target_cpu: 69
+  scale_down_delay: 231s
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/gateway/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+api:
+  enabled: false
+  port: 7314
+  host: localhost
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 511m
+    memory: 846Mi
+
+database:
+  driver: mongodb
+  host: db.cache.local
+  port: 6164
+  pool:
+    min: 3
+    max: 93
+    idle_timeout: 247s
+
+database:
+  driver: postgres
+  host: db.db.local
+  port: 5599
+  pool:
+    min: 4
+    max: 35
+    idle_timeout: 104s
+
+replicas:
+  min: 3
+  max: 7
+  target_cpu: 59
+  scale_down_delay: 88s
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/queue/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+auth:
+  enabled: false
+  port: 6175
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 182m
+    memory: 332Mi
+
+database:
+  driver: postgres
+  host: db.worker.local
+  port: 6423
+  pool:
+    min: 5
+    max: 35
+    idle_timeout: 255s
+
+replicas:
+  min: 3
+  max: 11
+  target_cpu: 50
+  scale_down_delay: 219s
+
+database:
+  driver: postgres
+  host: db.cache.local
+  port: 6300
+  pool:
+    min: 3
+    max: 46
+    idle_timeout: 297s
+
+gateway:
+  enabled: false
+  port: 6349
+  host: 0.0.0.0
+  logging:
+    level: warn
+    format: text
+  resources:
+    cpu: 982m
+    memory: 556Mi
+
+replicas:
+  min: 2
+  max: 14
+  target_cpu: 62
+  scale_down_delay: 178s
+
+auth:
+  enabled: true
+  port: 5522
+  host: localhost
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 226m
+    memory: 337Mi
+
+features:
+  worker_beta: false
+  gateway_enabled: true
+  worker_beta: false
+
+features:
+  gateway_enabled: true
+  metrics_beta: false
+  worker_beta: true
+  auth_beta: true
+
+db:
+  enabled: true
+  port: 4118
+  host: 0.0.0.0
+  logging:
+    level: debug
+    format: text
+  resources:
+    cpu: 581m
+    memory: 707Mi
+
+database:
+  driver: mongodb
+  host: db.db.local
+  port: 6369
+  pool:
+    min: 4
+    max: 18
+    idle_timeout: 283s
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/worker/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 3
+  max: 8
+  target_cpu: 56
+  scale_down_delay: 65s
+
+metrics:
+  enabled: false
+  port: 4073
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 118m
+    memory: 668Mi
+
+database:
+  driver: mongodb
+  host: db.cache.local
+  port: 5562
+  pool:
+    min: 2
+    max: 44
+    idle_timeout: 53s
+
+database:
+  driver: postgres
+  host: db.cache.local
+  port: 5664
+  pool:
+    min: 2
+    max: 26
+    idle_timeout: 50s
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/cache/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+database:
+  driver: redis
+  host: db.auth.local
+  port: 6153
+  pool:
+    min: 2
+    max: 61
+    idle_timeout: 266s
+
+replicas:
+  min: 3
+  max: 7
+  target_cpu: 52
+  scale_down_delay: 148s
+
+gateway:
+  enabled: false
+  port: 3684
+  host: localhost
+  logging:
+    level: warn
+    format: json
+  resources:
+    cpu: 131m
+    memory: 769Mi
+
+features:
+  db_enabled: false
+  cache_beta: true
+  metrics_enabled: false
+
+metrics:
+  enabled: false
+  port: 7058
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 936m
+    memory: 836Mi
+
+cache:
+  enabled: false
+  port: 6577
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 869m
+    memory: 444Mi
+
+metrics:
+  enabled: false
+  port: 4704
+  host: 0.0.0.0
+  logging:
+    level: error
+    format: json
+  resources:
+    cpu: 314m
+    memory: 363Mi
+
+database:
+  driver: redis
+  host: db.metrics.local
+  port: 5691
+  pool:
+    min: 5
+    max: 30
+    idle_timeout: 152s
+
+features:
+  metrics_beta: false
+  auth_enabled: false
+  queue_enabled: true
+
+features:
+  auth_beta: true
+  gateway_beta: true
+  gateway_beta: true
+  db_enabled: false
+
+api:
+  enabled: true
+  port: 6294
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 576m
+    memory: 513Mi
+
+features:
+  cache_enabled: false
+  metrics_beta: true
+  metrics_enabled: true
+  gateway_enabled: true
+  queue_beta: false
+  worker_beta: true
+
+database:
+  driver: redis
+  host: db.metrics.local
+  port: 5968
+  pool:
+    min: 1
+    max: 45
+    idle_timeout: 126s
+
+features:
+  gateway_enabled: true
+  db_enabled: false
+  metrics_enabled: true
+  api_enabled: false
+
+database:
+  driver: postgres
+  host: db.worker.local
+  port: 5672
+  pool:
+    min: 2
+    max: 13
+    idle_timeout: 183s
+
+database:
+  driver: redis
+  host: db.auth.local
+  port: 5581
+  pool:
+    min: 3
+    max: 25
+    idle_timeout: 195s
+
+auth:
+  enabled: false
+  port: 3753
+  host: 0.0.0.0
+  logging:
+    level: warn
+    format: json
+  resources:
+    cpu: 240m
+    memory: 615Mi
+
+replicas:
+  min: 2
+  max: 14
+  target_cpu: 60
+  scale_down_delay: 65s
+
+replicas:
+  min: 1
+  max: 10
+  target_cpu: 60
+  scale_down_delay: 138s
+
+replicas:
+  min: 3
+  max: 9
+  target_cpu: 65
+  scale_down_delay: 179s
+
+replicas:
+  min: 2
+  max: 12
+  target_cpu: 61
+  scale_down_delay: 255s
+
+gateway:
+  enabled: false
+  port: 8518
+  host: localhost
+  logging:
+    level: warn
+    format: json
+  resources:
+    cpu: 751m
+    memory: 771Mi
+
+replicas:
+  min: 2
+  max: 9
+  target_cpu: 59
+  scale_down_delay: 138s
+
+replicas:
+  min: 2
+  max: 6
+  target_cpu: 61
+  scale_down_delay: 165s
+
+database:
+  driver: redis
+  host: db.auth.local
+  port: 5661
+  pool:
+    min: 1
+    max: 70
+    idle_timeout: 247s
+
+api:
+  enabled: false
+  port: 4858
+  host: 0.0.0.0
+  logging:
+    level: warn
+    format: text
+  resources:
+    cpu: 761m
+    memory: 739Mi
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/queue/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+queue:
+  enabled: false
+  port: 4407
+  host: localhost
+  logging:
+    level: error
+    format: json
+  resources:
+    cpu: 293m
+    memory: 785Mi
+
+replicas:
+  min: 1
+  max: 5
+  target_cpu: 79
+  scale_down_delay: 131s
+
+replicas:
+  min: 2
+  max: 14
+  target_cpu: 67
+  scale_down_delay: 117s
+
+replicas:
+  min: 2
+  max: 19
+  target_cpu: 60
+  scale_down_delay: 289s
+
+features:
+  api_beta: true
+  worker_beta: false
+  queue_enabled: true
+
+replicas:
+  min: 3
+  max: 19
+  target_cpu: 79
+  scale_down_delay: 159s
+
+features:
+  auth_beta: false
+  api_enabled: true
+  auth_enabled: true
+  gateway_enabled: true
+
+database:
+  driver: mysql
+  host: db.cache.local
+  port: 5730
+  pool:
+    min: 4
+    max: 91
+    idle_timeout: 118s
+
+database:
+  driver: redis
+  host: db.queue.local
+  port: 6201
+  pool:
+    min: 2
+    max: 60
+    idle_timeout: 232s
+
+features:
+  auth_enabled: true
+  worker_beta: true
+  worker_enabled: true
+  queue_beta: true
+
+features:
+  worker_enabled: false
+  worker_enabled: false
+  db_enabled: false
+  api_beta: false
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/cache/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+queue:
+  enabled: false
+  port: 3992
+  host: 0.0.0.0
+  logging:
+    level: error
+    format: json
+  resources:
+    cpu: 239m
+    memory: 812Mi
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/gateway/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/cache/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+worker:
+  enabled: true
+  port: 7105
+  host: localhost
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 573m
+    memory: 744Mi
+
+features:
+  db_enabled: false
+  api_beta: true
+  db_enabled: false
+  queue_beta: false
+  queue_beta: false
+  db_enabled: true
+
+worker:
+  enabled: true
+  port: 6946
+  host: localhost
+  logging:
+    level: error
+    format: json
+  resources:
+    cpu: 393m
+    memory: 385Mi
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/queue/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+auth:
+  enabled: false
+  port: 8808
+  host: localhost
+  logging:
+    level: warn
+    format: json
+  resources:
+    cpu: 316m
+    memory: 884Mi
+
+replicas:
+  min: 3
+  max: 16
+  target_cpu: 72
+  scale_down_delay: 254s
+
+database:
+  driver: mongodb
+  host: db.auth.local
+  port: 6179
+  pool:
+    min: 2
+    max: 67
+    idle_timeout: 139s
+
+features:
+  worker_enabled: false
+  queue_beta: false
+  metrics_beta: false
+  gateway_enabled: true
+  gateway_enabled: true
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/auth/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+database:
+  driver: mongodb
+  host: db.gateway.local
+  port: 6335
+  pool:
+    min: 5
+    max: 62
+    idle_timeout: 160s
+
+replicas:
+  min: 1
+  max: 15
+  target_cpu: 73
+  scale_down_delay: 241s
+
+replicas:
+  min: 1
+  max: 10
+  target_cpu: 66
+  scale_down_delay: 93s
+
+gateway:
+  enabled: false
+  port: 4193
+  host: localhost
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 461m
+    memory: 721Mi
+
+auth:
+  enabled: true
+  port: 3670
+  host: 0.0.0.0
+  logging:
+    level: debug
+    format: json
+  resources:
+    cpu: 170m
+    memory: 583Mi
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/db/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+features:
+  cache_beta: true
+  queue_enabled: false
+  auth_enabled: true
+  auth_enabled: true
+  api_beta: false
+
+features:
+  api_beta: false
+  api_beta: true
+  queue_enabled: true
+  worker_beta: true
+
+features:
+  api_beta: false
+  cache_beta: true
+  worker_beta: false
+
+features:
+  db_enabled: false
+  queue_beta: true
+  api_beta: false
+  api_beta: true
+
+cache:
+  enabled: false
+  port: 4111
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 341m
+    memory: 301Mi
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/queue/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+metrics:
+  enabled: true
+  port: 3097
+  host: 0.0.0.0
+  logging:
+    level: error
+    format: text
+  resources:
+    cpu: 112m
+    memory: 281Mi
+
+features:
+  queue_enabled: true
+  gateway_enabled: true
+  cache_enabled: false
+  worker_enabled: true
+  cache_beta: false
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/metrics/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 3
+  max: 10
+  target_cpu: 74
+  scale_down_delay: 164s
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/cache/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+features:
+  queue_beta: true
+  auth_enabled: false
+  metrics_beta: true
+  cache_beta: false
+  cache_enabled: true
+
+replicas:
+  min: 2
+  max: 14
+  target_cpu: 57
+  scale_down_delay: 172s
+
+database:
+  driver: mongodb
+  host: db.auth.local
+  port: 6224
+  pool:
+    min: 1
+    max: 78
+    idle_timeout: 294s
+
+db:
+  enabled: true
+  port: 6638
+  host: localhost
+  logging:
+    level: warn
+    format: text
+  resources:
+    cpu: 922m
+    memory: 567Mi
+
+replicas:
+  min: 1
+  max: 5
+  target_cpu: 55
+  scale_down_delay: 179s
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/db/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+features:
+  worker_beta: true
+  queue_enabled: false
+  queue_beta: true
+  queue_enabled: true
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/gateway/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 2
+  max: 14
+  target_cpu: 68
+  scale_down_delay: 168s
+
+replicas:
+  min: 3
+  max: 14
+  target_cpu: 63
+  scale_down_delay: 108s
+
+database:
+  driver: redis
+  host: db.queue.local
+  port: 6403
+  pool:
+    min: 5
+    max: 59
+    idle_timeout: 146s
+
+features:
+  gateway_enabled: false
+  cache_enabled: true
+  gateway_enabled: false
+  api_beta: true
+
+gateway:
+  enabled: false
+  port: 3896
+  host: 0.0.0.0
+  logging:
+    level: error
+    format: text
+  resources:
+    cpu: 406m
+    memory: 802Mi
+
+database:
+  driver: redis
+  host: db.metrics.local
+  port: 6178
+  pool:
+    min: 4
+    max: 70
+    idle_timeout: 181s
+
+database:
+  driver: postgres
+  host: db.api.local
+  port: 5869
+  pool:
+    min: 2
+    max: 17
+    idle_timeout: 169s
+
+features:
+  queue_enabled: false
+  worker_beta: false
+  api_beta: false
+  db_enabled: false
+  auth_enabled: true
+  gateway_beta: true
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/api/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+database:
+  driver: redis
+  host: db.api.local
+  port: 5711
+  pool:
+    min: 3
+    max: 10
+    idle_timeout: 247s
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/db/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 3
+  max: 6
+  target_cpu: 79
+  scale_down_delay: 199s
+
+features:
+  cache_enabled: false
+  worker_enabled: true
+  worker_enabled: false
+  cache_enabled: true
+
+replicas:
+  min: 2
+  max: 15
+  target_cpu: 65
+  scale_down_delay: 60s
+
+auth:
+  enabled: false
+  port: 3909
+  host: 0.0.0.0
+  logging:
+    level: error
+    format: json
+  resources:
+    cpu: 943m
+    memory: 697Mi
+
+database:
+  driver: postgres
+  host: db.queue.local
+  port: 6068
+  pool:
+    min: 2
+    max: 98
+    idle_timeout: 240s
+
+replicas:
+  min: 2
+  max: 8
+  target_cpu: 55
+  scale_down_delay: 153s
+
+gateway:
+  enabled: true
+  port: 4499
+  host: localhost
+  logging:
+    level: error
+    format: json
+  resources:
+    cpu: 419m
+    memory: 723Mi
+
+database:
+  driver: mongodb
+  host: db.worker.local
+  port: 5508
+  pool:
+    min: 5
+    max: 75
+    idle_timeout: 214s
+
+replicas:
+  min: 2
+  max: 9
+  target_cpu: 67
+  scale_down_delay: 163s
+
+database:
+  driver: mongodb
+  host: db.api.local
+  port: 5896
+  pool:
+    min: 1
+    max: 32
+    idle_timeout: 165s
+
+features:
+  auth_enabled: false
+  api_beta: true
+  worker_enabled: true
+
+database:
+  driver: mongodb
+  host: db.api.local
+  port: 5614
+  pool:
+    min: 5
+    max: 42
+    idle_timeout: 271s
+
+queue:
+  enabled: true
+  port: 6226
+  host: localhost
+  logging:
+    level: debug
+    format: text
+  resources:
+    cpu: 806m
+    memory: 962Mi
+
+features:
+  gateway_enabled: true
+  gateway_enabled: false
+  cache_beta: true
+  queue_enabled: true
+  gateway_beta: true
+
+database:
+  driver: postgres
+  host: db.cache.local
+  port: 6229
+  pool:
+    min: 5
+    max: 19
+    idle_timeout: 111s
+
+features:
+  cache_enabled: false
+  worker_beta: false
+  cache_enabled: false
+  cache_enabled: true
+  auth_enabled: true
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/queue/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+database:
+  driver: postgres
+  host: db.db.local
+  port: 5822
+  pool:
+    min: 2
+    max: 34
+    idle_timeout: 295s
+
+features:
+  worker_beta: true
+  cache_beta: true
+  queue_beta: true
+  queue_enabled: true
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/queue/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/metrics/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+metrics:
+  enabled: true
+  port: 7076
+  host: localhost
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 537m
+    memory: 604Mi
+
+features:
+  worker_enabled: false
+  worker_enabled: true
+  cache_beta: false
+
+auth:
+  enabled: true
+  port: 5328
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 221m
+    memory: 636Mi
+
+metrics:
+  enabled: false
+  port: 7808
+  host: localhost
+  logging:
+    level: warn
+    format: text
+  resources:
+    cpu: 486m
+    memory: 404Mi
+
+features:
+  worker_enabled: false
+  metrics_enabled: true
+  db_enabled: false
+  api_beta: false
+  db_beta: true
+  db_enabled: false
+
+features:
+  db_beta: true
+  queue_beta: false
+  db_enabled: true
+  queue_beta: true
+
+database:
+  driver: redis
+  host: db.auth.local
+  port: 6117
+  pool:
+    min: 3
+    max: 60
+    idle_timeout: 37s
+
+gateway:
+  enabled: false
+  port: 6913
+  host: localhost
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 494m
+    memory: 260Mi
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/queue/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 2
+  max: 12
+  target_cpu: 56
+  scale_down_delay: 224s
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/queue/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+db:
+  enabled: false
+  port: 4378
+  host: localhost
+  logging:
+    level: error
+    format: text
+  resources:
+    cpu: 206m
+    memory: 916Mi
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/gateway/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+auth:
+  enabled: true
+  port: 3083
+  host: 0.0.0.0
+  logging:
+    level: error
+    format: json
+  resources:
+    cpu: 139m
+    memory: 721Mi
+
+replicas:
+  min: 2
+  max: 10
+  target_cpu: 64
+  scale_down_delay: 287s
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/auth/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/queue/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 2
+  max: 5
+  target_cpu: 74
+  scale_down_delay: 99s
+
+api:
+  enabled: false
+  port: 5001
+  host: 0.0.0.0
+  logging:
+    level: error
+    format: text
+  resources:
+    cpu: 668m
+    memory: 777Mi
+
+database:
+  driver: mysql
+  host: db.metrics.local
+  port: 5699
+  pool:
+    min: 1
+    max: 42
+    idle_timeout: 53s
+
+features:
+  auth_enabled: false
+  metrics_beta: false
+  db_beta: true
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/metrics/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+features:
+  gateway_beta: true
+  metrics_beta: false
+  api_beta: false
+  cache_enabled: false
+
+database:
+  driver: postgres
+  host: db.metrics.local
+  port: 5689
+  pool:
+    min: 2
+    max: 95
+    idle_timeout: 209s
+
+replicas:
+  min: 3
+  max: 16
+  target_cpu: 78
+  scale_down_delay: 66s
+
+replicas:
+  min: 3
+  max: 15
+  target_cpu: 58
+  scale_down_delay: 149s
+
+replicas:
+  min: 1
+  max: 9
+  target_cpu: 55
+  scale_down_delay: 235s
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/auth/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+gateway:
+  enabled: true
+  port: 4487
+  host: 0.0.0.0
+  logging:
+    level: debug
+    format: text
+  resources:
+    cpu: 543m
+    memory: 767Mi
+
+replicas:
+  min: 2
+  max: 6
+  target_cpu: 51
+  scale_down_delay: 202s
+
+database:
+  driver: redis
+  host: db.api.local
+  port: 5979
+  pool:
+    min: 1
+    max: 15
+    idle_timeout: 125s
+
+features:
+  api_enabled: false
+  gateway_enabled: true
+  db_enabled: false
+  auth_enabled: false
+
+features:
+  metrics_enabled: true
+  auth_beta: true
+  api_enabled: true
+  api_beta: true
+  worker_enabled: true
+
+database:
+  driver: mysql
+  host: db.db.local
+  port: 5757
+  pool:
+    min: 5
+    max: 56
+    idle_timeout: 191s
+
+database:
+  driver: redis
+  host: db.worker.local
+  port: 5464
+  pool:
+    min: 2
+    max: 80
+    idle_timeout: 50s
+
+metrics:
+  enabled: true
+  port: 6958
+  host: localhost
+  logging:
+    level: debug
+    format: json
+  resources:
+    cpu: 300m
+    memory: 302Mi
+
+replicas:
+  min: 3
+  max: 11
+  target_cpu: 65
+  scale_down_delay: 128s
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/worker/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+features:
+  gateway_beta: true
+  cache_enabled: true
+  cache_beta: true
+  queue_beta: true
+
+queue:
+  enabled: false
+  port: 7451
+  host: localhost
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 614m
+    memory: 1010Mi
+
+metrics:
+  enabled: true
+  port: 7668
+  host: 0.0.0.0
+  logging:
+    level: warn
+    format: text
+  resources:
+    cpu: 928m
+    memory: 736Mi
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/gateway/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 1
+  max: 19
+  target_cpu: 58
+  scale_down_delay: 169s
+
+db:
+  enabled: false
+  port: 3920
+  host: 0.0.0.0
+  logging:
+    level: debug
+    format: text
+  resources:
+    cpu: 439m
+    memory: 361Mi
+
+database:
+  driver: mongodb
+  host: db.metrics.local
+  port: 6064
+  pool:
+    min: 1
+    max: 24
+    idle_timeout: 242s
+
+database:
+  driver: mongodb
+  host: db.metrics.local
+  port: 5938
+  pool:
+    min: 5
+    max: 29
+    idle_timeout: 273s
+
+features:
+  api_enabled: false
+  worker_beta: false
+  auth_beta: true
+
+replicas:
+  min: 1
+  max: 19
+  target_cpu: 63
+  scale_down_delay: 133s
+
+auth:
+  enabled: true
+  port: 8371
+  host: localhost
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 436m
+    memory: 929Mi
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/db/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+database:
+  driver: mongodb
+  host: db.cache.local
+  port: 5662
+  pool:
+    min: 4
+    max: 33
+    idle_timeout: 209s
+
+replicas:
+  min: 3
+  max: 14
+  target_cpu: 79
+  scale_down_delay: 74s
+
+database:
+  driver: mongodb
+  host: db.db.local
+  port: 5929
+  pool:
+    min: 2
+    max: 93
+    idle_timeout: 298s
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/worker/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/metrics/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/auth/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+database:
+  driver: mysql
+  host: db.db.local
+  port: 5811
+  pool:
+    min: 2
+    max: 70
+    idle_timeout: 233s
+
+gateway:
+  enabled: false
+  port: 7819
+  host: localhost
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 487m
+    memory: 484Mi
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/gateway/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+database:
+  driver: mongodb
+  host: db.metrics.local
+  port: 6237
+  pool:
+    min: 3
+    max: 29
+    idle_timeout: 229s
+
+cache:
+  enabled: false
+  port: 8675
+  host: 0.0.0.0
+  logging:
+    level: warn
+    format: text
+  resources:
+    cpu: 758m
+    memory: 237Mi
+
+worker:
+  enabled: true
+  port: 3636
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 969m
+    memory: 628Mi
+
+database:
+  driver: mongodb
+  host: db.metrics.local
+  port: 6218
+  pool:
+    min: 4
+    max: 44
+    idle_timeout: 179s
+
+replicas:
+  min: 2
+  max: 13
+  target_cpu: 58
+  scale_down_delay: 92s
+
+features:
+  db_beta: false
+  cache_beta: false
+  db_enabled: false
+
+features:
+  db_enabled: true
+  cache_beta: true
+  worker_enabled: false
+  api_enabled: true
+
+db:
+  enabled: false
+  port: 5601
+  host: 0.0.0.0
+  logging:
+    level: warn
+    format: text
+  resources:
+    cpu: 574m
+    memory: 1008Mi
+
+database:
+  driver: mysql
+  host: db.worker.local
+  port: 5620
+  pool:
+    min: 3
+    max: 64
+    idle_timeout: 188s
+
+database:
+  driver: redis
+  host: db.queue.local
+  port: 6170
+  pool:
+    min: 2
+    max: 16
+    idle_timeout: 285s
+
+features:
+  queue_beta: true
+  db_beta: false
+  metrics_beta: true
+  auth_enabled: true
+  gateway_enabled: false
+
+database:
+  driver: postgres
+  host: db.db.local
+  port: 6301
+  pool:
+    min: 4
+    max: 37
+    idle_timeout: 269s
+
+features:
+  db_beta: false
+  metrics_beta: true
+  worker_enabled: true
+  worker_enabled: true
+  cache_beta: true
+
+replicas:
+  min: 1
+  max: 18
+  target_cpu: 59
+  scale_down_delay: 129s
+
+replicas:
+  min: 2
+  max: 10
+  target_cpu: 74
+  scale_down_delay: 225s
+
+api:
+  enabled: false
+  port: 5035
+  host: 0.0.0.0
+  logging:
+    level: warn
+    format: json
+  resources:
+    cpu: 917m
+    memory: 249Mi
+
+database:
+  driver: postgres
+  host: db.queue.local
+  port: 5843
+  pool:
+    min: 5
+    max: 14
+    idle_timeout: 266s
+
+worker:
+  enabled: false
+  port: 7878
+  host: 0.0.0.0
+  logging:
+    level: error
+    format: json
+  resources:
+    cpu: 754m
+    memory: 915Mi
+
+gateway:
+  enabled: true
+  port: 6830
+  host: localhost
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 595m
+    memory: 759Mi
+
+worker:
+  enabled: false
+  port: 5260
+  host: 0.0.0.0
+  logging:
+    level: debug
+    format: json
+  resources:
+    cpu: 328m
+    memory: 642Mi
+
+auth:
+  enabled: false
+  port: 3967
+  host: localhost
+  logging:
+    level: warn
+    format: text
+  resources:
+    cpu: 196m
+    memory: 852Mi
+
+db:
+  enabled: false
+  port: 6372
+  host: localhost
+  logging:
+    level: debug
+    format: json
+  resources:
+    cpu: 296m
+    memory: 579Mi
+
+features:
+  api_beta: true
+  api_beta: true
+  queue_enabled: true
+  cache_beta: false
+
+api:
+  enabled: true
+  port: 4685
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 788m
+    memory: 457Mi
+
+replicas:
+  min: 3
+  max: 13
+  target_cpu: 65
+  scale_down_delay: 251s
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/auth/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 3
+  max: 10
+  target_cpu: 74
+  scale_down_delay: 296s
+
+worker:
+  enabled: true
+  port: 7951
+  host: localhost
+  logging:
+    level: error
+    format: json
+  resources:
+    cpu: 979m
+    memory: 954Mi
+
+features:
+  metrics_beta: false
+  metrics_enabled: false
+  db_enabled: false
+  worker_enabled: true
+  metrics_enabled: false
+
+environment: production
+
+secrets:
+  - name: api_key
+    vault_path: secret/db/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+cache:
+  enabled: false
+  port: 7216
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 145m
+    memory: 368Mi
+
+features:
+  api_enabled: true
+  metrics_enabled: false
+  db_beta: true
+  db_beta: false
+  auth_beta: false
+
+features:
+  metrics_enabled: true
+  metrics_enabled: true
+  db_beta: false
+  gateway_beta: false
+  metrics_enabled: true
+
+features:
+  db_enabled: true
+  gateway_enabled: false
+  cache_beta: true
+  metrics_enabled: false
+  api_beta: true
+  queue_enabled: true
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/db/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/worker/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 2
+  max: 6
+  target_cpu: 74
+  scale_down_delay: 151s
+
+features:
+  gateway_enabled: false
+  queue_beta: false
+  worker_beta: true
+  db_enabled: true
+  cache_beta: true
+
+features:
+  cache_beta: true
+  db_enabled: true
+  worker_beta: false
+
+replicas:
+  min: 1
+  max: 16
+  target_cpu: 75
+  scale_down_delay: 97s
+
+worker:
+  enabled: false
+  port: 4627
+  host: 0.0.0.0
+  logging:
+    level: debug
+    format: text
+  resources:
+    cpu: 165m
+    memory: 558Mi
+
+db:
+  enabled: false
+  port: 8860
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: json
+  resources:
+    cpu: 426m
+    memory: 843Mi
+
+database:
+  driver: mysql
+  host: db.auth.local
+  port: 5479
+  pool:
+    min: 4
+    max: 87
+    idle_timeout: 291s
+
+worker:
+  enabled: false
+  port: 6476
+  host: localhost
+  logging:
+    level: error
+    format: json
+  resources:
+    cpu: 168m
+    memory: 306Mi
+
+replicas:
+  min: 3
+  max: 18
+  target_cpu: 70
+  scale_down_delay: 292s
+
+database:
+  driver: mongodb
+  host: db.metrics.local
+  port: 6301
+  pool:
+    min: 2
+    max: 20
+    idle_timeout: 209s
+
+replicas:
+  min: 1
+  max: 9
+  target_cpu: 66
+  scale_down_delay: 206s
+
+db:
+  enabled: false
+  port: 7527
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 971m
+    memory: 503Mi
+
+replicas:
+  min: 2
+  max: 14
+  target_cpu: 51
+  scale_down_delay: 228s
+
+database:
+  driver: mongodb
+  host: db.api.local
+  port: 5695
+  pool:
+    min: 1
+    max: 36
+    idle_timeout: 41s
+
+features:
+  db_enabled: false
+  worker_beta: false
+  cache_beta: false
+
+features:
+  worker_enabled: true
+  gateway_beta: false
+  queue_beta: true
+  api_enabled: false
+  gateway_beta: false
+
+database:
+  driver: mysql
+  host: db.worker.local
+  port: 5997
+  pool:
+    min: 5
+    max: 24
+    idle_timeout: 231s
+
+database:
+  driver: redis
+  host: db.cache.local
+  port: 5901
+  pool:
+    min: 1
+    max: 55
+    idle_timeout: 216s
+
+replicas:
+  min: 1
+  max: 11
+  target_cpu: 69
+  scale_down_delay: 83s
+
+replicas:
+  min: 1
+  max: 15
+  target_cpu: 60
+  scale_down_delay: 161s
+
+features:
+  cache_enabled: false
+  auth_beta: false
+  db_beta: false
+  gateway_beta: false
+  gateway_beta: true
+
+features:
+  worker_enabled: true
+  queue_enabled: true
+  worker_beta: true
+
+db:
+  enabled: false
+  port: 3029
+  host: localhost
+  logging:
+    level: debug
+    format: text
+  resources:
+    cpu: 464m
+    memory: 442Mi
+
+replicas:
+  min: 1
+  max: 11
+  target_cpu: 77
+  scale_down_delay: 118s
+
+database:
+  driver: mongodb
+  host: db.metrics.local
+  port: 5993
+  pool:
+    min: 3
+    max: 30
+    idle_timeout: 125s
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/metrics/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+gateway:
+  enabled: false
+  port: 4087
+  host: localhost
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 587m
+    memory: 669Mi
+
+cache:
+  enabled: false
+  port: 8583
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 790m
+    memory: 660Mi
+
+metrics:
+  enabled: true
+  port: 5452
+  host: localhost
+  logging:
+    level: error
+    format: text
+  resources:
+    cpu: 888m
+    memory: 1020Mi
+
+queue:
+  enabled: false
+  port: 4219
+  host: localhost
+  logging:
+    level: debug
+    format: json
+  resources:
+    cpu: 723m
+    memory: 479Mi
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/queue/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+database:
+  driver: redis
+  host: db.metrics.local
+  port: 5643
+  pool:
+    min: 4
+    max: 15
+    idle_timeout: 139s
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/api/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 2
+  max: 15
+  target_cpu: 54
+  scale_down_delay: 113s
+
+features:
+  cache_enabled: true
+  queue_beta: true
+  gateway_enabled: true
+  worker_enabled: false
+  worker_enabled: true
+  auth_beta: false
+
+metrics:
+  enabled: false
+  port: 8045
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 745m
+    memory: 400Mi
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/worker/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+cache:
+  enabled: true
+  port: 4554
+  host: 0.0.0.0
+  logging:
+    level: info
+    format: text
+  resources:
+    cpu: 252m
+    memory: 732Mi
+
+api:
+  enabled: false
+  port: 4255
+  host: 0.0.0.0
+  logging:
+    level: warn
+    format: json
+  resources:
+    cpu: 528m
+    memory: 979Mi
+
+replicas:
+  min: 3
+  max: 5
+  target_cpu: 68
+  scale_down_delay: 65s
+
+environment: staging
+
+secrets:
+  - name: api_key
+    vault_path: secret/api/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+features:
+  cache_enabled: true
+  auth_beta: false
+  api_enabled: true
+  cache_enabled: true
+
+metrics:
+  enabled: false
+  port: 6776
+  host: localhost
+  logging:
+    level: debug
+    format: json
+  resources:
+    cpu: 524m
+    memory: 818Mi
+
+replicas:
+  min: 2
+  max: 7
+  target_cpu: 50
+  scale_down_delay: 178s
+
+environment: development
+
+secrets:
+  - name: api_key
+    vault_path: secret/cache/api_key
+  - name: db_password
+    vault_path: secret/database/password
+
+replicas:
+  min: 3
+  max: 11
+  target_cpu: 52
+  scale_down_delay: 218s
+
+queue:
+  enabled: false
+  port: 5999
+  host: 0.0.0.0
+  logging:
+    level: warn
+    format: json
+  resources:
+    cpu: 823m
+    memory: 583Mi
+
+features:
+  queue_enabled: false
+  api_beta: true
+  db_enabled: false
+  api

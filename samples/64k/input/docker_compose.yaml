@@ -1,0 +1,2811 @@
+version: '3.8'
+
+services:
+  web-0:
+    image: python:3.12-slim
+    container_name: web-0-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3000:3076"
+    volumes:
+      - ./data/web:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3014/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api-1:
+    image: nginx:alpine
+    container_name: api-1-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3001:3020"
+    volumes:
+      - ./data/api:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3024/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db-2:
+    image: node:20-alpine
+    container_name: db-2-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3002:3078"
+    volumes:
+      - ./data/db:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3014/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  cache-3:
+    image: elasticsearch:8.11.0
+    container_name: cache-3-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3003:3031"
+    volumes:
+      - ./data/cache:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3072/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker-4:
+    image: elasticsearch:8.11.0
+    container_name: worker-4-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3004:3067"
+    volumes:
+      - ./data/worker:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx-5:
+    image: python:3.12-slim
+    container_name: nginx-5-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3005:3073"
+    volumes:
+      - ./data/nginx:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3011/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  rabbitmq-6:
+    image: redis:7-alpine
+    container_name: rabbitmq-6-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3006:3041"
+    volumes:
+      - ./data/rabbitmq:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3069/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  elasticsearch-7:
+    image: postgres:16
+    container_name: elasticsearch-7-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3007:3072"
+    volumes:
+      - ./data/elasticsearch:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web-8:
+    image: node:20-alpine
+    container_name: web-8-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3008:3033"
+    volumes:
+      - ./data/web:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3064/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api-9:
+    image: nginx:alpine
+    container_name: api-9-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3009:3032"
+    volumes:
+      - ./data/api:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3010/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db-10:
+    image: node:20-alpine
+    container_name: db-10-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3010:3077"
+    volumes:
+      - ./data/db:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3019/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  cache-11:
+    image: elasticsearch:8.11.0
+    container_name: cache-11-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3011:3043"
+    volumes:
+      - ./data/cache:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3094/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker-12:
+    image: rabbitmq:3-management
+    container_name: worker-12-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3012:3070"
+    volumes:
+      - ./data/worker:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3009/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx-13:
+    image: rabbitmq:3-management
+    container_name: nginx-13-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3013:3086"
+    volumes:
+      - ./data/nginx:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3099/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  rabbitmq-14:
+    image: elasticsearch:8.11.0
+    container_name: rabbitmq-14-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3014:3078"
+    volumes:
+      - ./data/rabbitmq:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  elasticsearch-15:
+    image: rabbitmq:3-management
+    container_name: elasticsearch-15-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3015:3040"
+    volumes:
+      - ./data/elasticsearch:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3060/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web-16:
+    image: rabbitmq:3-management
+    container_name: web-16-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3016:3023"
+    volumes:
+      - ./data/web:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3020/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api-17:
+    image: elasticsearch:8.11.0
+    container_name: api-17-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3017:3077"
+    volumes:
+      - ./data/api:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3089/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db-18:
+    image: redis:7-alpine
+    container_name: db-18-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3018:3048"
+    volumes:
+      - ./data/db:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3009/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  cache-19:
+    image: redis:7-alpine
+    container_name: cache-19-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3019:3058"
+    volumes:
+      - ./data/cache:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3091/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker-20:
+    image: node:20-alpine
+    container_name: worker-20-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3020:3036"
+    volumes:
+      - ./data/worker:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx-21:
+    image: nginx:alpine
+    container_name: nginx-21-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3021:3089"
+    volumes:
+      - ./data/nginx:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3028/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  rabbitmq-22:
+    image: nginx:alpine
+    container_name: rabbitmq-22-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3022:3027"
+    volumes:
+      - ./data/rabbitmq:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3047/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  elasticsearch-23:
+    image: python:3.12-slim
+    container_name: elasticsearch-23-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3023:3041"
+    volumes:
+      - ./data/elasticsearch:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3045/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web-24:
+    image: nginx:alpine
+    container_name: web-24-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3024:3061"
+    volumes:
+      - ./data/web:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3064/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api-25:
+    image: rabbitmq:3-management
+    container_name: api-25-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3025:3037"
+    volumes:
+      - ./data/api:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3075/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db-26:
+    image: rabbitmq:3-management
+    container_name: db-26-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3026:3005"
+    volumes:
+      - ./data/db:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3007/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  cache-27:
+    image: postgres:16
+    container_name: cache-27-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3027:3095"
+    volumes:
+      - ./data/cache:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3034/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker-28:
+    image: elasticsearch:8.11.0
+    container_name: worker-28-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3028:3090"
+    volumes:
+      - ./data/worker:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3039/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx-29:
+    image: node:20-alpine
+    container_name: nginx-29-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3029:3011"
+    volumes:
+      - ./data/nginx:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3068/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  rabbitmq-30:
+    image: rabbitmq:3-management
+    container_name: rabbitmq-30-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3030:3017"
+    volumes:
+      - ./data/rabbitmq:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3046/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  elasticsearch-31:
+    image: rabbitmq:3-management
+    container_name: elasticsearch-31-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3031:3065"
+    volumes:
+      - ./data/elasticsearch:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3092/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web-32:
+    image: node:20-alpine
+    container_name: web-32-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3032:3047"
+    volumes:
+      - ./data/web:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3068/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api-33:
+    image: redis:7-alpine
+    container_name: api-33-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3033:3006"
+    volumes:
+      - ./data/api:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db-34:
+    image: nginx:alpine
+    container_name: db-34-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3034:3010"
+    volumes:
+      - ./data/db:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3096/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  cache-35:
+    image: elasticsearch:8.11.0
+    container_name: cache-35-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3035:3055"
+    volumes:
+      - ./data/cache:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3019/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker-36:
+    image: rabbitmq:3-management
+    container_name: worker-36-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3036:3070"
+    volumes:
+      - ./data/worker:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3018/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx-37:
+    image: elasticsearch:8.11.0
+    container_name: nginx-37-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3037:3022"
+    volumes:
+      - ./data/nginx:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  rabbitmq-38:
+    image: postgres:16
+    container_name: rabbitmq-38-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3038:3032"
+    volumes:
+      - ./data/rabbitmq:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3077/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  elasticsearch-39:
+    image: postgres:16
+    container_name: elasticsearch-39-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3039:3000"
+    volumes:
+      - ./data/elasticsearch:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3083/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web-40:
+    image: nginx:alpine
+    container_name: web-40-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3040:3063"
+    volumes:
+      - ./data/web:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3047/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api-41:
+    image: nginx:alpine
+    container_name: api-41-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3041:3039"
+    volumes:
+      - ./data/api:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3078/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db-42:
+    image: nginx:alpine
+    container_name: db-42-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3042:3035"
+    volumes:
+      - ./data/db:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3024/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  cache-43:
+    image: node:20-alpine
+    container_name: cache-43-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3043:3087"
+    volumes:
+      - ./data/cache:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3009/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker-44:
+    image: node:20-alpine
+    container_name: worker-44-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3044:3048"
+    volumes:
+      - ./data/worker:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx-45:
+    image: rabbitmq:3-management
+    container_name: nginx-45-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3045:3021"
+    volumes:
+      - ./data/nginx:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  rabbitmq-46:
+    image: redis:7-alpine
+    container_name: rabbitmq-46-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3046:3025"
+    volumes:
+      - ./data/rabbitmq:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3010/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  elasticsearch-47:
+    image: python:3.12-slim
+    container_name: elasticsearch-47-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3047:3042"
+    volumes:
+      - ./data/elasticsearch:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3054/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web-48:
+    image: nginx:alpine
+    container_name: web-48-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3048:3002"
+    volumes:
+      - ./data/web:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3073/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api-49:
+    image: redis:7-alpine
+    container_name: api-49-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3049:3056"
+    volumes:
+      - ./data/api:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3094/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db-50:
+    image: rabbitmq:3-management
+    container_name: db-50-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3050:3094"
+    volumes:
+      - ./data/db:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3068/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  cache-51:
+    image: elasticsearch:8.11.0
+    container_name: cache-51-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3051:3095"
+    volumes:
+      - ./data/cache:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3019/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker-52:
+    image: postgres:16
+    container_name: worker-52-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3052:3074"
+    volumes:
+      - ./data/worker:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3070/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx-53:
+    image: postgres:16
+    container_name: nginx-53-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3053:3034"
+    volumes:
+      - ./data/nginx:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3040/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  rabbitmq-54:
+    image: redis:7-alpine
+    container_name: rabbitmq-54-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3054:3007"
+    volumes:
+      - ./data/rabbitmq:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  elasticsearch-55:
+    image: rabbitmq:3-management
+    container_name: elasticsearch-55-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3055:3049"
+    volumes:
+      - ./data/elasticsearch:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3071/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web-56:
+    image: redis:7-alpine
+    container_name: web-56-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3056:3004"
+    volumes:
+      - ./data/web:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3021/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api-57:
+    image: redis:7-alpine
+    container_name: api-57-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3057:3025"
+    volumes:
+      - ./data/api:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3051/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db-58:
+    image: redis:7-alpine
+    container_name: db-58-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3058:3099"
+    volumes:
+      - ./data/db:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3095/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  cache-59:
+    image: elasticsearch:8.11.0
+    container_name: cache-59-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3059:3090"
+    volumes:
+      - ./data/cache:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3063/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker-60:
+    image: python:3.12-slim
+    container_name: worker-60-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3060:3043"
+    volumes:
+      - ./data/worker:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3076/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx-61:
+    image: redis:7-alpine
+    container_name: nginx-61-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3061:3008"
+    volumes:
+      - ./data/nginx:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  rabbitmq-62:
+    image: elasticsearch:8.11.0
+    container_name: rabbitmq-62-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3062:3013"
+    volumes:
+      - ./data/rabbitmq:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  elasticsearch-63:
+    image: elasticsearch:8.11.0
+    container_name: elasticsearch-63-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3063:3004"
+    volumes:
+      - ./data/elasticsearch:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3038/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web-64:
+    image: postgres:16
+    container_name: web-64-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3064:3051"
+    volumes:
+      - ./data/web:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api-65:
+    image: postgres:16
+    container_name: api-65-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3065:3064"
+    volumes:
+      - ./data/api:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3012/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db-66:
+    image: node:20-alpine
+    container_name: db-66-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3066:3023"
+    volumes:
+      - ./data/db:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3027/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  cache-67:
+    image: node:20-alpine
+    container_name: cache-67-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3067:3037"
+    volumes:
+      - ./data/cache:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3083/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker-68:
+    image: node:20-alpine
+    container_name: worker-68-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3068:3032"
+    volumes:
+      - ./data/worker:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3055/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx-69:
+    image: rabbitmq:3-management
+    container_name: nginx-69-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3069:3072"
+    volumes:
+      - ./data/nginx:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3093/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  rabbitmq-70:
+    image: rabbitmq:3-management
+    container_name: rabbitmq-70-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3070:3033"
+    volumes:
+      - ./data/rabbitmq:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3070/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  elasticsearch-71:
+    image: elasticsearch:8.11.0
+    container_name: elasticsearch-71-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3071:3012"
+    volumes:
+      - ./data/elasticsearch:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3016/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web-72:
+    image: node:20-alpine
+    container_name: web-72-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3072:3040"
+    volumes:
+      - ./data/web:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3038/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api-73:
+    image: python:3.12-slim
+    container_name: api-73-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3073:3053"
+    volumes:
+      - ./data/api:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3055/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db-74:
+    image: postgres:16
+    container_name: db-74-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3074:3044"
+    volumes:
+      - ./data/db:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3027/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  cache-75:
+    image: elasticsearch:8.11.0
+    container_name: cache-75-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3075:3082"
+    volumes:
+      - ./data/cache:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3077/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker-76:
+    image: redis:7-alpine
+    container_name: worker-76-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3076:3095"
+    volumes:
+      - ./data/worker:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3041/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx-77:
+    image: python:3.12-slim
+    container_name: nginx-77-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3077:3087"
+    volumes:
+      - ./data/nginx:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3046/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  rabbitmq-78:
+    image: elasticsearch:8.11.0
+    container_name: rabbitmq-78-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3078:3038"
+    volumes:
+      - ./data/rabbitmq:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3015/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  elasticsearch-79:
+    image: rabbitmq:3-management
+    container_name: elasticsearch-79-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3079:3006"
+    volumes:
+      - ./data/elasticsearch:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web-80:
+    image: node:20-alpine
+    container_name: web-80-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3080:3051"
+    volumes:
+      - ./data/web:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3009/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api-81:
+    image: rabbitmq:3-management
+    container_name: api-81-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3081:3030"
+    volumes:
+      - ./data/api:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3022/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db-82:
+    image: elasticsearch:8.11.0
+    container_name: db-82-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3082:3096"
+    volumes:
+      - ./data/db:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3020/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  cache-83:
+    image: nginx:alpine
+    container_name: cache-83-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3083:3085"
+    volumes:
+      - ./data/cache:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3063/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker-84:
+    image: redis:7-alpine
+    container_name: worker-84-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3084:3075"
+    volumes:
+      - ./data/worker:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3043/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx-85:
+    image: nginx:alpine
+    container_name: nginx-85-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3085:3078"
+    volumes:
+      - ./data/nginx:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3093/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  rabbitmq-86:
+    image: redis:7-alpine
+    container_name: rabbitmq-86-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3086:3054"
+    volumes:
+      - ./data/rabbitmq:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3011/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  elasticsearch-87:
+    image: redis:7-alpine
+    container_name: elasticsearch-87-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3087:3099"
+    volumes:
+      - ./data/elasticsearch:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3048/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web-88:
+    image: python:3.12-slim
+    container_name: web-88-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3088:3079"
+    volumes:
+      - ./data/web:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3094/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api-89:
+    image: nginx:alpine
+    container_name: api-89-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3089:3036"
+    volumes:
+      - ./data/api:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3054/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db-90:
+    image: postgres:16
+    container_name: db-90-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3090:3080"
+    volumes:
+      - ./data/db:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3061/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  cache-91:
+    image: elasticsearch:8.11.0
+    container_name: cache-91-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3091:3037"
+    volumes:
+      - ./data/cache:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3041/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker-92:
+    image: python:3.12-slim
+    container_name: worker-92-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3092:3015"
+    volumes:
+      - ./data/worker:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3079/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx-93:
+    image: elasticsearch:8.11.0
+    container_name: nginx-93-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3093:3036"
+    volumes:
+      - ./data/nginx:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3059/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  rabbitmq-94:
+    image: python:3.12-slim
+    container_name: rabbitmq-94-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3094:3049"
+    volumes:
+      - ./data/rabbitmq:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3056/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  elasticsearch-95:
+    image: node:20-alpine
+    container_name: elasticsearch-95-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3095:3031"
+    volumes:
+      - ./data/elasticsearch:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web-96:
+    image: redis:7-alpine
+    container_name: web-96-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3096:3074"
+    volumes:
+      - ./data/web:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3070/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api-97:
+    image: python:3.12-slim
+    container_name: api-97-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3097:3082"
+    volumes:
+      - ./data/api:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3070/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db-98:
+    image: nginx:alpine
+    container_name: db-98-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3098:3002"
+    volumes:
+      - ./data/db:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3019/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  cache-99:
+    image: nginx:alpine
+    container_name: cache-99-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3099:3059"
+    volumes:
+      - ./data/cache:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3020/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker-100:
+    image: python:3.12-slim
+    container_name: worker-100-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3100:3078"
+    volumes:
+      - ./data/worker:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3012/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx-101:
+    image: postgres:16
+    container_name: nginx-101-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3101:3037"
+    volumes:
+      - ./data/nginx:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3063/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  rabbitmq-102:
+    image: postgres:16
+    container_name: rabbitmq-102-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3102:3026"
+    volumes:
+      - ./data/rabbitmq:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3019/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  elasticsearch-103:
+    image: postgres:16
+    container_name: elasticsearch-103-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3103:3070"
+    volumes:
+      - ./data/elasticsearch:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3060/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web-104:
+    image: postgres:16
+    container_name: web-104-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3104:3043"
+    volumes:
+      - ./data/web:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3089/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api-105:
+    image: nginx:alpine
+    container_name: api-105-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3105:3053"
+    volumes:
+      - ./data/api:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3010/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db-106:
+    image: node:20-alpine
+    container_name: db-106-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3106:3052"
+    volumes:
+      - ./data/db:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3087/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  cache-107:
+    image: elasticsearch:8.11.0
+    container_name: cache-107-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3107:3056"
+    volumes:
+      - ./data/cache:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3057/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker-108:
+    image: redis:7-alpine
+    container_name: worker-108-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3108:3079"
+    volumes:
+      - ./data/worker:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3047/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx-109:
+    image: elasticsearch:8.11.0
+    container_name: nginx-109-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3109:3058"
+    volumes:
+      - ./data/nginx:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3078/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  rabbitmq-110:
+    image: postgres:16
+    container_name: rabbitmq-110-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=info
+    ports:
+      - "3110:3048"
+    volumes:
+      - ./data/rabbitmq:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3059/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  elasticsearch-111:
+    image: rabbitmq:3-management
+    container_name: elasticsearch-111-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS_URL=redis://cache:6379
+      - LOG_LEVEL=debug
+    ports:
+      - "3111:3046"
+    volumes:
+      - ./data/elasticsearch:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db-0
+      - cache-0
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3097/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web-112:
+    image: nginx:alpine
+    container_name: web-112-container
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://user:pass@db:5432/app
+      - REDIS

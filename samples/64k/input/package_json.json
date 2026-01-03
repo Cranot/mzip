@@ -1,0 +1,2799 @@
+{
+  "name": "@myorg/package-0",
+  "version": "2.7.76",
+  "description": "Package 0 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "typescript": "^5.0.24",
+    "esbuild": "^4.10.4",
+    "prettier": "^5.7.6",
+    "moment": "^1.19.13",
+    "typescript": "^9.12.30",
+    "cors": "^4.19.26",
+    "angular": "^2.17.19",
+    "dotenv": "^4.13.27",
+    "prettier": "^9.6.49",
+  },
+  "devDependencies": {
+    "@types/dayjs": "^6.0.0",
+    "@types/vite": "^3.0.11",
+    "@types/fastify": "^4.3.8",
+    "@types/prettier": "^8.1.14",
+    "@types/webpack": "^2.0.9",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-0.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-1",
+  "version": "3.7.47",
+  "description": "Package 1 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "moment": "^1.5.11",
+    "dayjs": "^0.13.37",
+    "eslint": "^5.7.45",
+    "uuid": "^1.1.40",
+    "express": "^1.8.39",
+    "winston": "^0.19.15",
+    "webpack": "^7.8.36",
+    "esbuild": "^6.8.10"
+    "winston": "^5.19.35",
+    "typescript": "^8.7.22"
+  },
+  "devDependencies": {
+    "@types/cors": "^7.6.13",
+    "@types/vue": "^0.3.7",
+    "@types/webpack": "^8.2.5",
+    "@types/express": "^1.7.9",
+    "@types/helmet": "^2.8.2",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-1.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-2",
+  "version": "0.16.25",
+  "description": "Package 2 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "cors": "^9.2.4",
+    "helmet": "^3.13.31",
+    "fastify": "^9.14.18",
+    "vite": "^9.9.36",
+    "dotenv": "^2.14.40",
+    "cors": "^0.18.28",
+    "uuid": "^1.4.21",
+    "axios": "^1.7.39",
+    "express": "^7.10.13"
+    "jest": "^6.2.25"
+  },
+  "devDependencies": {
+    "@types/cors": "^3.0.15",
+    "@types/webpack": "^4.3.11",
+    "@types/webpack": "^4.2.2",
+    "@types/moment": "^0.8.17",
+    "@types/react": "^2.5.4",
+    "@types/moment": "^7.9.13"
+    "@types/cors": "^2.6.12"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-2.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-3",
+  "version": "8.4.81",
+  "description": "Package 3 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "angular": "^3.10.44",
+    "fastify": "^2.17.21",
+    "prettier": "^9.13.37",
+    "prettier": "^8.15.48",
+    "dotenv": "^5.8.1",
+    "jest": "^0.2.49",
+    "typescript": "^9.6.35",
+    "winston": "^5.3.44",
+    "cors": "^4.2.4",
+    "prettier": "^9.8.26",
+    "eslint": "^7.11.36"
+  },
+  "devDependencies": {
+    "@types/angular": "^1.4.2",
+    "@types/axios": "^4.5.19",
+    "@types/jest": "^9.1.4",
+    "@types/webpack": "^1.1.0",
+    "@types/axios": "^0.4.16",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-3.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-4",
+  "version": "7.3.2",
+  "description": "Package 4 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "winston": "^3.19.20",
+    "uuid": "^2.3.37",
+    "react": "^7.6.19",
+    "typescript": "^0.16.13",
+    "cors": "^9.13.10",
+    "vue": "^7.4.41",
+    "pino": "^9.19.47",
+    "rollup": "^8.12.39"
+    "axios": "^4.6.47",
+    "jest": "^7.5.5",
+  },
+  "devDependencies": {
+    "@types/eslint": "^0.4.5",
+    "@types/prettier": "^3.8.11",
+    "@types/typescript": "^0.7.14",
+    "@types/rollup": "^6.9.0",
+    "@types/pino": "^0.9.8"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-4.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-5",
+  "version": "7.0.88",
+  "description": "Package 5 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "pino": "^2.17.36",
+    "helmet": "^2.15.32",
+    "jest": "^2.0.13",
+    "helmet": "^4.1.42",
+    "esbuild": "^7.9.29",
+    "jest": "^7.14.7",
+    "react": "^1.5.26",
+    "eslint": "^4.17.35",
+    "vue": "^2.9.30"
+  },
+  "devDependencies": {
+    "@types/helmet": "^7.5.6",
+    "@types/typescript": "^5.4.3",
+    "@types/express": "^5.9.6",
+    "@types/moment": "^3.5.11",
+    "@types/moment": "^8.0.1",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-5.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-6",
+  "version": "8.17.29",
+  "description": "Package 6 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "dayjs": "^4.7.47",
+    "fastify": "^6.3.38",
+    "fastify": "^3.15.35",
+    "react": "^3.8.3",
+    "uuid": "^0.18.41",
+    "dayjs": "^7.15.1",
+    "react": "^3.18.44",
+    "cors": "^5.12.47",
+    "dotenv": "^0.0.5",
+  },
+  "devDependencies": {
+    "@types/fastify": "^8.6.17",
+    "@types/react": "^7.0.19",
+    "@types/prettier": "^1.2.10",
+    "@types/angular": "^7.4.6",
+    "@types/lodash": "^3.8.0",
+    "@types/pino": "^5.1.4",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-6.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-7",
+  "version": "1.13.93",
+  "description": "Package 7 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "dayjs": "^9.3.21",
+    "helmet": "^6.11.2",
+    "fastify": "^2.13.9",
+    "prettier": "^3.7.8",
+    "moment": "^5.19.40",
+    "moment": "^9.3.5",
+    "helmet": "^0.7.25",
+    "rollup": "^5.3.37",
+    "vite": "^2.0.8",
+    "pino": "^8.12.16",
+  },
+  "devDependencies": {
+    "@types/rollup": "^8.4.19",
+    "@types/rollup": "^4.6.9",
+    "@types/vite": "^9.5.4",
+    "@types/winston": "^9.9.2",
+    "@types/moment": "^3.8.1"
+    "@types/axios": "^1.3.16",
+    "@types/angular": "^5.3.8"
+    "@types/esbuild": "^6.4.10",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-7.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-8",
+  "version": "1.4.62",
+  "description": "Package 8 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "rollup": "^2.5.21",
+    "uuid": "^4.8.26",
+    "prettier": "^3.16.24",
+    "helmet": "^2.1.24",
+    "axios": "^3.19.30",
+    "webpack": "^4.6.7",
+    "react": "^9.18.31",
+    "esbuild": "^8.18.25"
+    "axios": "^8.11.12",
+    "cors": "^8.12.18"
+  },
+  "devDependencies": {
+    "@types/prettier": "^6.3.4",
+    "@types/typescript": "^0.6.13",
+    "@types/prettier": "^1.3.7",
+    "@types/winston": "^4.1.0",
+    "@types/dotenv": "^5.8.9",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-8.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-9",
+  "version": "2.4.17",
+  "description": "Package 9 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "dayjs": "^5.4.22",
+    "angular": "^2.18.28",
+    "cors": "^7.19.12",
+    "express": "^9.18.24",
+    "express": "^2.17.6",
+    "axios": "^9.1.29",
+    "react": "^8.2.0",
+    "moment": "^2.3.45"
+    "webpack": "^0.12.5"
+    "vite": "^5.17.1",
+    "moment": "^8.10.48",
+    "fastify": "^6.3.28"
+  },
+  "devDependencies": {
+    "@types/angular": "^0.5.18",
+    "@types/vue": "^0.6.8",
+    "@types/vue": "^4.5.6",
+    "@types/dayjs": "^5.1.15",
+    "@types/lodash": "^5.3.12",
+    "@types/winston": "^7.7.7"
+    "@types/axios": "^5.9.12"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-9.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-10",
+  "version": "1.18.49",
+  "description": "Package 10 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "moment": "^2.16.12",
+    "esbuild": "^3.0.40",
+    "webpack": "^3.9.22",
+    "uuid": "^0.1.37",
+    "express": "^8.16.14",
+    "uuid": "^3.12.27",
+    "eslint": "^6.8.47",
+    "vite": "^0.2.38",
+  },
+  "devDependencies": {
+    "@types/rollup": "^4.4.12",
+    "@types/react": "^9.5.8",
+    "@types/eslint": "^7.6.12",
+    "@types/angular": "^2.5.13",
+    "@types/uuid": "^3.4.9",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-10.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-11",
+  "version": "6.16.71",
+  "description": "Package 11 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "angular": "^4.3.7",
+    "prettier": "^1.6.21",
+    "express": "^9.6.42",
+    "typescript": "^3.19.44",
+    "cors": "^0.16.23",
+    "winston": "^6.16.36",
+    "pino": "^8.2.13",
+    "express": "^5.5.3",
+    "uuid": "^6.14.30"
+    "lodash": "^7.0.5",
+    "pino": "^8.13.22"
+    "moment": "^9.17.43"
+  },
+  "devDependencies": {
+    "@types/uuid": "^3.9.12",
+    "@types/dotenv": "^7.0.17",
+    "@types/eslint": "^6.4.14",
+    "@types/typescript": "^1.8.14",
+    "@types/dayjs": "^3.9.11",
+    "@types/winston": "^5.0.10",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-11.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-12",
+  "version": "9.0.65",
+  "description": "Package 12 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "uuid": "^4.4.9",
+    "uuid": "^5.4.9",
+    "express": "^7.9.1",
+    "typescript": "^7.12.32",
+    "dotenv": "^6.0.35",
+    "helmet": "^4.2.45",
+    "dotenv": "^5.8.17",
+    "fastify": "^5.14.28",
+    "winston": "^1.5.43",
+    "react": "^7.4.37",
+  },
+  "devDependencies": {
+    "@types/react": "^6.6.18",
+    "@types/express": "^0.3.8",
+    "@types/axios": "^0.2.14",
+    "@types/vite": "^0.3.9",
+    "@types/typescript": "^8.5.5"
+    "@types/angular": "^2.0.19"
+    "@types/fastify": "^2.2.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-12.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-13",
+  "version": "7.2.37",
+  "description": "Package 13 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "axios": "^1.3.32",
+    "lodash": "^2.8.15",
+    "winston": "^5.6.49",
+    "prettier": "^2.4.12",
+    "rollup": "^7.9.6",
+    "jest": "^4.13.29",
+    "webpack": "^6.0.34",
+    "esbuild": "^5.0.3",
+    "pino": "^9.15.3",
+    "helmet": "^7.9.8",
+    "vite": "^4.1.30"
+    "rollup": "^9.13.42"
+  },
+  "devDependencies": {
+    "@types/vite": "^3.3.15",
+    "@types/esbuild": "^7.2.19",
+    "@types/helmet": "^3.5.13",
+    "@types/vite": "^4.5.4",
+    "@types/react": "^7.9.3",
+    "@types/rollup": "^9.7.9",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-13.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-14",
+  "version": "7.15.80",
+  "description": "Package 14 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "vite": "^8.8.18",
+    "react": "^9.14.2",
+    "esbuild": "^6.17.37",
+    "rollup": "^4.15.24",
+    "dotenv": "^0.6.2",
+    "pino": "^3.11.14",
+    "prettier": "^0.13.1",
+    "moment": "^0.0.38",
+    "jest": "^7.7.26",
+  },
+  "devDependencies": {
+    "@types/angular": "^9.5.14",
+    "@types/vite": "^6.0.1",
+    "@types/esbuild": "^0.0.4",
+    "@types/axios": "^6.5.13",
+    "@types/express": "^8.8.6",
+    "@types/dotenv": "^2.8.7"
+    "@types/prettier": "^6.0.0"
+    "@types/helmet": "^8.4.3"
+    "@types/express": "^4.0.8"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-14.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-15",
+  "version": "6.13.23",
+  "description": "Package 15 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "dotenv": "^3.8.38",
+    "helmet": "^3.8.10",
+    "angular": "^9.15.27",
+    "uuid": "^6.0.46",
+    "webpack": "^7.2.26",
+    "moment": "^5.1.14",
+    "angular": "^4.17.49",
+    "axios": "^9.18.22",
+    "lodash": "^3.1.14",
+    "angular": "^0.16.38",
+    "moment": "^7.3.15",
+  },
+  "devDependencies": {
+    "@types/helmet": "^6.1.14",
+    "@types/cors": "^8.5.12",
+    "@types/angular": "^3.1.12",
+    "@types/esbuild": "^8.9.16",
+    "@types/jest": "^3.3.2",
+    "@types/fastify": "^3.2.14",
+    "@types/rollup": "^2.2.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-15.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-16",
+  "version": "9.12.88",
+  "description": "Package 16 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "moment": "^6.14.35",
+    "express": "^5.5.40",
+    "vite": "^8.4.47",
+    "typescript": "^4.6.19",
+    "esbuild": "^1.9.26",
+    "esbuild": "^8.18.18",
+    "typescript": "^9.16.28",
+    "react": "^6.12.39",
+    "vite": "^2.12.41"
+    "uuid": "^1.16.17",
+  },
+  "devDependencies": {
+    "@types/vite": "^0.7.3",
+    "@types/dayjs": "^8.4.13",
+    "@types/pino": "^5.6.1",
+    "@types/vue": "^1.1.15",
+    "@types/esbuild": "^1.0.6",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-16.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-17",
+  "version": "9.4.70",
+  "description": "Package 17 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "prettier": "^7.1.47",
+    "typescript": "^9.0.8",
+    "pino": "^7.10.46",
+    "esbuild": "^0.14.11",
+    "axios": "^4.11.15",
+    "winston": "^8.6.18",
+    "vue": "^5.2.7",
+    "webpack": "^3.9.46",
+    "rollup": "^2.1.2",
+    "moment": "^9.13.22"
+    "vite": "^2.12.12",
+    "dayjs": "^9.4.17"
+  },
+  "devDependencies": {
+    "@types/moment": "^0.5.14",
+    "@types/prettier": "^6.4.10",
+    "@types/helmet": "^4.7.3",
+    "@types/helmet": "^6.1.18",
+    "@types/vue": "^3.7.4"
+    "@types/jest": "^8.7.10"
+    "@types/cors": "^9.6.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-17.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-18",
+  "version": "3.5.36",
+  "description": "Package 18 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "uuid": "^0.1.49",
+    "dotenv": "^9.17.4",
+    "fastify": "^4.18.21",
+    "express": "^5.15.46",
+    "dotenv": "^8.12.29",
+    "angular": "^0.9.11",
+    "cors": "^6.5.26",
+    "vue": "^8.16.36",
+    "prettier": "^0.1.32",
+    "typescript": "^5.11.35",
+    "helmet": "^2.6.42"
+  },
+  "devDependencies": {
+    "@types/axios": "^4.0.11",
+    "@types/dayjs": "^0.8.18",
+    "@types/lodash": "^7.6.14",
+    "@types/angular": "^8.1.8",
+    "@types/eslint": "^7.6.6",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-18.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-19",
+  "version": "2.17.30",
+  "description": "Package 19 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "express": "^1.4.13",
+    "lodash": "^2.19.46",
+    "angular": "^0.7.43",
+    "react": "^6.1.10",
+    "typescript": "^3.5.9",
+    "fastify": "^5.2.2",
+    "vue": "^5.4.14",
+    "moment": "^5.7.15",
+    "axios": "^8.8.14",
+    "cors": "^5.7.28"
+  },
+  "devDependencies": {
+    "@types/esbuild": "^8.7.0",
+    "@types/rollup": "^9.1.3",
+    "@types/dayjs": "^7.6.13",
+    "@types/jest": "^6.6.18",
+    "@types/prettier": "^7.9.6",
+    "@types/vite": "^0.1.7",
+    "@types/fastify": "^8.1.10"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-19.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-20",
+  "version": "6.15.18",
+  "description": "Package 20 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "cors": "^8.17.28",
+    "pino": "^3.10.48",
+    "typescript": "^9.16.21",
+    "react": "^0.13.42",
+    "typescript": "^1.1.27",
+    "esbuild": "^3.13.4",
+    "dayjs": "^7.15.17",
+    "moment": "^9.15.6",
+  },
+  "devDependencies": {
+    "@types/vite": "^0.9.8",
+    "@types/helmet": "^8.8.13",
+    "@types/dayjs": "^4.5.4",
+    "@types/helmet": "^0.0.13",
+    "@types/angular": "^7.7.1",
+    "@types/rollup": "^6.0.13",
+    "@types/pino": "^4.8.11"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-20.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-21",
+  "version": "8.17.20",
+  "description": "Package 21 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "rollup": "^2.19.49",
+    "vue": "^3.7.36",
+    "fastify": "^6.18.1",
+    "express": "^1.0.34",
+    "dotenv": "^6.13.5",
+    "uuid": "^1.12.24",
+    "esbuild": "^7.0.38",
+    "angular": "^2.4.48",
+    "webpack": "^8.18.5",
+  },
+  "devDependencies": {
+    "@types/fastify": "^4.9.2",
+    "@types/dotenv": "^2.5.12",
+    "@types/webpack": "^7.7.8",
+    "@types/pino": "^7.0.10",
+    "@types/fastify": "^0.8.9",
+    "@types/typescript": "^6.5.12",
+    "@types/rollup": "^1.7.11"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-21.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-22",
+  "version": "1.18.32",
+  "description": "Package 22 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "webpack": "^7.1.4",
+    "express": "^5.4.24",
+    "esbuild": "^8.7.25",
+    "express": "^2.15.15",
+    "helmet": "^2.16.22",
+    "winston": "^5.15.39",
+    "pino": "^9.16.46",
+    "axios": "^6.17.5",
+    "uuid": "^7.18.28",
+    "react": "^8.14.12",
+  },
+  "devDependencies": {
+    "@types/dayjs": "^2.8.5",
+    "@types/jest": "^3.7.9",
+    "@types/winston": "^0.9.3",
+    "@types/webpack": "^4.0.8",
+    "@types/vite": "^7.5.3",
+    "@types/prettier": "^1.0.1",
+    "@types/helmet": "^7.9.10"
+    "@types/fastify": "^7.4.12"
+    "@types/typescript": "^7.7.17"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-22.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-23",
+  "version": "3.12.31",
+  "description": "Package 23 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "dayjs": "^1.13.16",
+    "dayjs": "^8.13.15",
+    "pino": "^6.11.33",
+    "cors": "^4.3.6",
+    "vite": "^1.6.10",
+    "prettier": "^1.10.11",
+    "typescript": "^6.19.18",
+    "react": "^0.6.14",
+    "jest": "^9.11.23",
+    "helmet": "^7.14.30"
+  },
+  "devDependencies": {
+    "@types/react": "^3.5.0",
+    "@types/webpack": "^0.8.11",
+    "@types/rollup": "^2.0.10",
+    "@types/jest": "^5.2.9",
+    "@types/dotenv": "^8.4.3",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-23.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-24",
+  "version": "4.11.71",
+  "description": "Package 24 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "lodash": "^9.9.0",
+    "uuid": "^1.10.22",
+    "react": "^0.18.36",
+    "webpack": "^3.7.41",
+    "uuid": "^0.16.17",
+    "webpack": "^1.11.19",
+    "vite": "^5.0.5",
+    "cors": "^0.16.39",
+    "angular": "^9.0.34",
+    "pino": "^3.7.1",
+    "helmet": "^9.7.20",
+  },
+  "devDependencies": {
+    "@types/prettier": "^9.2.3",
+    "@types/dotenv": "^3.6.0",
+    "@types/webpack": "^7.8.3",
+    "@types/eslint": "^3.4.17",
+    "@types/react": "^7.4.1"
+    "@types/typescript": "^2.5.0"
+    "@types/esbuild": "^1.4.13",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-24.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-25",
+  "version": "5.5.5",
+  "description": "Package 25 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "winston": "^3.9.14",
+    "fastify": "^4.0.14",
+    "uuid": "^5.0.0",
+    "react": "^9.15.29",
+    "dotenv": "^1.15.35",
+    "moment": "^0.18.25",
+    "winston": "^3.9.49",
+    "rollup": "^6.11.15",
+    "helmet": "^9.15.10",
+    "typescript": "^0.18.21"
+    "vue": "^7.12.21",
+    "moment": "^4.7.22"
+  },
+  "devDependencies": {
+    "@types/vite": "^4.3.0",
+    "@types/vue": "^0.4.7",
+    "@types/vue": "^4.0.9",
+    "@types/rollup": "^0.5.12",
+    "@types/helmet": "^7.0.3"
+    "@types/esbuild": "^9.9.9",
+    "@types/eslint": "^9.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-25.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-26",
+  "version": "3.5.40",
+  "description": "Package 26 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "dotenv": "^5.5.0",
+    "webpack": "^6.13.46",
+    "esbuild": "^8.11.46",
+    "dotenv": "^0.2.28",
+    "dayjs": "^5.3.13",
+    "express": "^5.17.37",
+    "pino": "^5.12.48",
+    "vite": "^0.2.33",
+    "dayjs": "^3.13.12",
+  },
+  "devDependencies": {
+    "@types/helmet": "^2.7.5",
+    "@types/typescript": "^2.2.7",
+    "@types/cors": "^6.2.6",
+    "@types/react": "^4.5.13",
+    "@types/helmet": "^9.7.13",
+    "@types/dayjs": "^7.5.14"
+    "@types/fastify": "^1.9.19",
+    "@types/uuid": "^4.4.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-26.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-27",
+  "version": "8.4.55",
+  "description": "Package 27 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "uuid": "^1.6.0",
+    "axios": "^2.7.45",
+    "pino": "^4.4.35",
+    "moment": "^2.14.37",
+    "winston": "^2.16.12",
+    "express": "^3.7.16",
+    "axios": "^6.9.31",
+    "jest": "^6.6.30",
+    "express": "^1.6.21",
+    "typescript": "^5.17.36",
+    "webpack": "^1.11.44",
+  },
+  "devDependencies": {
+    "@types/cors": "^4.3.0",
+    "@types/angular": "^0.5.6",
+    "@types/axios": "^6.3.2",
+    "@types/winston": "^5.0.1",
+    "@types/prettier": "^2.5.10",
+    "@types/eslint": "^5.8.16",
+    "@types/uuid": "^5.0.7",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-27.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-28",
+  "version": "3.9.91",
+  "description": "Package 28 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "esbuild": "^3.5.18",
+    "express": "^6.3.20",
+    "uuid": "^8.8.32",
+    "eslint": "^3.17.7",
+    "react": "^3.13.4",
+    "jest": "^6.10.32",
+    "cors": "^8.12.44",
+    "esbuild": "^3.2.8",
+    "vite": "^0.0.0"
+    "dayjs": "^0.7.33"
+  },
+  "devDependencies": {
+    "@types/vite": "^9.5.1",
+    "@types/angular": "^0.6.5",
+    "@types/fastify": "^9.3.8",
+    "@types/angular": "^5.0.5",
+    "@types/angular": "^3.9.14",
+    "@types/eslint": "^1.5.1",
+    "@types/esbuild": "^2.2.14"
+    "@types/dotenv": "^4.0.15",
+    "@types/jest": "^0.2.18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-28.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-29",
+  "version": "0.17.50",
+  "description": "Package 29 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "fastify": "^4.3.9",
+    "express": "^6.4.16",
+    "moment": "^9.5.19",
+    "pino": "^2.16.43",
+    "axios": "^8.14.10",
+    "pino": "^4.2.2",
+    "lodash": "^3.0.45",
+    "eslint": "^9.13.22",
+  },
+  "devDependencies": {
+    "@types/fastify": "^2.7.10",
+    "@types/prettier": "^9.5.0",
+    "@types/lodash": "^7.0.6",
+    "@types/fastify": "^8.8.9",
+    "@types/uuid": "^8.1.6",
+    "@types/angular": "^9.6.3",
+    "@types/prettier": "^2.1.6"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-29.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-30",
+  "version": "2.10.77",
+  "description": "Package 30 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "dotenv": "^6.10.43",
+    "webpack": "^6.16.5",
+    "lodash": "^6.11.22",
+    "axios": "^0.1.36",
+    "rollup": "^6.17.39",
+    "vue": "^9.14.39",
+    "jest": "^8.0.0",
+    "dotenv": "^5.18.19",
+    "jest": "^1.18.6",
+    "jest": "^4.4.41"
+  },
+  "devDependencies": {
+    "@types/vue": "^0.7.12",
+    "@types/winston": "^6.1.9",
+    "@types/rollup": "^4.9.4",
+    "@types/moment": "^9.6.17",
+    "@types/angular": "^2.1.1",
+    "@types/pino": "^5.5.0"
+    "@types/winston": "^9.3.3",
+    "@types/helmet": "^1.4.16"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-30.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-31",
+  "version": "8.0.74",
+  "description": "Package 31 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "lodash": "^5.13.40",
+    "eslint": "^6.15.41",
+    "eslint": "^5.5.26",
+    "vue": "^9.13.14",
+    "winston": "^9.0.14",
+    "dotenv": "^3.1.13",
+    "axios": "^6.16.5",
+    "pino": "^7.0.11",
+  },
+  "devDependencies": {
+    "@types/jest": "^2.1.0",
+    "@types/jest": "^0.4.0",
+    "@types/axios": "^5.8.13",
+    "@types/uuid": "^3.4.5",
+    "@types/moment": "^1.0.11",
+    "@types/react": "^2.5.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-31.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-32",
+  "version": "8.17.99",
+  "description": "Package 32 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "dotenv": "^3.17.28",
+    "rollup": "^7.12.18",
+    "express": "^2.13.24",
+    "dayjs": "^3.11.9",
+    "angular": "^4.1.44",
+    "react": "^4.5.3",
+    "uuid": "^7.14.10",
+    "react": "^4.0.25",
+    "typescript": "^5.8.12",
+    "uuid": "^1.3.25",
+    "uuid": "^0.13.5"
+    "react": "^2.9.27"
+  },
+  "devDependencies": {
+    "@types/lodash": "^3.8.18",
+    "@types/rollup": "^0.1.5",
+    "@types/prettier": "^2.1.8",
+    "@types/winston": "^8.8.18",
+    "@types/lodash": "^8.5.1",
+    "@types/lodash": "^9.3.3",
+    "@types/winston": "^0.3.16",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-32.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-33",
+  "version": "1.19.24",
+  "description": "Package 33 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "dotenv": "^1.5.32",
+    "vue": "^5.10.15",
+    "uuid": "^4.18.5",
+    "uuid": "^4.0.49",
+    "angular": "^9.5.2",
+    "pino": "^0.4.13",
+    "helmet": "^4.4.42",
+    "helmet": "^9.12.26",
+    "winston": "^6.15.5"
+    "react": "^1.6.6",
+    "pino": "^4.0.37",
+  },
+  "devDependencies": {
+    "@types/angular": "^3.9.1",
+    "@types/helmet": "^4.7.12",
+    "@types/angular": "^7.2.4",
+    "@types/rollup": "^9.0.4",
+    "@types/typescript": "^9.2.8",
+    "@types/angular": "^5.7.15",
+    "@types/uuid": "^2.1.11",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-33.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-34",
+  "version": "3.16.54",
+  "description": "Package 34 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "vite": "^4.15.44",
+    "express": "^3.4.14",
+    "dotenv": "^9.16.16",
+    "express": "^0.15.14",
+    "prettier": "^1.12.39",
+    "express": "^9.14.15",
+    "winston": "^4.3.0",
+    "winston": "^6.9.25",
+    "dotenv": "^7.5.24",
+    "react": "^8.2.43",
+    "express": "^6.1.42"
+  },
+  "devDependencies": {
+    "@types/express": "^5.5.5",
+    "@types/vite": "^9.0.13",
+    "@types/vue": "^8.3.7",
+    "@types/vue": "^9.4.0",
+    "@types/react": "^3.5.11",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-34.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-35",
+  "version": "1.6.60",
+  "description": "Package 35 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "dayjs": "^6.16.8",
+    "uuid": "^5.5.30",
+    "vite": "^5.19.36",
+    "axios": "^3.12.11",
+    "vite": "^9.17.8",
+    "prettier": "^0.2.29",
+    "vue": "^8.17.31",
+    "react": "^0.14.43",
+    "moment": "^9.5.30"
+    "dayjs": "^8.4.7"
+    "vue": "^2.11.42"
+    "pino": "^6.10.23"
+  },
+  "devDependencies": {
+    "@types/pino": "^2.8.12",
+    "@types/express": "^9.4.14",
+    "@types/winston": "^9.2.0",
+    "@types/typescript": "^9.9.1",
+    "@types/vite": "^5.4.2",
+    "@types/angular": "^6.9.19",
+    "@types/vite": "^2.9.16"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-35.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-36",
+  "version": "0.10.90",
+  "description": "Package 36 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "webpack": "^7.16.14",
+    "prettier": "^3.5.49",
+    "dotenv": "^9.13.36",
+    "vite": "^7.6.33",
+    "lodash": "^3.19.34",
+    "dayjs": "^4.16.37",
+    "vue": "^3.18.7",
+    "esbuild": "^7.11.22",
+    "angular": "^5.11.29"
+    "axios": "^0.14.10",
+    "uuid": "^0.7.32",
+  },
+  "devDependencies": {
+    "@types/dotenv": "^1.7.5",
+    "@types/dayjs": "^5.8.18",
+    "@types/typescript": "^6.8.17",
+    "@types/fastify": "^6.3.5",
+    "@types/vue": "^6.9.15",
+    "@types/eslint": "^9.9.2",
+    "@types/cors": "^3.4.19"
+    "@types/typescript": "^8.2.18"
+    "@types/react": "^4.2.8"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-36.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-37",
+  "version": "7.15.26",
+  "description": "Package 37 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "vue": "^9.18.41",
+    "jest": "^0.1.41",
+    "webpack": "^2.1.7",
+    "typescript": "^2.1.13",
+    "prettier": "^4.18.6",
+    "eslint": "^1.6.15",
+    "dotenv": "^8.19.42",
+    "prettier": "^3.19.42",
+    "angular": "^7.5.44",
+  },
+  "devDependencies": {
+    "@types/angular": "^1.8.19",
+    "@types/typescript": "^9.3.19",
+    "@types/webpack": "^9.9.0",
+    "@types/webpack": "^1.1.13",
+    "@types/cors": "^0.8.14",
+    "@types/fastify": "^3.3.19",
+    "@types/webpack": "^0.4.5"
+    "@types/prettier": "^5.5.6",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-37.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-38",
+  "version": "5.6.28",
+  "description": "Package 38 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "vite": "^9.4.6",
+    "react": "^8.9.9",
+    "typescript": "^5.14.49",
+    "vite": "^9.15.5",
+    "typescript": "^0.5.36",
+    "express": "^0.13.46",
+    "webpack": "^4.16.46",
+    "webpack": "^2.12.38",
+    "eslint": "^8.9.44",
+    "jest": "^0.12.3",
+    "webpack": "^1.1.40"
+    "lodash": "^0.4.45",
+    "jest": "^5.8.35"
+  },
+  "devDependencies": {
+    "@types/esbuild": "^1.2.17",
+    "@types/express": "^5.4.16",
+    "@types/dotenv": "^1.0.19",
+    "@types/pino": "^3.2.7",
+    "@types/uuid": "^9.1.6",
+    "@types/jest": "^0.7.17",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-38.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-39",
+  "version": "0.11.47",
+  "description": "Package 39 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "eslint": "^7.15.33",
+    "rollup": "^6.15.11",
+    "lodash": "^8.5.8",
+    "esbuild": "^7.7.42",
+    "axios": "^5.10.25",
+    "vite": "^5.10.38",
+    "winston": "^5.3.7",
+    "cors": "^3.12.11",
+    "eslint": "^2.12.38",
+    "uuid": "^3.17.43",
+    "helmet": "^3.17.30",
+  },
+  "devDependencies": {
+    "@types/webpack": "^0.9.14",
+    "@types/cors": "^3.8.14",
+    "@types/vue": "^3.5.15",
+    "@types/fastify": "^7.9.13",
+    "@types/prettier": "^4.1.18",
+    "@types/axios": "^6.8.0",
+    "@types/esbuild": "^1.4.9",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-39.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-40",
+  "version": "3.5.38",
+  "description": "Package 40 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "lodash": "^3.10.8",
+    "vite": "^3.0.3",
+    "uuid": "^7.16.0",
+    "lodash": "^6.15.17",
+    "dotenv": "^7.15.4",
+    "lodash": "^5.3.40",
+    "webpack": "^7.6.47",
+    "cors": "^7.8.37",
+    "uuid": "^2.16.44",
+  },
+  "devDependencies": {
+    "@types/esbuild": "^4.3.13",
+    "@types/typescript": "^7.5.9",
+    "@types/axios": "^4.1.14",
+    "@types/jest": "^1.6.7",
+    "@types/cors": "^1.7.19",
+    "@types/vite": "^8.1.3"
+    "@types/pino": "^6.1.18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-40.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-41",
+  "version": "3.16.42",
+  "description": "Package 41 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "pino": "^0.0.20",
+    "prettier": "^3.7.43",
+    "dayjs": "^2.8.4",
+    "webpack": "^7.18.10",
+    "jest": "^8.10.4",
+    "cors": "^7.5.19",
+    "rollup": "^6.18.19",
+    "dayjs": "^9.8.16",
+    "helmet": "^1.5.40",
+    "vue": "^0.17.0"
+  },
+  "devDependencies": {
+    "@types/axios": "^9.5.0",
+    "@types/dotenv": "^6.4.19",
+    "@types/prettier": "^0.8.7",
+    "@types/react": "^8.0.3",
+    "@types/uuid": "^8.3.16"
+    "@types/dayjs": "^9.4.12",
+    "@types/eslint": "^9.3.16"
+    "@types/dayjs": "^9.7.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-41.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-42",
+  "version": "5.17.24",
+  "description": "Package 42 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "cors": "^6.14.37",
+    "moment": "^7.17.45",
+    "react": "^3.17.42",
+    "uuid": "^5.7.2",
+    "cors": "^8.0.10",
+    "winston": "^0.16.15",
+    "prettier": "^9.8.6",
+    "eslint": "^3.15.49",
+    "angular": "^4.1.45",
+    "prettier": "^8.18.27",
+  },
+  "devDependencies": {
+    "@types/moment": "^3.0.10",
+    "@types/winston": "^3.5.12",
+    "@types/eslint": "^7.7.13",
+    "@types/lodash": "^0.3.6",
+    "@types/vite": "^4.5.16",
+    "@types/esbuild": "^5.4.19",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-42.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-43",
+  "version": "1.0.52",
+  "description": "Package 43 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "lodash": "^6.10.5",
+    "pino": "^8.7.9",
+    "vue": "^5.12.31",
+    "jest": "^4.7.49",
+    "pino": "^2.8.24",
+    "rollup": "^6.1.23",
+    "esbuild": "^0.16.38",
+    "axios": "^8.14.20",
+  },
+  "devDependencies": {
+    "@types/vue": "^1.2.9",
+    "@types/fastify": "^8.5.16",
+    "@types/esbuild": "^2.9.3",
+    "@types/dayjs": "^6.3.4",
+    "@types/fastify": "^1.8.3",
+    "@types/axios": "^4.8.9"
+    "@types/uuid": "^8.2.8"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-43.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-44",
+  "version": "3.9.41",
+  "description": "Package 44 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "pino": "^6.14.3",
+    "lodash": "^2.7.15",
+    "react": "^7.13.18",
+    "express": "^9.2.48",
+    "winston": "^8.14.0",
+    "jest": "^4.9.24",
+    "lodash": "^6.15.3",
+    "rollup": "^4.17.34",
+    "rollup": "^5.4.14",
+    "express": "^8.4.18",
+    "rollup": "^0.4.31"
+    "webpack": "^6.18.47"
+    "typescript": "^4.17.0"
+  },
+  "devDependencies": {
+    "@types/vue": "^2.8.12",
+    "@types/moment": "^3.5.1",
+    "@types/esbuild": "^3.7.10",
+    "@types/moment": "^5.8.11",
+    "@types/moment": "^2.3.15",
+    "@types/moment": "^0.7.7",
+    "@types/lodash": "^7.6.15",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-44.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-45",
+  "version": "4.11.18",
+  "description": "Package 45 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "uuid": "^3.9.1",
+    "rollup": "^2.14.17",
+    "fastify": "^1.15.2",
+    "express": "^5.19.5",
+    "uuid": "^1.12.30",
+    "eslint": "^3.7.10",
+    "cors": "^7.17.18",
+    "webpack": "^3.10.15",
+    "jest": "^2.12.26",
+    "vue": "^2.13.2",
+  },
+  "devDependencies": {
+    "@types/vite": "^2.6.9",
+    "@types/uuid": "^6.8.12",
+    "@types/helmet": "^7.9.16",
+    "@types/dotenv": "^5.9.8",
+    "@types/esbuild": "^4.9.8",
+    "@types/winston": "^2.2.18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-45.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-46",
+  "version": "1.4.26",
+  "description": "Package 46 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "uuid": "^6.1.14",
+    "dotenv": "^8.18.13",
+    "vue": "^0.11.8",
+    "jest": "^9.2.29",
+    "dotenv": "^0.11.31",
+    "jest": "^3.13.44",
+    "uuid": "^9.3.30",
+    "dayjs": "^7.2.38",
+    "angular": "^7.18.25",
+    "prettier": "^9.0.19"
+    "vite": "^8.16.11"
+  },
+  "devDependencies": {
+    "@types/uuid": "^9.7.8",
+    "@types/pino": "^9.9.15",
+    "@types/prettier": "^4.8.9",
+    "@types/typescript": "^2.9.7",
+    "@types/jest": "^0.1.8",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-46.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-47",
+  "version": "4.2.68",
+  "description": "Package 47 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "jest": "^9.15.6",
+    "vite": "^7.2.12",
+    "fastify": "^6.3.39",
+    "lodash": "^6.0.47",
+    "winston": "^1.6.6",
+    "webpack": "^9.12.6",
+    "dayjs": "^3.13.8",
+    "winston": "^9.9.23",
+    "express": "^9.7.39"
+    "lodash": "^5.13.28",
+    "vue": "^4.13.19"
+  },
+  "devDependencies": {
+    "@types/lodash": "^1.4.10",
+    "@types/prettier": "^2.8.10",
+    "@types/eslint": "^3.0.7",
+    "@types/webpack": "^2.9.10",
+    "@types/react": "^2.0.13",
+    "@types/express": "^3.5.2",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-47.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-48",
+  "version": "0.19.86",
+  "description": "Package 48 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "dotenv": "^4.8.15",
+    "axios": "^4.2.41",
+    "rollup": "^2.14.45",
+    "cors": "^5.19.23",
+    "lodash": "^3.2.32",
+    "esbuild": "^6.3.42",
+    "prettier": "^2.6.17",
+    "prettier": "^0.16.22"
+    "rollup": "^2.4.12",
+    "uuid": "^4.9.10"
+    "esbuild": "^1.1.7"
+  },
+  "devDependencies": {
+    "@types/react": "^9.7.15",
+    "@types/helmet": "^7.5.11",
+    "@types/uuid": "^9.9.2",
+    "@types/winston": "^8.9.17",
+    "@types/fastify": "^7.1.13",
+    "@types/fastify": "^4.2.15",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-48.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-49",
+  "version": "8.6.76",
+  "description": "Package 49 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "eslint": "^7.1.31",
+    "vite": "^8.15.27",
+    "angular": "^0.3.12",
+    "prettier": "^8.0.46",
+    "cors": "^8.13.1",
+    "dayjs": "^8.18.28",
+    "lodash": "^7.7.9",
+    "uuid": "^5.6.11",
+  },
+  "devDependencies": {
+    "@types/dayjs": "^8.1.10",
+    "@types/webpack": "^6.0.14",
+    "@types/vue": "^1.7.18",
+    "@types/typescript": "^4.9.4",
+    "@types/pino": "^4.9.12",
+    "@types/dotenv": "^9.9.10"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-49.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-50",
+  "version": "0.6.46",
+  "description": "Package 50 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "angular": "^5.9.38",
+    "cors": "^4.4.0",
+    "react": "^3.2.1",
+    "angular": "^9.10.23",
+    "rollup": "^9.16.28",
+    "eslint": "^4.7.37",
+    "winston": "^0.15.41",
+    "fastify": "^1.11.41",
+  },
+  "devDependencies": {
+    "@types/angular": "^3.0.10",
+    "@types/vite": "^1.3.13",
+    "@types/prettier": "^4.3.9",
+    "@types/pino": "^7.5.1",
+    "@types/helmet": "^9.2.12",
+    "@types/dayjs": "^2.9.13",
+    "@types/axios": "^4.0.11"
+    "@types/rollup": "^1.2.15"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-50.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-51",
+  "version": "5.14.84",
+  "description": "Package 51 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "pino": "^9.15.24",
+    "esbuild": "^6.6.3",
+    "webpack": "^3.14.47",
+    "typescript": "^0.2.45",
+    "dotenv": "^5.3.25",
+    "helmet": "^9.12.4",
+    "vue": "^2.19.44",
+    "dotenv": "^4.11.7",
+    "dayjs": "^3.7.0",
+  },
+  "devDependencies": {
+    "@types/esbuild": "^1.5.12",
+    "@types/jest": "^3.5.15",
+    "@types/express": "^6.6.15",
+    "@types/react": "^4.4.19",
+    "@types/vue": "^0.8.13",
+    "@types/fastify": "^4.3.8",
+    "@types/angular": "^0.0.8",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-51.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-52",
+  "version": "7.7.22",
+  "description": "Package 52 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "esbuild": "^8.10.8",
+    "moment": "^9.11.21",
+    "prettier": "^2.0.17",
+    "dayjs": "^9.4.41",
+    "react": "^3.1.18",
+    "lodash": "^7.10.29",
+    "express": "^1.12.35",
+    "cors": "^1.5.19",
+    "dayjs": "^8.9.24",
+    "lodash": "^1.15.22"
+    "vite": "^0.7.26",
+  },
+  "devDependencies": {
+    "@types/moment": "^7.3.5",
+    "@types/angular": "^6.3.15",
+    "@types/typescript": "^9.5.4",
+    "@types/react": "^2.3.18",
+    "@types/cors": "^9.3.5",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-52.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-53",
+  "version": "9.18.52",
+  "description": "Package 53 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "lodash": "^7.8.18",
+    "dotenv": "^3.17.32",
+    "angular": "^3.17.27",
+    "moment": "^8.6.38",
+    "rollup": "^5.1.41",
+    "angular": "^2.16.13",
+    "express": "^7.15.23",
+    "winston": "^9.9.7",
+    "lodash": "^9.11.44",
+    "vue": "^2.12.26",
+    "dayjs": "^3.15.18",
+    "prettier": "^4.17.10"
+    "fastify": "^6.2.4"
+  },
+  "devDependencies": {
+    "@types/winston": "^1.0.2",
+    "@types/react": "^1.3.8",
+    "@types/dotenv": "^4.7.8",
+    "@types/react": "^6.7.0",
+    "@types/angular": "^5.7.6",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-53.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-54",
+  "version": "6.4.20",
+  "description": "Package 54 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "dayjs": "^0.12.49",
+    "winston": "^4.8.13",
+    "rollup": "^9.18.38",
+    "webpack": "^0.18.32",
+    "pino": "^6.10.3",
+    "vue": "^3.11.4",
+    "eslint": "^1.7.12",
+    "rollup": "^9.18.23",
+    "uuid": "^3.0.12",
+  },
+  "devDependencies": {
+    "@types/jest": "^2.2.18",
+    "@types/rollup": "^1.2.8",
+    "@types/pino": "^7.3.13",
+    "@types/jest": "^8.8.14",
+    "@types/axios": "^2.8.16",
+    "@types/axios": "^9.0.16"
+    "@types/winston": "^9.3.8"
+    "@types/typescript": "^2.0.17"
+    "@types/react": "^2.7.14"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-54.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-55",
+  "version": "9.19.55",
+  "description": "Package 55 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "dotenv": "^4.19.12",
+    "axios": "^2.13.21",
+    "webpack": "^6.19.14",
+    "winston": "^7.3.42",
+    "lodash": "^0.7.7",
+    "lodash": "^6.19.8",
+    "express": "^8.17.19",
+    "dayjs": "^0.17.0"
+    "axios": "^7.17.46"
+    "express": "^3.6.40"
+    "fastify": "^3.16.46",
+  },
+  "devDependencies": {
+    "@types/pino": "^0.8.14",
+    "@types/uuid": "^2.7.10",
+    "@types/axios": "^4.2.9",
+    "@types/pino": "^8.8.5",
+    "@types/webpack": "^6.6.5",
+    "@types/moment": "^0.2.16"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-55.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-56",
+  "version": "3.15.70",
+  "description": "Package 56 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "express": "^9.4.18",
+    "express": "^5.3.23",
+    "vite": "^0.2.28",
+    "axios": "^1.5.4",
+    "pino": "^4.15.43",
+    "pino": "^3.4.16",
+    "vite": "^2.16.32",
+    "esbuild": "^7.12.35",
+    "winston": "^2.19.3",
+    "cors": "^2.3.36",
+    "helmet": "^3.15.21"
+  },
+  "devDependencies": {
+    "@types/uuid": "^0.7.15",
+    "@types/express": "^5.4.10",
+    "@types/prettier": "^9.9.3",
+    "@types/rollup": "^1.0.6",
+    "@types/react": "^6.1.4"
+    "@types/typescript": "^5.2.13",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-56.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-57",
+  "version": "4.5.65",
+  "description": "Package 57 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "react": "^8.13.24",
+    "angular": "^0.14.47",
+    "lodash": "^1.14.32",
+    "esbuild": "^8.11.27",
+    "lodash": "^4.3.21",
+    "moment": "^4.3.41",
+    "pino": "^6.9.5",
+    "lodash": "^7.4.26",
+    "winston": "^2.4.28"
+    "react": "^4.18.49"
+  },
+  "devDependencies": {
+    "@types/vue": "^9.9.11",
+    "@types/jest": "^7.6.14",
+    "@types/prettier": "^8.1.15",
+    "@types/rollup": "^1.7.18",
+    "@types/esbuild": "^9.3.4",
+    "@types/dayjs": "^3.2.6",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-57.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-58",
+  "version": "0.19.3",
+  "description": "Package 58 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "uuid": "^6.19.2",
+    "rollup": "^5.0.34",
+    "vite": "^4.2.46",
+    "express": "^0.18.7",
+    "eslint": "^1.8.14",
+    "rollup": "^0.3.42",
+    "react": "^8.16.49",
+    "moment": "^5.1.25",
+    "pino": "^1.16.9"
+    "pino": "^5.14.11"
+    "react": "^6.3.30",
+  },
+  "devDependencies": {
+    "@types/angular": "^2.8.1",
+    "@types/dayjs": "^8.8.8",
+    "@types/vue": "^7.6.11",
+    "@types/lodash": "^4.2.15",
+    "@types/jest": "^4.6.16"
+    "@types/angular": "^3.5.11",
+    "@types/rollup": "^6.5.1",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-58.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-59",
+  "version": "7.13.9",
+  "description": "Package 59 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "pino": "^5.13.31",
+    "axios": "^6.2.22",
+    "moment": "^7.9.12",
+    "cors": "^9.19.4",
+    "winston": "^2.0.33",
+    "lodash": "^0.7.9",
+    "react": "^0.1.27",
+    "winston": "^6.5.16",
+    "lodash": "^3.11.49"
+    "typescript": "^8.18.29"
+  },
+  "devDependencies": {
+    "@types/vite": "^3.0.13",
+    "@types/vue": "^3.7.18",
+    "@types/vue": "^1.7.11",
+    "@types/webpack": "^6.9.1",
+    "@types/typescript": "^9.3.4",
+    "@types/cors": "^0.5.7",
+    "@types/eslint": "^2.0.10",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-59.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-60",
+  "version": "8.7.28",
+  "description": "Package 60 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "webpack": "^9.3.20",
+    "prettier": "^6.8.10",
+    "dayjs": "^1.8.0",
+    "moment": "^4.3.40",
+    "jest": "^4.13.15",
+    "dotenv": "^8.16.30",
+    "winston": "^0.6.12",
+    "typescript": "^6.5.42"
+    "react": "^9.6.7"
+    "cors": "^2.8.34",
+    "eslint": "^1.17.13",
+    "prettier": "^0.12.10",
+  },
+  "devDependencies": {
+    "@types/rollup": "^3.1.5",
+    "@types/axios": "^6.9.8",
+    "@types/esbuild": "^9.8.5",
+    "@types/rollup": "^9.6.11",
+    "@types/axios": "^5.6.13",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-60.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-61",
+  "version": "8.17.2",
+  "description": "Package 61 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "react": "^0.5.5",
+    "lodash": "^6.8.12",
+    "moment": "^8.2.41",
+    "jest": "^2.8.21",
+    "express": "^3.0.17",
+    "dayjs": "^4.3.28",
+    "axios": "^8.14.17",
+    "angular": "^6.4.22",
+  },
+  "devDependencies": {
+    "@types/dotenv": "^7.8.10",
+    "@types/eslint": "^7.0.6",
+    "@types/helmet": "^6.6.12",
+    "@types/webpack": "^1.3.3",
+    "@types/rollup": "^2.5.15",
+    "@types/helmet": "^5.9.0",
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-61.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-62",
+  "version": "8.9.84",
+  "description": "Package 62 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "uuid": "^6.6.18",
+    "vite": "^0.14.20",
+    "typescript": "^4.15.11",
+    "vue": "^1.3.23",
+    "lodash": "^8.4.37",
+    "fastify": "^5.12.44",
+    "jest": "^0.4.9",
+    "prettier": "^6.10.47",
+    "moment": "^6.9.23",
+    "vite": "^2.17.9"
+    "cors": "^0.13.28"
+    "uuid": "^7.6.39",
+    "eslint": "^8.11.18"
+  },
+  "devDependencies": {
+    "@types/webpack": "^2.7.16",
+    "@types/winston": "^7.9.16",
+    "@types/lodash": "^2.5.5",
+    "@types/typescript": "^6.8.3",
+    "@types/react": "^0.7.4",
+    "@types/esbuild": "^0.9.4"
+    "@types/prettier": "^8.6.19"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-62.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-63",
+  "version": "9.8.52",
+  "description": "Package 63 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "pino": "^7.3.37",
+    "react": "^7.7.29",
+    "typescript": "^7.8.46",
+    "vite": "^5.9.37",
+    "fastify": "^0.9.23",
+    "uuid": "^9.18.19",
+    "lodash": "^9.1.17",
+    "typescript": "^9.2.49",
+  },
+  "devDependencies": {
+    "@types/rollup": "^7.1.8",
+    "@types/react": "^4.5.2",
+    "@types/vue": "^6.0.10",
+    "@types/jest": "^4.3.15",
+    "@types/eslint": "^7.3.4",
+    "@types/winston": "^6.2.9"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-63.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-64",
+  "version": "2.19.70",
+  "description": "Package 64 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare": "husky install"
+  },
+  "dependencies": {
+    "lodash": "^9.3.21",
+    "rollup": "^8.19.37",
+    "rollup": "^4.16.28",
+    "prettier": "^1.5.29",
+    "uuid": "^0.11.27",
+    "react": "^7.14.26",
+    "rollup": "^6.17.40",
+    "winston": "^2.6.29",
+    "winston": "^8.11.2",
+    "moment": "^3.2.45",
+    "esbuild": "^4.18.17",
+    "fastify": "^7.5.14",
+  },
+  "devDependencies": {
+    "@types/axios": "^2.7.18",
+    "@types/uuid": "^1.8.12",
+    "@types/lodash": "^4.3.8",
+    "@types/dotenv": "^8.9.5",
+    "@types/moment": "^7.1.2",
+    "@types/moment": "^3.9.10",
+    "@types/jest": "^4.6.18"
+    "@types/helmet": "^7.7.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myorg/package-64.git"
+  },
+  "license": "MIT"
+}
+
+{
+  "name": "@myorg/package-65",
+  "version": "3.0.93",
+  "description": "Package 65 for application",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "dev src/",
+    "build": "build src/",
+    "start": "start src/",
+    "test": "test src/",
+    "lint": "lint src/",
+    "format": "format src/",
+    "prepare":

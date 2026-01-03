@@ -1,0 +1,62 @@
+mzip - Detection-based Compression Library
+Copyright (c) 2025 Cranot
+
+This software is dual-licensed:
+
+================================================================================
+OPTION 1: GNU AFFERO GENERAL PUBLIC LICENSE v3 (AGPL-3.0)
+================================================================================
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
+details.
+
+You should have received a copy of the GNU Affero General Public License along
+with this program. If not, see <https://www.gnu.org/licenses/>.
+
+The AGPL requires that if you run a modified version of this software on a
+server and let other users communicate with it, you must provide those users
+access to the source code of your modified version.
+
+================================================================================
+OPTION 2: COMMERCIAL LICENSE
+================================================================================
+
+For commercial use without AGPL obligations (proprietary software, SaaS without
+source disclosure, etc.), a commercial license is available.
+
+Commercial licenses provide:
+- Use in proprietary/closed-source software
+- No requirement to disclose your source code
+- No copyleft obligations
+- Priority support options available
+
+For commercial licensing inquiries, contact: [your-email@domain.com]
+
+================================================================================
+THIRD-PARTY COMPONENTS
+================================================================================
+
+This software includes the following third-party components with their own
+licenses:
+
+1. libsais (libsais.c, libsais.h)
+   Author: Ilya Grebnov
+   License: Apache License 2.0
+   Source: https://github.com/IlGrebnov/libsais
+
+2. stb_image, stb_image_write (stb_image.h, stb_image_write.h)
+   Author: Sean Barrett
+   License: Public Domain / MIT
+   Source: https://github.com/nothings/stb
+
+3. zstd (external dependency, not included)
+   Author: Yann Collet
+   License: BSD
+   Source: https://github.com/facebook/zstd
