@@ -11678,8 +11678,9 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
     }
 
     // Check for text
+    // Use >= 0.7 to include borderline text (JSON logs have exactly 0.700)
     result.text_score = calculate_text_score(data, n);
-    if (result.text_score > 0.7) {
+    if (result.text_score >= 0.7) {
         // === KV CONFIG DETECTION (INI/YAML) ===
         // Try KV_CONFIG early - configs have distinctive [section] or key: value patterns
         // Structural encoding beats brotli by 7% on 16KB config files
@@ -12707,10 +12708,22 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                     preprocess_size = encoded.size();
                     res.blocks_text++;
                 } else {
-                    // Fall back to plain TEXT - zstd will compress it well
-                    analysis.type = BlockType::TEXT;
-                    memcpy(preprocess_data, block_data, this_block);
-                    res.blocks_text++;
+                    // TEMPLATE didn't help - try BWT_TEXT for structured text
+                    // BWT often wins on text where TEMPLATE's structure doesn't compress well
+                    // (e.g., Prometheus metrics with random values/timestamps)
+                    if (this_block >= 256 && this_block <= 2097152) {
+                        auto bwt_result = bwt9::compress(block_data, this_block);
+                        memcpy(preprocess_data, bwt_result.data(), bwt_result.size());
+                        preprocess_size = bwt_result.size();
+                        analysis.type = BlockType::BWT_TEXT;
+                        use_generator = true;  // BWT is complete compression
+                        res.blocks_text++;
+                    } else {
+                        // Fall back to plain TEXT for small/large data
+                        analysis.type = BlockType::TEXT;
+                        memcpy(preprocess_data, block_data, this_block);
+                        res.blocks_text++;
+                    }
                 }
             }
         } else if (analysis.type == BlockType::CHAR_TEMPLATE) {
