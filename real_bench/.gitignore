@@ -1,0 +1,315 @@
+# =============================================================================
+# Dependencies
+# =============================================================================
+node_modules/
+vendor/
+bower_components/
+jspm_packages/
+.pnp/
+.pnp.js
+
+# Package manager lock files (keep only one)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# =============================================================================
+# Build Output
+# =============================================================================
+dist/
+build/
+out/
+.next/
+.nuxt/
+.output/
+.cache/
+.parcel-cache/
+.turbo/
+
+# Compiled source
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+*.dylib
+*.pyc
+*.pyo
+__pycache__/
+*.egg-info/
+.eggs/
+
+# =============================================================================
+# Environment & Configuration
+# =============================================================================
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+!.env.example
+!.env.template
+
+# Local configuration
+config/local.yaml
+config/local.json
+*.local.js
+*.local.ts
+
+# =============================================================================
+# IDE & Editor
+# =============================================================================
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.vim/
+
+# Emacs
+*~
+\#*\#
+.#*
+
+# =============================================================================
+# Operating System
+# =============================================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+.directory
+.Trash-*
+
+# =============================================================================
+# Testing & Coverage
+# =============================================================================
+coverage/
+.nyc_output/
+*.lcov
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+junit.xml
+test-results/
+playwright-report/
+test-results.xml
+
+# =============================================================================
+# Logs & Debug
+# =============================================================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+debug.log
+error.log
+combined.log
+
+# =============================================================================
+# Temporary Files
+# =============================================================================
+tmp/
+temp/
+.tmp/
+*.tmp
+*.temp
+*.bak
+*.backup
+*.orig
+
+# =============================================================================
+# Documentation Build
+# =============================================================================
+docs/_build/
+site/
+.docusaurus/
+.storybook/
+
+# =============================================================================
+# Database
+# =============================================================================
+*.sqlite
+*.sqlite3
+*.db
+*.mdb
+dump.sql
+*.dump
+data/
+mongodb-data/
+
+# =============================================================================
+# Secrets & Credentials
+# =============================================================================
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.jks
+secrets/
+credentials/
+.secrets
+*.gpg
+*.asc
+
+# AWS
+.aws/
+
+# Google Cloud
+.gcloud/
+*-credentials.json
+service-account*.json
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+# Kubernetes
+kubeconfig
+.kube/
+
+# =============================================================================
+# Docker
+# =============================================================================
+docker-compose.override.yml
+.docker/
+
+# =============================================================================
+# Language Specific
+# =============================================================================
+# Python
+*.py[cod]
+*$py.class
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.installed.cfg
+MANIFEST
+*.manifest
+*.spec
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+
+# Java
+*.jar
+*.war
+*.nar
+*.ear
+*.rar
+*.class
+hs_err_pid*
+
+# Ruby
+*.gem
+*.rbc
+.bundle/
+Gemfile.lock
+/.config
+/InstalledFiles
+/pkg/
+/spec/reports/
+/spec/examples.txt
+
+# PHP
+/vendor/
+composer.lock
+.phpunit.result.cache
+
+# =============================================================================
+# Miscellaneous
+# =============================================================================
+# TypeScript
+*.tsbuildinfo
+
+# Sass
+.sass-cache/
+
+# Assets
+uploads/
+public/uploads/
+media/
+static/uploads/
+
+# Generated files
+generated/
+*.generated.*
+
+# Lock files for CI (sometimes needed)
+# !package-lock.json
+# !yarn.lock
+# !composer.lock
+# !Gemfile.lock
+
+# Benchmark & profiling
+*.prof
+*.pprof
+profiles/
+benchmarks/results/
+
+# Archive files
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
