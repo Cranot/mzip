@@ -11421,7 +11421,8 @@ inline double calculate_text_score(const uint8_t* data, size_t n) {
     if (printable_ratio > 0.70) score += 0.4;
     else if (printable_ratio > 0.50) score += 0.2;
 
-    if (whitespace_ratio > 0.02 && whitespace_ratio < 0.30) score += 0.3;
+    // Structured code (GraphQL, YAML, Python) often has 30-40% whitespace from indentation
+    if (whitespace_ratio > 0.02 && whitespace_ratio < 0.40) score += 0.3;
 
     // Accept either ASCII text OR UTF-8 text
     if (ascii_ratio > 0.90) score += 0.3;
