@@ -11359,6 +11359,7 @@ inline bool is_valid_utf8(const uint8_t* data, size_t n) {
 }
 
 // Calculate text score based on character distribution
+// Handles both ASCII and UTF-8 text
 inline double calculate_text_score(const uint8_t* data, size_t n) {
     if (n == 0) return 0.0;
 
@@ -11367,6 +11368,8 @@ inline double calculate_text_score(const uint8_t* data, size_t n) {
     size_t whitespace = 0;
     size_t ascii = 0;
     size_t null_bytes = 0;
+    size_t utf8_chars = 0;      // Count of valid UTF-8 multi-byte sequences
+    size_t utf8_bytes = 0;      // Bytes consumed by UTF-8 sequences
 
     for (size_t i = 0; i < sample_size; i++) {
         uint8_t c = data[i];
@@ -11374,19 +11377,45 @@ inline double calculate_text_score(const uint8_t* data, size_t n) {
         if (c >= 32 && c <= 126) printable++;
         if (c == ' ' || c == '\t' || c == '\n' || c == '\r') whitespace++;
         if (c < 128) ascii++;
+
+        // Check for UTF-8 multi-byte sequences
+        if (c >= 0xC2 && c <= 0xF4 && i + 1 < sample_size) {
+            size_t seq_len = 0;
+            if (c >= 0xC2 && c <= 0xDF) seq_len = 2;      // 2-byte: 110xxxxx
+            else if (c >= 0xE0 && c <= 0xEF) seq_len = 3; // 3-byte: 1110xxxx
+            else if (c >= 0xF0 && c <= 0xF4) seq_len = 4; // 4-byte: 11110xxx
+
+            if (seq_len > 0 && i + seq_len <= sample_size) {
+                bool valid = true;
+                for (size_t j = 1; j < seq_len && valid; j++) {
+                    uint8_t cont = data[i + j];
+                    if (cont < 0x80 || cont > 0xBF) valid = false;
+                }
+                if (valid) {
+                    utf8_chars++;
+                    utf8_bytes += seq_len;
+                    i += seq_len - 1;  // Skip continuation bytes
+                }
+            }
+        }
     }
 
     // Null bytes are a strong indicator of binary
     if (null_bytes > sample_size * 0.01) return 0.0;
 
-    double printable_ratio = (double)printable / sample_size;
+    // For UTF-8 text, count multi-byte chars as printable
+    double effective_printable = printable + utf8_chars;
+    double effective_sample = sample_size - utf8_bytes + utf8_chars;  // Adjust for multi-byte
+
+    double printable_ratio = effective_printable / effective_sample;
     double whitespace_ratio = (double)whitespace / sample_size;
     double ascii_ratio = (double)ascii / sample_size;
+    double utf8_ratio = (double)utf8_bytes / sample_size;
 
     // Text typically has:
-    // - High printable ratio (>70%)
+    // - High printable ratio (>70%) - now includes UTF-8 chars
     // - Some whitespace (2-30%)
-    // - High ASCII ratio (>90%)
+    // - High ASCII ratio (>90%) OR high UTF-8 ratio
 
     double score = 0.0;
     if (printable_ratio > 0.70) score += 0.4;
@@ -11394,11 +11423,14 @@ inline double calculate_text_score(const uint8_t* data, size_t n) {
 
     if (whitespace_ratio > 0.02 && whitespace_ratio < 0.30) score += 0.3;
 
+    // Accept either ASCII text OR UTF-8 text
     if (ascii_ratio > 0.90) score += 0.3;
     else if (ascii_ratio > 0.70) score += 0.15;
+    else if (utf8_ratio > 0.30) score += 0.3;  // High UTF-8 content = text
+    else if (utf8_ratio > 0.15) score += 0.15;
 
-    // Bonus for valid UTF-8
-    if (is_valid_utf8(data, std::min(n, (size_t)1024))) score += 0.1;
+    // Bonus for valid UTF-8 (already checked inline, but double-check)
+    if (utf8_chars > 0 && is_valid_utf8(data, std::min(n, (size_t)1024))) score += 0.1;
 
     return std::min(1.0, score);
 }
@@ -12565,11 +12597,12 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             res.blocks_text++;
             // Use level 9 minimum for text (set later in compression)
         } else if (analysis.type == BlockType::BWT_TEXT) {
-            // DISABLED: v0.5-beta - BWT decode hangs in libsais_unbwt for some data
-            // TODO: Investigate libsais_unbwt hang with Python/TypeScript code
-            // Fall back to TEXT encoding (zstd handles it well anyway)
-            analysis.type = BlockType::TEXT;
-            memcpy(preprocess_data, block_data, this_block);
+            // BWT compression for natural text - beats zstd/bzip2 on prose, markdown, etc.
+            // v9 dispatches to v8 (fixed model) for <5KB or v5 (multi-tree) for larger
+            auto compressed = bwt9::compress(block_data, this_block);
+            memcpy(preprocess_data, compressed.data(), compressed.size());
+            preprocess_size = compressed.size();
+            use_generator = true;  // BWT is complete compression, skip zstd
             res.blocks_text++;
         } else if (analysis.type == BlockType::HTML_STREAM) {
             // HTML tag/content separation - beats brotli by 3.3% at 256KB+
