@@ -1552,6 +1552,46 @@ inline std::vector<uint8_t> markdown(size_t n) {
     return std::vector<uint8_t>(s.begin(), s.end());
 }
 
+// WORD_TEMPLATE: Repeating sections where one word varies throughout
+// Each section uses the same word 7 times - perfect for WORD_TEMPLATE detection
+inline std::vector<uint8_t> word_template(size_t n) {
+    // Template uses {W} placeholder 7 times per section
+    std::string templ =
+        "## {W} API\n\n"
+        "The {W} component provides {W} management functionality.\n\n"
+        "### GET /api/{W}\n\n"
+        "Retrieve {W} data from the {W} store.\n\n"
+        "### POST /api/{W}\n\n"
+        "Create a new {W} entry.\n\n";
+
+    // Words to cycle through - diverse enough for realistic content
+    std::vector<std::string> words = {
+        "session", "result", "config", "buffer", "stream", "handler",
+        "worker", "manager", "client", "server", "request", "response",
+        "cache", "queue", "event", "signal", "thread", "process",
+        "socket", "channel", "context", "router", "filter", "adapter"
+    };
+
+    std::string header = "# API Documentation\n\nThis document describes all available APIs.\n\n";
+    std::string data = header;
+
+    size_t word_idx = 0;
+    while (data.size() < n) {
+        std::string section = templ;
+        std::string word = words[word_idx % words.size()];
+        size_t pos = 0;
+        while ((pos = section.find("{W}", pos)) != std::string::npos) {
+            section.replace(pos, 3, word);
+            pos += word.size();
+        }
+        data += section;
+        word_idx++;
+    }
+
+    data.resize(n);
+    return std::vector<uint8_t>(data.begin(), data.end());
+}
+
 inline std::vector<uint8_t> protobuf_like(size_t n) {
     std::mt19937 rng(42);
     std::vector<uint8_t> out(n);
@@ -1988,6 +2028,7 @@ inline const std::vector<DataType>& all_types() {
         {"sparse",          "Sparse bitmap",        "BINARY", sparse_bitmap},
         // ADDITIONAL
         {"markdown",        "Markdown docs",        "ADDITIONAL", markdown},
+        {"word_template",   "Word template",        "ADDITIONAL", word_template},
         {"protobuf",        "Protobuf-like",        "ADDITIONAL", protobuf_like},
         {"metrics",         "Metrics/TSeries",      "ADDITIONAL", metrics},
         {"yaml",            "YAML config",          "ADDITIONAL", yaml_config},
