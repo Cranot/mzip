@@ -14083,10 +14083,14 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         // Ultra-compact MU format for small text files (4-16KB)
         // Header: "MU" (2) + BlockType (1) + size_varint (1-2) = 4-5 bytes
         // vs compact format ~14-17 bytes. Saves 10-12 bytes to beat bzip2!
+        // IMPORTANT: Only use MU for blocks stored RAW (is_raw=true), since
+        // MU format doesn't preserve the zstd compression layer!
         // ========================================================================
         constexpr size_t MU_MAX_SIZE = 16384;  // Only for files <= 16KB
-        if (size <= MU_MAX_SIZE) {
+        if (size <= MU_MAX_SIZE && is_raw) {
             // Text-oriented strategies that benefit from MU format
+            // Only use MU when data is stored raw (is_raw=true), meaning the
+            // encoder already did complete compression (use_generator=true)
             bool use_mu = (block_type == static_cast<uint8_t>(BlockType::BWT_TEXT) ||
                            block_type == static_cast<uint8_t>(BlockType::TEMPLATE) ||
                            block_type == static_cast<uint8_t>(BlockType::CHAR_TEMPLATE) ||
