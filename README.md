@@ -283,6 +283,24 @@ mzip automatically detects the best strategy for your data:
 
 ## Quick Start
 
+### Option 1: Single-Header (Recommended)
+
+```cpp
+// In ONE .cpp file:
+#include <zstd.h>
+#define MZIP_IMPLEMENTATION
+#include "mzip_amalgamated.hpp"
+
+// In other files:
+#include "mzip_amalgamated.hpp"
+
+// Usage
+auto compressed = mzip::compress(data.data(), data.size());
+auto decompressed = mzip::decompress(compressed.data(), compressed.size());
+```
+
+### Option 2: Separate Headers
+
 ```cpp
 #include <zstd.h>      // Required: include zstd first
 #include "mzip.hpp"
@@ -300,6 +318,11 @@ auto decompressed = mzip::decompress(compressed.data(), compressed.size());
 Requires C++17 and zstd:
 
 ```bash
+# Single-header (no libsais.c needed - it's bundled)
+g++ -O3 -march=native -I/path/to/zstd/include \
+    -L/path/to/zstd/lib -o mzip_cli mzip_cli.cpp -lzstd
+
+# Separate headers
 g++ -O3 -march=native -I/path/to/zstd/include \
     -L/path/to/zstd/lib -o mzip_cli mzip_cli.cpp libsais.c -lzstd
 ```
