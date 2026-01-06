@@ -9464,6 +9464,12 @@ public:
     RangeEncoder(std::vector<uint8_t>& out) : output(out) {}
 
     void encode(int symbol, const uint32_t* cumul, uint32_t total) {
+        // Ensure range >= total to avoid division yielding 0
+        while (range < total) {
+            output.push_back(low >> 24);
+            low <<= 8;
+            range <<= 8;
+        }
         uint32_t r = range / total;
         low += cumul[symbol] * r;
         range = (cumul[symbol + 1] - cumul[symbol]) * r;
@@ -9510,6 +9516,12 @@ public:
     }
 
     int decode(const uint32_t* cumul, uint32_t total, int alpha_size) {
+        // Ensure range >= total to avoid division yielding 0
+        while (range < total) {
+            code = (code << 8) | get_byte();
+            low <<= 8;
+            range <<= 8;
+        }
         uint32_t r = range / total;
         uint32_t target = (code - low) / r;
 
