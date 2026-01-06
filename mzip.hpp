@@ -14042,6 +14042,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
     // Single-block optimizations: compact format and ultra-compact BWT
     // ============================================================================
     std::vector<uint8_t> cl_format;  // Store CL format for 9-column COLUMNAR (declared at function scope)
+    std::vector<uint8_t> mu_format;  // Store MU format for small text files (4-16KB)
     if (block_count == 1) {
         // Parse legacy block header to get sizes
         constexpr size_t LEGACY_HEADER = 17;  // magic(4) + ver(1) + size(8) + count(4)
@@ -14074,6 +14075,39 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                     pos += write_uvarint_buf(&cl_format[pos], size);
                     memcpy(&cl_format[pos], block_data, comp_size);
                     out_pos = cl_size;  // Update out_pos for later comparison
+                }
+            }
+        }
+
+        // ========================================================================
+        // Ultra-compact MU format for small text files (4-16KB)
+        // Header: "MU" (2) + BlockType (1) + size_varint (1-2) = 4-5 bytes
+        // vs compact format ~14-17 bytes. Saves 10-12 bytes to beat bzip2!
+        // ========================================================================
+        constexpr size_t MU_MAX_SIZE = 16384;  // Only for files <= 16KB
+        if (size <= MU_MAX_SIZE) {
+            // Text-oriented strategies that benefit from MU format
+            bool use_mu = (block_type == static_cast<uint8_t>(BlockType::BWT_TEXT) ||
+                           block_type == static_cast<uint8_t>(BlockType::TEMPLATE) ||
+                           block_type == static_cast<uint8_t>(BlockType::CHAR_TEMPLATE) ||
+                           block_type == static_cast<uint8_t>(BlockType::LINE_GROUP_TEMPLATE) ||
+                           block_type == static_cast<uint8_t>(BlockType::KV_CONFIG) ||
+                           block_type == static_cast<uint8_t>(BlockType::WORD_ENCODED) ||
+                           block_type == static_cast<uint8_t>(BlockType::ML_TEMPLATE) ||
+                           block_type == static_cast<uint8_t>(BlockType::SECTION_TEMPLATE));
+
+            if (use_mu) {
+                const uint8_t* block_data = &output[LEGACY_HEADER + LEGACY_BLOCK_HEADER];
+                // MU format: "MU" + BlockType + size_varint + compressed_data
+                size_t mu_size = 2 + 1 + uvarint_size(size) + comp_size;
+                if (mu_size < out_pos) {
+                    mu_format.resize(mu_size);
+                    size_t pos = 0;
+                    mu_format[pos++] = 'M';
+                    mu_format[pos++] = 'U';
+                    mu_format[pos++] = block_type;
+                    pos += write_uvarint_buf(&mu_format[pos], size);
+                    memcpy(&mu_format[pos], block_data, comp_size);
                 }
             }
         }
@@ -14266,6 +14300,11 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         best_format = 4;
     }
 
+    if (!mu_format.empty() && mu_format.size() < best_size) {
+        best_size = mu_format.size();
+        best_format = 5;  // MU format
+    }
+
     if (best_format == 1) {
         // Pure zstd is smallest
         zstd_buf.resize(zstd_size);
@@ -14323,6 +14362,16 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         res.used_lite_format = true;  // CL format uses lite decompression path
         if (result) *result = res;
         return cl_format;
+    }
+
+    if (best_format == 5) {
+        // MU (Micro) format is smallest (small text files 4-16KB)
+        res.success = true;
+        res.compressed_size = mu_format.size();
+        res.block_count = 1;
+        res.used_lite_format = true;  // MU format uses lite decompression path
+        if (result) *result = res;
+        return mu_format;
     }
 
     res.success = true;
@@ -14414,6 +14463,76 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
 
         if (output.empty() && orig_size > 0) {
             res.error = "CL decompression failed";
+            if (result) *result = res;
+            return {};
+        }
+
+        res.success = true;
+        res.decompressed_size = output.size();
+        if (result) *result = res;
+        return output;
+    }
+
+    // Handle MU format: Micro format for small text files (4-16KB)
+    // Magic: "MU" + BlockType(1) + varint(orig_size) + compressed_data
+    if (data[0] == 'M' && data[1] == 'U') {
+        pos = 2;
+
+        // Read block type
+        BlockType block_type = static_cast<BlockType>(data[pos++]);
+
+        // Read size varint (original size)
+        uint64_t orig_size = 0;
+        int shift = 0;
+        while (pos < size && (data[pos] & 0x80)) {
+            orig_size |= static_cast<uint64_t>(data[pos] & 0x7F) << shift;
+            shift += 7;
+            pos++;
+        }
+        if (pos < size) {
+            orig_size |= static_cast<uint64_t>(data[pos]) << shift;
+            pos++;
+        }
+
+        // Compressed data is everything remaining
+        const uint8_t* comp_data = data + pos;
+        size_t comp_size = size - pos;
+
+        // Decode based on block type
+        std::vector<uint8_t> output;
+        switch (block_type) {
+            case BlockType::BWT_TEXT:
+                output = bwt9::decompress(comp_data, comp_size);
+                break;
+            case BlockType::TEMPLATE:
+                output = decode_template(comp_data, comp_size, orig_size);
+                break;
+            case BlockType::CHAR_TEMPLATE:
+                output = decode_char_template(comp_data, comp_size);
+                break;
+            case BlockType::LINE_GROUP_TEMPLATE:
+                output = decode_line_group_template(comp_data, comp_size, orig_size);
+                break;
+            case BlockType::KV_CONFIG:
+                output = decode_kv_config(comp_data, comp_size, orig_size);
+                break;
+            case BlockType::WORD_ENCODED:
+                output = decode_word_text(comp_data, comp_size);
+                break;
+            case BlockType::ML_TEMPLATE:
+                output = decode_ml_template(comp_data, comp_size, orig_size);
+                break;
+            case BlockType::SECTION_TEMPLATE:
+                output = decode_section_template(comp_data, comp_size, orig_size);
+                break;
+            default:
+                res.error = "MU: unsupported block type";
+                if (result) *result = res;
+                return {};
+        }
+
+        if (output.size() != orig_size) {
+            res.error = "MU: decompression size mismatch";
             if (result) *result = res;
             return {};
         }
