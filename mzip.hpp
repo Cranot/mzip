@@ -14041,7 +14041,6 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
     // ============================================================================
     // Single-block optimizations: compact format and ultra-compact BWT
     // ============================================================================
-    std::vector<uint8_t> bt_format;  // Store BT format for later comparison (declared at function scope)
     std::vector<uint8_t> cl_format;  // Store CL format for 9-column COLUMNAR (declared at function scope)
     if (block_count == 1) {
         // Parse legacy block header to get sizes
@@ -14057,33 +14056,6 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         uint32_t comp_size = stored_size & 0x7FFFFFFF;
 
         // ========================================================================
-        // Ultra-compact BWT format for BWT_TEXT (beats bzip2 by 1 byte!)
-        // Header: "BT" (2) + size_varint (3) = 5 bytes vs 17+ for standard format
-        // NOTE: Don't return early - compare against zstd at the end
-        // DISABLED: v0.5-beta - BWT decode hangs in libsais_unbwt for some data
-        // TODO: Investigate libsais_unbwt hang with Python/TypeScript code
-        // ========================================================================
-        #if 0  // Disabled for v0.5-beta
-        if (block_type == static_cast<uint8_t>(BlockType::BWT_TEXT)) {
-            // Compress with v5 directly (skip v9 wrapper)
-            auto v5_data = bwt5::compress(data, size);
-
-            // Calculate minimal format size: "BT" (2) + size_varint + v5_data
-            size_t minimal_size = 2 + uvarint_size(size) + v5_data.size();
-
-            if (minimal_size < out_pos) {
-                // BT format is smaller than mzip format - store it for comparison
-                bt_format.resize(minimal_size);
-                size_t pos = 0;
-                bt_format[pos++] = 'B';
-                bt_format[pos++] = 'T';
-                pos += write_uvarint_buf(&bt_format[pos], size);
-                memcpy(&bt_format[pos], v5_data.data(), v5_data.size());
-                out_pos = minimal_size;  // Update out_pos for later comparison
-            }
-        }
-        #endif
-
         // ========================================================================
         // Ultra-compact CL format for 9-column COLUMNAR (beats bzip2 by 3 bytes!)
         // Header: "CL" (2) + size_varint (3) = 5 bytes vs 33 bytes for MZIP format
@@ -14173,20 +14145,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
     };
     size_t uraw_size = 2 + varint_size(size) + size;
 
-    // ============================================================================
-    // BWT trial compression for SMALL mode
-    // At 32KB-2MB: trial BWT and pick smaller result
-    // This catches cases where TEMPLATE/CODE_STREAM strategies don't win
-    // Format: "BT" + varint(size) + bwt5 data
-    // ============================================================================
-    std::vector<uint8_t> bwt_trial;
-    size_t bwt_trial_size = SIZE_MAX;
-    constexpr size_t BWT_TRIAL_MIN = 8 * 1024;   // 8KB - trial for text files (Jan 2026: lowered from 32KB for unicode)
-    constexpr size_t BWT_TRIAL_MAX_SIZE = 2 * 1024 * 1024;  // 2MB max (larger files use MC)
-
-    // Jan 2026: Skip BWT trial for binary data - naive BWT sort is O(n²)
-    // and hangs on repetitive binary patterns (audio, image). Only trial BWT
-    // if data looks text-like. Check for ASCII printable OR valid UTF-8.
+    // Helper: Check if data looks text-like (for BWT trial in MC chunks)
     auto is_text_like = [](const uint8_t* d, size_t n) -> bool {
         size_t sample = std::min(n, (size_t)4096);
         size_t ascii_printable = 0;
@@ -14199,7 +14158,6 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                 ascii_printable++;
             // Check valid UTF-8 sequences
             else if (c >= 0xC2 && c <= 0xF4 && i + 1 < sample) {
-                // UTF-8 start byte - verify continuation bytes
                 int expected = (c < 0xE0) ? 1 : (c < 0xF0) ? 2 : 3;
                 bool valid = true;
                 for (int j = 1; j <= expected && i + j < sample; j++) {
@@ -14208,31 +14166,9 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                 if (valid) utf8_valid += 1 + expected;
             }
         }
-        // Pass if >70% ASCII printable, OR >50% valid UTF-8 sequences
         return ascii_printable >= sample * 7 / 10 ||
                (ascii_printable + utf8_valid) >= sample * 7 / 10;
     };
-
-    // DISABLED: v0.5-beta - BWT decode hangs in libsais_unbwt for some data
-    // TODO: Investigate libsais_unbwt hang with Python/TypeScript code
-    #if 0  // Disabled for v0.5-beta
-    if (mode == CompressionMode::SMALL && size >= BWT_TRIAL_MIN &&
-        size <= BWT_TRIAL_MAX_SIZE && bt_format.empty() && is_text_like(data, size)) {
-        // Try BWT v5 - it may beat zstd on text-like data
-        auto bwt_data = bwt5::compress(data, size);
-        bwt_trial_size = 2 + uvarint_size(size) + bwt_data.size();
-
-        if (bwt_trial_size < zstd_size && bwt_trial_size < out_pos) {
-            // BWT is smaller - build the BT format
-            bwt_trial.resize(bwt_trial_size);
-            size_t pos = 0;
-            bwt_trial[pos++] = 'B';
-            bwt_trial[pos++] = 'T';
-            pos += write_uvarint_buf(&bwt_trial[pos], size);
-            memcpy(&bwt_trial[pos], bwt_data.data(), bwt_data.size());
-        }
-    }
-    #endif
 
     // ============================================================================
     // Multi-chunk compression for SMALL mode on large files (>1MB)
@@ -14301,14 +14237,14 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         }
 
         mc_size = mc_temp.size();
-        if (mc_size < zstd_size && mc_size < out_pos && mc_size < bwt_trial_size) {
+        if (mc_size < zstd_size && mc_size < out_pos) {
             mc_format = std::move(mc_temp);
         }
     }
 
     // Find the smallest output format
     size_t best_size = out_pos;  // mzip format
-    int best_format = 0;  // 0=mzip, 1=zstd, 2=µRAW, 3=BWT trial, 4=MC, 5=CL
+    int best_format = 0;  // 0=mzip, 1=zstd, 2=µRAW, 3=MC, 4=CL
 
     if (!ZSTD_isError(zstd_size) && zstd_size < best_size) {
         best_size = zstd_size;
@@ -14320,19 +14256,14 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         best_format = 2;
     }
 
-    if (!bwt_trial.empty() && bwt_trial_size < best_size) {
-        best_size = bwt_trial_size;
-        best_format = 3;
-    }
-
     if (!mc_format.empty() && mc_size < best_size) {
         best_size = mc_size;
-        best_format = 4;
+        best_format = 3;
     }
 
     if (!cl_format.empty() && cl_format.size() < best_size) {
         best_size = cl_format.size();
-        best_format = 5;
+        best_format = 4;
     }
 
     if (best_format == 1) {
@@ -14375,16 +14306,6 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
     }
 
     if (best_format == 3) {
-        // BWT trial is smallest (high-entropy data with byte patterns)
-        res.success = true;
-        res.compressed_size = bwt_trial.size();
-        res.block_count = 1;
-        res.used_lite_format = true;  // BT format uses lite decompression path
-        if (result) *result = res;
-        return bwt_trial;
-    }
-
-    if (best_format == 4) {
         // MC (Multi-Chunk) format is smallest
         res.success = true;
         res.compressed_size = mc_format.size();
@@ -14394,7 +14315,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         return mc_format;
     }
 
-    if (best_format == 5) {
+    if (best_format == 4) {
         // CL (COLUMNAR lite) format is smallest (9-column nginx logs)
         res.success = true;
         res.compressed_size = cl_format.size();
@@ -14416,10 +14337,6 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         return cl_format;
     }
 
-    // If BT format was the winner, return it instead of output
-    if (!bt_format.empty()) {
-        return bt_format;
-    }
     return output;
 }
 
