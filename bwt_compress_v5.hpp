@@ -46,9 +46,9 @@ inline size_t get_safe_padded_size(size_t n) {
 }
 
 constexpr int MAX_ALPHA = 258;  // 256 + RUNA + RUNB
-constexpr int GROUP_SIZE = 56;  // Optimized from 50 - better for 100KB+ text
+constexpr int GROUP_SIZE = 44;  // Optimized: smaller groups = better local adaptation
 constexpr int MAX_TREES = 6;
-constexpr int N_ITERS = 8;      // Increased from 4 - more iterations = better tree selection
+constexpr int N_ITERS = 4;      // bzip2-style: 4 iterations sufficient
 
 // =============================================================================
 // Symbol Bitmap - bzip2-style compact symbol set representation
