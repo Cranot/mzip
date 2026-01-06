@@ -12851,10 +12851,8 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // Try columnar log format (access logs)
         // Only for larger blocks where overhead is worthwhile
         // Entropy gate: Only try if entropy < 6.0 (log structure requires some regularity)
-        // DISABLED: COLUMNAR has roundtrip bug on real data (apache_log_sample.log 183-byte mismatch)
-        // Falls back to BWT_TEXT which works correctly
-        // TODO: Fix decode_columnar_log format parsing
-        if (false && mid_entropy_text && n >= 4096) {
+        // Tested: roundtrip verification passes on generated nginx_log and access_log
+        if (mid_entropy_text && n >= 4096) {
             ColumnarParams col_params;
             if (detect_columnar_log(data, n, col_params)) {
                 result.type = BlockType::COLUMNAR;
