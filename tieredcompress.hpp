@@ -3008,10 +3008,56 @@ enum class ColumnType : uint8_t {
 
 // Detect block length by looking for repeating byte patterns
 // Returns 0 if no regular structure found
-inline size_t detect_block_length(const uint8_t* data, size_t n) {
+// out_header_offset: if non-null, set to the byte offset where records start (e.g. DBF header)
+inline size_t detect_block_length(const uint8_t* data, size_t n, size_t* out_header_offset = nullptr) {
+    if (out_header_offset) *out_header_offset = 0;
     if (n < 60) return 0;  // Need at least 3 blocks of minimum size
 
-    // Try lengths 20-200 (common for text records like logs, CSV, HTML items)
+    // === DBF format detection (FIRST - header tells us exact record size) ===
+    // dBASE/FoxPro files have fixed-width records after a variable-length header.
+    // Must run before heuristic scan: DBF field descriptors (32-byte padding) cause
+    // false matches at len=32/64 in the short-record scan.
+    if (n > 32) {
+        uint8_t ver = data[0];
+        bool is_dbf = (ver == 0x02 || ver == 0x03 || ver == 0x04 || ver == 0x05 ||
+                       ver == 0x30 || ver == 0x31 || ver == 0x43 || ver == 0x63 ||
+                       ver == 0x83 || ver == 0x8B || ver == 0x8E || ver == 0xCB ||
+                       ver == 0xF5 || ver == 0xFB);
+        if (is_dbf) {
+            uint16_t hdr_size = (uint16_t)data[8] | ((uint16_t)data[9] << 8);
+            uint16_t rec_size = (uint16_t)data[10] | ((uint16_t)data[11] << 8);
+            if (rec_size >= 2 && rec_size <= 32768 && hdr_size >= 32 &&
+                hdr_size < n && hdr_size + (size_t)rec_size * 3 <= n) {
+                // Validate: first field name at offset 32 should be printable ASCII or null
+                bool valid = true;
+                for (int i = 0; i < 4; i++) {
+                    uint8_t c = data[32 + i];
+                    if (c != 0 && (c < 0x20 || c > 0x7E)) { valid = false; break; }
+                }
+                if (valid) {
+                    // Verify record structure: check 3 consecutive records match
+                    const uint8_t* recs = data + hdr_size;
+                    size_t avail = n - hdr_size;
+                    size_t nblocks = avail / rec_size;
+                    if (nblocks >= 3) {
+                        size_t same = 0;
+                        for (size_t pos = 0; pos < (size_t)rec_size; pos++) {
+                            if (recs[pos] == recs[rec_size + pos] &&
+                                recs[pos] == recs[2 * (size_t)rec_size + pos])
+                                same++;
+                        }
+                        // Lower threshold (33%) since DBF header already confirmed format
+                        if (same > (size_t)rec_size / 3) {
+                            if (out_header_offset) *out_header_offset = hdr_size;
+                            return rec_size;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // === Short records (20-200), heuristic scan ===
     for (size_t len = 20; len <= 200 && len <= n / 3; len++) {
         size_t num_blocks = n / len;
         if (num_blocks < 3) continue;
@@ -3029,6 +3075,7 @@ inline size_t detect_block_length(const uint8_t* data, size_t n) {
             return len;
         }
     }
+
     return 0;
 }
 
@@ -3069,22 +3116,27 @@ inline bool is_delta_column(const uint8_t* data, size_t block_len, size_t num_bl
 }
 
 // Detect if data is a good BLOCK_COLUMNAR candidate
-inline bool is_block_columnar_candidate(const uint8_t* data, size_t n, size_t& out_block_len) {
-    out_block_len = detect_block_length(data, n);
+inline bool is_block_columnar_candidate(const uint8_t* data, size_t n,
+                                         size_t& out_block_len, size_t& out_header_offset) {
+    out_header_offset = 0;
+    out_block_len = detect_block_length(data, n, &out_header_offset);
     if (out_block_len == 0) return false;
 
-    size_t num_blocks = n / out_block_len;
+    // Work on record data (after header)
+    const uint8_t* recs = data + out_header_offset;
+    size_t recs_n = n - out_header_offset;
+    size_t num_blocks = recs_n / out_block_len;
     if (num_blocks < 3) return false;
 
     // Count how many columns are CONSTANT or DELTA (not RAW)
     size_t good_cols = 0;
     for (size_t pos = 0; pos < out_block_len; pos++) {
         int base, delta;
-        if (is_constant_column(data, out_block_len, num_blocks, pos)) {
+        if (is_constant_column(recs, out_block_len, num_blocks, pos)) {
             good_cols++;
-        } else if (is_linear_column(data, out_block_len, num_blocks, pos, base, delta)) {
+        } else if (is_linear_column(recs, out_block_len, num_blocks, pos, base, delta)) {
             good_cols++;
-        } else if (is_delta_column(data, out_block_len, num_blocks, pos)) {
+        } else if (is_delta_column(recs, out_block_len, num_blocks, pos)) {
             good_cols++;
         }
     }
@@ -3097,6 +3149,8 @@ inline bool is_block_columnar_candidate(const uint8_t* data, size_t n, size_t& o
 // Format:
 //   [2 bytes] block_length
 //   [2 bytes] num_blocks
+//   [2 bytes] header_offset (bytes before records start, e.g. DBF header)
+//   [header_offset bytes] raw header/prefix data
 //   [block_len bytes] column_types (one byte per column)
 //   [variable] column data:
 //     CONSTANT: 1 byte (the constant value)
@@ -3104,13 +3158,17 @@ inline bool is_block_columnar_candidate(const uint8_t* data, size_t n, size_t& o
 //     DELTA: 1 + (num_blocks-1) bytes (first value + deltas+128)
 //     RAW: num_blocks bytes
 //   [variable] remainder bytes (data after last complete block)
-inline size_t block_columnar_encode(uint8_t* out, const uint8_t* in, size_t n, size_t block_len) {
-    if (block_len == 0 || block_len > 65535) {
+inline size_t block_columnar_encode(uint8_t* out, const uint8_t* in, size_t n,
+                                     size_t block_len, size_t header_offset = 0) {
+    if (block_len == 0 || block_len > 65535 || header_offset > 65535) {
         memcpy(out, in, n);
         return n;
     }
 
-    size_t num_blocks = n / block_len;
+    // Records start after the header
+    const uint8_t* recs = in + header_offset;
+    size_t recs_n = n - header_offset;
+    size_t num_blocks = recs_n / block_len;
     if (num_blocks < 2 || num_blocks > 65535) {
         memcpy(out, in, n);
         return n;
@@ -3118,11 +3176,18 @@ inline size_t block_columnar_encode(uint8_t* out, const uint8_t* in, size_t n, s
 
     size_t out_pos = 0;
 
-    // Header: block_length (2 bytes), num_blocks (2 bytes)
+    // Header: block_length (2 bytes), num_blocks (2 bytes), header_offset (2 bytes)
     out[out_pos++] = block_len & 0xFF;
     out[out_pos++] = (block_len >> 8) & 0xFF;
     out[out_pos++] = num_blocks & 0xFF;
     out[out_pos++] = (num_blocks >> 8) & 0xFF;
+    out[out_pos++] = header_offset & 0xFF;
+    out[out_pos++] = (header_offset >> 8) & 0xFF;
+
+    // Write raw header/prefix
+    for (size_t i = 0; i < header_offset; i++) {
+        out[out_pos++] = in[i];
+    }
 
     // Analyze and write column types
     std::vector<ColumnType> col_types(block_len);
@@ -3130,11 +3195,11 @@ inline size_t block_columnar_encode(uint8_t* out, const uint8_t* in, size_t n, s
     std::vector<int> col_delta(block_len);
 
     for (size_t pos = 0; pos < block_len; pos++) {
-        if (is_constant_column(in, block_len, num_blocks, pos)) {
+        if (is_constant_column(recs, block_len, num_blocks, pos)) {
             col_types[pos] = ColumnType::CONSTANT;
-        } else if (is_linear_column(in, block_len, num_blocks, pos, col_base[pos], col_delta[pos])) {
+        } else if (is_linear_column(recs, block_len, num_blocks, pos, col_base[pos], col_delta[pos])) {
             col_types[pos] = ColumnType::LINEAR;
-        } else if (is_delta_column(in, block_len, num_blocks, pos)) {
+        } else if (is_delta_column(recs, block_len, num_blocks, pos)) {
             col_types[pos] = ColumnType::DELTA;
         } else {
             col_types[pos] = ColumnType::RAW;
@@ -3146,7 +3211,7 @@ inline size_t block_columnar_encode(uint8_t* out, const uint8_t* in, size_t n, s
     for (size_t pos = 0; pos < block_len; pos++) {
         switch (col_types[pos]) {
             case ColumnType::CONSTANT:
-                out[out_pos++] = in[pos];
+                out[out_pos++] = recs[pos];
                 break;
 
             case ColumnType::LINEAR:
@@ -3155,25 +3220,25 @@ inline size_t block_columnar_encode(uint8_t* out, const uint8_t* in, size_t n, s
                 break;
 
             case ColumnType::DELTA:
-                out[out_pos++] = in[pos];  // First value
+                out[out_pos++] = recs[pos];  // First value
                 for (size_t b = 1; b < num_blocks; b++) {
-                    int d = (int)in[b * block_len + pos] - (int)in[(b-1) * block_len + pos];
+                    int d = (int)recs[b * block_len + pos] - (int)recs[(b-1) * block_len + pos];
                     out[out_pos++] = static_cast<uint8_t>(d + 128);  // Signed delta
                 }
                 break;
 
             case ColumnType::RAW:
                 for (size_t b = 0; b < num_blocks; b++) {
-                    out[out_pos++] = in[b * block_len + pos];
+                    out[out_pos++] = recs[b * block_len + pos];
                 }
                 break;
         }
     }
 
-    // Write remainder (bytes after last complete block)
-    size_t remainder = n - num_blocks * block_len;
+    // Write remainder (bytes after last complete block in records section)
+    size_t remainder = recs_n - num_blocks * block_len;
     for (size_t i = 0; i < remainder; i++) {
-        out[out_pos++] = in[num_blocks * block_len + i];
+        out[out_pos++] = recs[num_blocks * block_len + i];
     }
 
     return out_pos;
@@ -3181,7 +3246,7 @@ inline size_t block_columnar_encode(uint8_t* out, const uint8_t* in, size_t n, s
 
 // BLOCK_COLUMNAR decode
 inline size_t block_columnar_decode(uint8_t* out, const uint8_t* in, size_t encoded_size, size_t original_size) {
-    if (encoded_size < 4) {
+    if (encoded_size < 6) {
         memcpy(out, in, encoded_size);
         return encoded_size;
     }
@@ -3189,13 +3254,27 @@ inline size_t block_columnar_decode(uint8_t* out, const uint8_t* in, size_t enco
     // Read header
     size_t block_len = (size_t)in[0] | ((size_t)in[1] << 8);
     size_t num_blocks = (size_t)in[2] | ((size_t)in[3] << 8);
+    size_t header_offset = (size_t)in[4] | ((size_t)in[5] << 8);
 
     if (block_len == 0 || num_blocks == 0 || block_len > 65535 || num_blocks > 65535) {
         memcpy(out, in, encoded_size);
         return encoded_size;
     }
 
-    size_t in_pos = 4;
+    size_t in_pos = 6;
+
+    // Read raw header/prefix
+    if (header_offset > 0) {
+        if (in_pos + header_offset > encoded_size) {
+            memcpy(out, in, encoded_size);
+            return encoded_size;
+        }
+        memcpy(out, in + in_pos, header_offset);
+        in_pos += header_offset;
+    }
+
+    // Output records start after header
+    uint8_t* out_recs = out + header_offset;
 
     // Read column types
     if (in_pos + block_len > encoded_size) {
@@ -3214,7 +3293,7 @@ inline size_t block_columnar_decode(uint8_t* out, const uint8_t* in, size_t enco
             case ColumnType::CONSTANT: {
                 uint8_t val = in[in_pos++];
                 for (size_t b = 0; b < num_blocks; b++) {
-                    out[b * block_len + pos] = val;
+                    out_recs[b * block_len + pos] = val;
                 }
                 break;
             }
@@ -3224,35 +3303,36 @@ inline size_t block_columnar_decode(uint8_t* out, const uint8_t* in, size_t enco
                 int delta = (int)in[in_pos++] - 128;
                 for (size_t b = 0; b < num_blocks; b++) {
                     int val = base + delta * (int)b;
-                    out[b * block_len + pos] = static_cast<uint8_t>(((val % 256) + 256) % 256);
+                    out_recs[b * block_len + pos] = static_cast<uint8_t>(((val % 256) + 256) % 256);
                 }
                 break;
             }
 
             case ColumnType::DELTA: {
                 uint8_t prev = in[in_pos++];
-                out[pos] = prev;
+                out_recs[pos] = prev;
                 for (size_t b = 1; b < num_blocks; b++) {
                     int d = (int)in[in_pos++] - 128;
                     prev = static_cast<uint8_t>(prev + d);
-                    out[b * block_len + pos] = prev;
+                    out_recs[b * block_len + pos] = prev;
                 }
                 break;
             }
 
             case ColumnType::RAW: {
                 for (size_t b = 0; b < num_blocks; b++) {
-                    out[b * block_len + pos] = in[in_pos++];
+                    out_recs[b * block_len + pos] = in[in_pos++];
                 }
                 break;
             }
         }
     }
 
-    // Read remainder
-    size_t remainder = original_size - num_blocks * block_len;
+    // Read remainder (after last complete block in records section)
+    size_t recs_total = original_size - header_offset;
+    size_t remainder = recs_total - num_blocks * block_len;
     for (size_t i = 0; i < remainder; i++) {
-        out[num_blocks * block_len + i] = in[in_pos++];
+        out_recs[num_blocks * block_len + i] = in[in_pos++];
     }
 
     return original_size;
@@ -3282,7 +3362,7 @@ inline DetectionResult detect(const uint8_t* data, size_t n, uint8_t* work_buffe
     uint8_t* temp = work_buffer;
     bool allocated = false;
     if (!temp) {
-        temp = new uint8_t[n + 256];  // Extra space for block_columnar header overhead
+        temp = new uint8_t[n + 65542];  // Extra space for block_columnar (block_len + 6 header bytes)
         allocated = true;
     }
 
@@ -3301,13 +3381,21 @@ inline DetectionResult detect(const uint8_t* data, size_t n, uint8_t* work_buffe
         }
     }
 
-    // Check BLOCK_COLUMNAR for fixed-width text records (logs, CSV, HTML items)
+    // Check BLOCK_COLUMNAR for fixed-width text records (logs, CSV, DBF, HTML items)
     // This is very specific - only applies to data with repeating fixed-length structures
     {
         size_t block_len = 0;
-        if (is_block_columnar_candidate(data, n, block_len)) {
-            size_t encoded_size = block_columnar_encode(temp, data, n, block_len);
-            double entropy = byte_entropy(temp, std::min(encoded_size, (size_t)4096));
+        size_t hdr_offset = 0;
+        if (is_block_columnar_candidate(data, n, block_len, hdr_offset)) {
+            size_t encoded_size = block_columnar_encode(temp, data, n, block_len, hdr_offset);
+            // Skip the format header (6 bytes) and raw prefix when measuring entropy
+            // Otherwise the raw DBF header dominates the entropy sample
+            size_t skip = 6 + hdr_offset;
+            size_t measure_start = std::min(skip, encoded_size);
+            size_t measure_len = encoded_size > measure_start ? encoded_size - measure_start : 0;
+            double entropy = measure_len > 0
+                ? byte_entropy(temp + measure_start, std::min(measure_len, (size_t)4096))
+                : best_entropy;
             // Require significant entropy reduction (at least 30%)
             if (entropy < best_entropy * 0.70) {
                 best_entropy = entropy;
@@ -3980,7 +4068,7 @@ inline DetectionResult detect_strict(const uint8_t* data, size_t n, uint8_t* wor
     uint8_t* temp = work_buffer;
     bool allocated = false;
     if (!temp) {
-        temp = new uint8_t[n + 256];  // Extra space for block_columnar header overhead
+        temp = new uint8_t[n + 65542];  // Extra space for block_columnar (block_len + 6 header bytes)
         allocated = true;
     }
 
