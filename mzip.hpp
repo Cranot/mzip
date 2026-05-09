@@ -7427,8 +7427,11 @@ inline std::vector<uint8_t> decode_template(const uint8_t* encoded, size_t encod
             ptr += 4;
 
             if (ptr + total > end) return {};
+            const uint8_t* col_end = ptr + total;
             for (size_t i = 0; i < line_count; i++) {
+                if (ptr + 1 > col_end) return {};
                 uint8_t len = *ptr++;
+                if (ptr + len > col_end) return {};
                 columns[c][i] = std::string((char*)ptr, len);
                 ptr += len;
             }
@@ -7468,13 +7471,20 @@ inline std::vector<uint8_t> decode_template(const uint8_t* encoded, size_t encod
         }
     }
 
-    // Reconstruct lines from template + columns, interleaving non-matching lines
+    // Reconstruct lines from template + columns, interleaving non-matching lines.
+    // Hard cap at 2x original_size to bound runaway corruption from malformed metadata.
     std::vector<uint8_t> result;
     result.reserve(original_size);
+    const size_t MAX_RESULT = original_size * 2 + 16;
+    auto safe_push = [&](uint8_t b) -> bool {
+        if (result.size() >= MAX_RESULT) return false;
+        result.push_back(b);
+        return true;
+    };
 
     // Prepend header bytes (skipped lines like "INSERT INTO... VALUES")
     for (char c : header_bytes) {
-        result.push_back((uint8_t)c);
+        if (!safe_push((uint8_t)c)) return {};
     }
 
     size_t nm_idx = 0;  // Index into non_matching_lines
@@ -7484,7 +7494,7 @@ inline std::vector<uint8_t> decode_template(const uint8_t* encoded, size_t encod
         // (stored as insert_after = line index, meaning insert before outputting this line)
         while (nm_idx < non_matching_lines.size() && non_matching_lines[nm_idx].first == line) {
             for (char c : non_matching_lines[nm_idx].second) {
-                result.push_back((uint8_t)c);
+                if (!safe_push((uint8_t)c)) return {};
             }
             nm_idx++;
         }
@@ -7502,30 +7512,30 @@ inline std::vector<uint8_t> decode_template(const uint8_t* encoded, size_t encod
                     size_t col_idx = std::stoul(template_str.substr(i + 1, j - i - 1));
                     if (col_idx < columns.size()) {
                         for (char c : columns[col_idx][line]) {
-                            result.push_back((uint8_t)c);
+                            if (!safe_push((uint8_t)c)) return {};
                         }
                     }
                     i = j;
                     continue;
                 }
             }
-            result.push_back((uint8_t)template_str[i]);
+            if (!safe_push((uint8_t)template_str[i])) return {};
             i++;
         }
-        result.push_back('\n');
+        if (!safe_push('\n')) return {};
     }
 
     // Insert any remaining non-matching lines after the last matching line
     while (nm_idx < non_matching_lines.size()) {
         for (char c : non_matching_lines[nm_idx].second) {
-            result.push_back((uint8_t)c);
+            if (!safe_push((uint8_t)c)) return {};
         }
         nm_idx++;
     }
 
     // Append footer bytes (lines after template, like ";\nUNLOCK TABLES;\n")
     for (char c : footer_bytes) {
-        result.push_back((uint8_t)c);
+        if (!safe_push((uint8_t)c)) return {};
     }
 
     // Remove trailing newline if original didn't have it
@@ -14163,10 +14173,21 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
 
                 if (use_template) {
                     auto encoded = encode_template(tp);
-                    memcpy(preprocess_data, encoded.data(), encoded.size());
-                    preprocess_size = encoded.size();
-                    res.blocks_text++;
-                } else {
+                    // Roundtrip verify: TEMPLATE detection has corner cases on real
+                    // inputs (truncated SQL VALUES tuples, mixed-format INSERT lines)
+                    // that produce encoder output the decoder reconstructs incorrectly.
+                    // decode_template is bounded — returns {} on any inconsistency.
+                    auto rt = decode_template(encoded.data(), encoded.size(), this_block);
+                    if (rt.size() != this_block ||
+                        std::memcmp(rt.data(), block_data, this_block) != 0) {
+                        use_template = false;
+                    } else {
+                        memcpy(preprocess_data, encoded.data(), encoded.size());
+                        preprocess_size = encoded.size();
+                        res.blocks_text++;
+                    }
+                }
+                if (!use_template) {
                     // TEMPLATE didn't help - try BWT_TEXT for structured text
                     // BWT often wins on text where TEMPLATE's structure doesn't compress well
                     // (e.g., Prometheus metrics with random values/timestamps)
@@ -14254,12 +14275,31 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             }
         } else if (analysis.type == BlockType::CSV_COLUMNAR) {
             // CSV columnar with LINEAR_GEN on ID columns
-            // Works on any block - each block stores its own column params
             auto encoded = encode_csv_columnar(analysis.csv_columnar);
-            memcpy(preprocess_data, encoded.data(), encoded.size());
-            preprocess_size = encoded.size();
-            use_generator = true;  // Already fully encoded (columns use BWT/zstd internally)
-            res.blocks_text++;
+            // Roundtrip verify: CSV column-type detection occasionally produces
+            // encoder output the decoder reconstructs incorrectly on real data
+            // (e.g., events.csv with mixed numeric/string columns).
+            auto rt = decode_csv_columnar(encoded.data(), encoded.size(), this_block);
+            if (rt.size() == this_block && std::memcmp(rt.data(), block_data, this_block) == 0) {
+                memcpy(preprocess_data, encoded.data(), encoded.size());
+                preprocess_size = encoded.size();
+                use_generator = true;
+                res.blocks_text++;
+            } else {
+                // Fall back to BWT_TEXT for CSV that didn't roundtrip
+                if (this_block >= 256 && this_block <= 2097152) {
+                    auto bwt_result = bwt9::compress(block_data, this_block);
+                    memcpy(preprocess_data, bwt_result.data(), bwt_result.size());
+                    preprocess_size = bwt_result.size();
+                    analysis.type = BlockType::BWT_TEXT;
+                    use_generator = true;
+                } else {
+                    memcpy(preprocess_data, block_data, this_block);
+                    preprocess_size = this_block;
+                    analysis.type = BlockType::TEXT;
+                }
+                res.blocks_text++;
+            }
         } else if (analysis.type == BlockType::JSON_COLUMNAR) {
             // JSON columnar: extract sequential requestId + delta timestamps
             // 1085 bytes better than brotli on JSON structured logs

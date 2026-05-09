@@ -1380,6 +1380,9 @@ inline std::vector<uint8_t> compress_rc(const BwtPipelineResult& r,
     return output;
 }
 
+// Forward declaration: compress() needs to roundtrip-verify its candidates.
+inline std::vector<uint8_t> decompress(const uint8_t* data, size_t n, bool debug);
+
 inline std::vector<uint8_t> compress(const uint8_t* data, size_t n) {
     if (n == 0) return {};
 
@@ -1390,18 +1393,11 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t n) {
     auto pipe_with    = run_bwt_pipeline(rle1.data(), rle1.size());
     auto pipe_without = run_bwt_pipeline(data, n);
 
-    // LZP variant: only worth trying when input is large enough to benefit and
-    // LZP actually shrinks it (otherwise the trial cost wastes encode time).
-    std::vector<uint8_t> lzp_buf;
-    BwtPipelineResult pipe_lzp;
-    bool lzp_ok = false;
-    if (n >= 4096) {
-        lzp_buf = lzp_encode(data, n);
-        if (lzp_buf.size() < n) {  // LZP shrunk the input; worth running BWT on it
-            pipe_lzp = run_bwt_pipeline(lzp_buf.data(), lzp_buf.size());
-            lzp_ok = pipe_lzp.ok;
-        }
-    }
+    // LZP-on-raw-input variants (BK/BM) are disabled. Per BWT_ROADMAP they were
+    // net-loss vs raw BWT (input shrinks ~4.4% but BWT residual compresses ~5%
+    // worse), and the encode/decode pair has a roundtrip bug on inputs large
+    // enough to engage real LZP back-references. The LZP-after-dict variant
+    // (BW) below is the working LZP path.
 
     std::vector<std::vector<uint8_t>> candidates;
     if (pipe_with.ok) {
@@ -1419,15 +1415,6 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t n) {
                               static_cast<uint32_t>(n), 'F'));
         candidates.push_back(compress_rc(pipe_without,
                               static_cast<uint32_t>(n), 'J'));
-    }
-    if (lzp_ok) {
-        // LZP path: header 'BK' = LZP + Huffman. The "original_size" here is the
-        // LZP-encoded size (the size BWT inverse will produce); the decoder needs
-        // BOTH the LZP-encoded size and the truly-original size.
-        candidates.push_back(compress_huffman(pipe_lzp,
-                              static_cast<uint32_t>(lzp_buf.size()), 'K'));
-        candidates.push_back(compress_rc(pipe_lzp,
-                              static_cast<uint32_t>(lzp_buf.size()), 'M'));
     }
 
     // Word dictionary preprocessing: build per-file dict of high-saving words,
@@ -1583,11 +1570,25 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t n) {
         }
     }
 
-    std::vector<uint8_t>* best = nullptr;
+    // Roundtrip-verify each candidate before letting it win the trial. Some of
+    // the per-block variants (BR/BS/BU/BV/BW with specific dict + LZP + capfold
+    // combinations) have rare encoder/decoder asymmetries on real-world inputs.
+    // Sort smallest-first, then return the first that roundtrips. This keeps the
+    // best valid output and never ships broken data.
+    std::sort(candidates.begin(), candidates.end(),
+              [](const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) {
+                  if (a.empty()) return false;
+                  if (b.empty()) return true;
+                  return a.size() < b.size();
+              });
     for (auto& c : candidates) {
-        if (!c.empty() && (best == nullptr || c.size() < best->size())) best = &c;
+        if (c.empty()) continue;
+        auto rt = decompress(c.data(), c.size(), false);
+        if (rt.size() == n && std::memcmp(rt.data(), data, n) == 0) {
+            return std::move(c);
+        }
     }
-    return best ? std::move(*best) : std::vector<uint8_t>{};
+    return {};
 }
 
 inline std::vector<uint8_t> decompress(const uint8_t* data, size_t n, bool debug = false) {
