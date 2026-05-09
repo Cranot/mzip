@@ -43,6 +43,7 @@
 
 #include "tieredcompress.hpp"
 #include "bwt_compress_v9.hpp"  // Smart adaptive BWT: v8 for small, v4 for large (optimal across all sizes)
+#include "mzip_dicts.h"         // Pre-trained zstd dictionaries for code/config (beats brotli at 4-16KB)
 #include "mzip_base64.hpp"      // Base64 de-encoding: decode to binary, compress, re-encode (1.76% better than brotli)
 #include "lzma_optimal2.hpp"    // LZMA optimal encoder: beats xz on x86 binaries with E8/E9 filter
 #include "lzma_decoder.hpp"     // LZMA decoder for decompression
@@ -126,6 +127,7 @@ enum class BlockType : uint8_t {
     WORD_TEMPLATE = 0x34,      // Repeating sections with word variable (2.4x over zstd on API docs!)
     MULTI_WORD_TEMPLATE = 0x35, // Template with multiple variables {1},{2},{3} (44% better on K8s Ingress!)
     DBF_CONSTCOL = 0x36,        // DBF constant column elimination + zstd (beats brotli by 3.4% on space-padded DBF!)
+    ZSTD_DICT = 0x37,           // zstd with pre-trained static dictionary (beats brotli at 4-16KB on code/config!)
 
     // === CROSS-BLOCK ENCODINGS (Mutual Algorithmic Information) ===
     REFERENCE = 0x30,          // Delta from similar previous block (zstd dictionary mode)
@@ -13846,10 +13848,68 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             strategy = analysis.numeric_strategy;
             preprocess_size = apply_strategy(preprocess_data, block_data, this_block, strategy);
 
+            // Sparse delta: if preprocessing makes >90% zeros, encode as sparse
+            // positions instead of sending to zstd. Saves zstd frame overhead (~7-13 bytes)
+            // on already-tiny outputs. Example: image gradient delta = 5 non-zero bytes.
+            {
+                size_t zeros = 0;
+                for (size_t i = 0; i < preprocess_size; i++)
+                    if (preprocess_data[i] == 0) zeros++;
+
+                if (zeros > preprocess_size * 9 / 10 && preprocess_size >= 256
+                    && preprocess_size == this_block) {  // Only when preprocessing preserves size
+                    // Encode sparse: strategy(1) + 0xFF(1) + count(varint) + [delta_pos(varint) + val(1)]...
+                    std::vector<uint8_t> sparse_enc;
+                    sparse_enc.push_back((uint8_t)strategy);
+                    sparse_enc.push_back(0xFF);  // sparse marker
+
+                    // Collect non-zero positions
+                    std::vector<std::pair<size_t, uint8_t>> nz;
+                    for (size_t i = 0; i < preprocess_size; i++)
+                        if (preprocess_data[i] != 0) nz.push_back({i, preprocess_data[i]});
+
+                    // count as varint
+                    uint32_t cnt = nz.size();
+                    while (cnt >= 128) { sparse_enc.push_back((cnt & 0x7F) | 0x80); cnt >>= 7; }
+                    sparse_enc.push_back(cnt & 0x7F);
+
+                    // delta-encoded positions + values
+                    size_t prev_pos = 0;
+                    for (auto& [pos, val] : nz) {
+                        uint32_t delta_pos = pos - prev_pos;
+                        while (delta_pos >= 128) { sparse_enc.push_back((delta_pos & 0x7F) | 0x80); delta_pos >>= 7; }
+                        sparse_enc.push_back(delta_pos & 0x7F);
+                        sparse_enc.push_back(val);
+                        prev_pos = pos;
+                    }
+
+                    // Only use sparse if it beats what zstd would produce
+                    // Estimate: zstd on this data ≈ sparse_enc.size() + zstd_frame_overhead
+                    // MU format: 5 bytes header + sparse_enc
+                    size_t sparse_total = sparse_enc.size();
+                    // Compare against zstd estimate (quick compress at level 1)
+                    std::vector<uint8_t> zstd_trial(ZSTD_compressBound(preprocess_size));
+                    size_t zstd_est = ZSTD_compress(zstd_trial.data(), zstd_trial.size(),
+                        preprocess_data, preprocess_size, 19);
+
+                    if (!ZSTD_isError(zstd_est) && sparse_total < zstd_est) {
+                        // Sparse wins — store directly, skip zstd
+                        memcpy(preprocess_data, sparse_enc.data(), sparse_enc.size());
+                        preprocess_size = sparse_enc.size();
+                        use_generator = true;  // Skip zstd re-compression
+                        res.blocks_numeric++;
+                    } else {
+                        res.blocks_numeric++;
+                    }
+                } else {
+                    res.blocks_numeric++;
+                }
+            }
+
             // Guard: BLOCK_COLUMNAR can destroy LZ77 locality (e.g. DBF files with 81% spaces).
             // Row-major format lets zstd match entire rows; columnar breaks that.
             // Trial-compress both and pick the smaller result.
-            if (strategy == tieredcompress::Strategy::BLOCK_COLUMNAR) {
+            if (!use_generator && strategy == tieredcompress::Strategy::BLOCK_COLUMNAR) {
                 size_t raw_bound = ZSTD_compressBound(this_block);
                 size_t prep_bound = ZSTD_compressBound(preprocess_size);
                 std::vector<uint8_t> trial_buf(std::max(raw_bound, prep_bound));
@@ -13899,8 +13959,6 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             use_generator = true;  // LZMA is complete compression, skip zstd
             res.blocks_raw++;
         } else if (analysis.type == BlockType::TEXT) {
-            // For text, use higher zstd level to compensate for header overhead
-            // Text compresses fast anyway, so level 9 vs 3 is negligible CPU cost
             memcpy(preprocess_data, block_data, this_block);
             res.blocks_text++;
             // Use level 9 minimum for text (set later in compression)
@@ -13927,10 +13985,86 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             // BWT compression for natural text - beats zstd/bzip2 on prose, markdown, etc.
             // v9 dispatches to v8 (fixed model) for <5KB or v5 (multi-tree) for larger
             auto compressed = bwt9::compress(block_data, this_block);
-            memcpy(preprocess_data, compressed.data(), compressed.size());
-            preprocess_size = compressed.size();
-            use_generator = true;  // BWT is complete compression, skip zstd
-            res.blocks_text++;
+
+            // At small sizes (<=16KB), trial zstd+dict — may beat BWT and brotli
+            if (this_block <= 16384) {
+                // Try both CODE and CONFIG dicts, pick best
+                ZSTD_CCtx* dict_cctx = ZSTD_createCCtx();
+                std::vector<uint8_t> dict_comp(ZSTD_compressBound(this_block) + 2);
+
+                size_t best_dict_size = SIZE_MAX;
+                uint8_t best_dict_id = 0;  // 1=CODE, 2=CONFIG, 3=TEXT, 4=LOG, 5=QUERY
+
+                // Trial all 5 dicts, pick smallest
+                struct { uint8_t id; const uint8_t* data; size_t size; } dicts[] = {
+                    {1, mzip_dicts::DICT_CODE,   mzip_dicts::DICT_CODE_SIZE},
+                    {2, mzip_dicts::DICT_CONFIG, mzip_dicts::DICT_CONFIG_SIZE},
+                    {3, mzip_dicts::DICT_TEXT,   mzip_dicts::DICT_TEXT_SIZE},
+                    {4, mzip_dicts::DICT_LOG,    mzip_dicts::DICT_LOG_SIZE},
+                    {5, mzip_dicts::DICT_QUERY,  mzip_dicts::DICT_QUERY_SIZE},
+                };
+                for (auto& d : dicts) {
+                    size_t sz = ZSTD_compress_usingDict(dict_cctx,
+                        dict_comp.data() + 2, dict_comp.size() - 2,
+                        block_data, this_block,
+                        d.data, d.size, 19);
+                    if (!ZSTD_isError(sz) && sz + 1 < best_dict_size) {
+                        best_dict_size = sz + 1;  // +1 for dict_id byte
+                        best_dict_id = d.id;
+                    }
+                }
+
+                ZSTD_freeCCtx(dict_cctx);
+
+                // Pick dict if it beats BWT
+                if (best_dict_id > 0 && best_dict_size < compressed.size()) {
+                    // Re-compress with winning dict to get the actual data
+                    dict_cctx = ZSTD_createCCtx();
+                    const uint8_t* dict_ptr = nullptr;
+                    size_t dict_len = 0;
+                    for (size_t di = 0; di < mzip_dicts::NUM_DICTS; di++) {
+                        if (mzip_dicts::ALL_DICTS[di].id == best_dict_id) {
+                            dict_ptr = mzip_dicts::ALL_DICTS[di].data;
+                            dict_len = mzip_dicts::ALL_DICTS[di].size;
+                            break;
+                        }
+                    }
+
+                    // Compress into temp buffer, then copy with dict_id prefix
+                    std::vector<uint8_t> tmp(ZSTD_compressBound(this_block));
+                    size_t sz = ZSTD_compress_usingDict(dict_cctx,
+                        tmp.data(), tmp.size(),
+                        block_data, this_block,
+                        dict_ptr, dict_len, 19);
+                    ZSTD_freeCCtx(dict_cctx);
+
+                    if (!ZSTD_isError(sz)) {
+                        // Format: [dict_id:1] [zstd_data:sz]
+                        preprocess_data[0] = best_dict_id;
+                        memcpy(preprocess_data + 1, tmp.data(), sz);
+                        preprocess_size = 1 + sz;
+                        analysis.type = BlockType::ZSTD_DICT;
+                        use_generator = true;
+                        res.blocks_text++;
+                    } else {
+                        // Fallback to BWT
+                        memcpy(preprocess_data, compressed.data(), compressed.size());
+                        preprocess_size = compressed.size();
+                        use_generator = true;
+                        res.blocks_text++;
+                    }
+                } else {
+                    memcpy(preprocess_data, compressed.data(), compressed.size());
+                    preprocess_size = compressed.size();
+                    use_generator = true;
+                    res.blocks_text++;
+                }
+            } else {
+                memcpy(preprocess_data, compressed.data(), compressed.size());
+                preprocess_size = compressed.size();
+                use_generator = true;  // BWT is complete compression, skip zstd
+                res.blocks_text++;
+            }
         } else if (analysis.type == BlockType::HTML_STREAM) {
             // HTML tag/content separation - beats brotli by 3.3% at 256KB+
             // This is a complete encoder - output is already fully compressed
@@ -14091,13 +14225,32 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                 res.blocks_text++;
             } else {
                 auto encoded = encode_columnar(analysis.columnar);
-                memcpy(preprocess_data, encoded.data(), encoded.size());
-                preprocess_size = encoded.size();
-                // 9-column format uses 8+1 split encoding (BWT+zstd) - already compressed
-                if (analysis.columnar.columns.size() == 9) {
-                    use_generator = true;
+                // Trial: at small sizes (<64KB), COLUMNAR overhead can exceed gains.
+                // Try BWT_TEXT on raw data and pick the smaller result.
+                if (analysis.columnar.columns.size() == 9 && this_block <= 32768) {
+                    auto bwt_trial = bwt9::compress(block_data, this_block);
+                    if (bwt_trial.size() < encoded.size()) {
+                        // BWT_TEXT wins — fall back
+                        memcpy(preprocess_data, bwt_trial.data(), bwt_trial.size());
+                        preprocess_size = bwt_trial.size();
+                        analysis.type = BlockType::BWT_TEXT;
+                        use_generator = true;
+                        res.blocks_text++;
+                    } else {
+                        memcpy(preprocess_data, encoded.data(), encoded.size());
+                        preprocess_size = encoded.size();
+                        use_generator = true;
+                        res.blocks_text++;
+                    }
+                } else {
+                    memcpy(preprocess_data, encoded.data(), encoded.size());
+                    preprocess_size = encoded.size();
+                    // 9-column format uses 8+1 split encoding (BWT+zstd) - already compressed
+                    if (analysis.columnar.columns.size() == 9) {
+                        use_generator = true;
+                    }
+                    res.blocks_text++;
                 }
-                res.blocks_text++;
             }
         } else if (analysis.type == BlockType::CSV_COLUMNAR) {
             // CSV columnar with LINEAR_GEN on ID columns
@@ -14261,6 +14414,63 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             res.blocks_raw++;
         }
 
+        // ====================================================================
+        // Universal dict trial: for ANY block ≤16KB, try zstd+dict on
+        // original data. If it beats the current encoding, switch to ZSTD_DICT.
+        // Runs AFTER all strategy-specific encoding is done.
+        // ====================================================================
+        if (this_block <= 16384 && this_block >= 256) {
+            ZSTD_CCtx* dcctx = ZSTD_createCCtx();
+            size_t best_dsz = SIZE_MAX;
+            uint8_t best_did = 0;
+            std::vector<uint8_t> dtbuf(ZSTD_compressBound(this_block));
+            for (size_t di = 0; di < mzip_dicts::NUM_DICTS; di++) {
+                auto& d = mzip_dicts::ALL_DICTS[di];
+                size_t sz = ZSTD_compress_usingDict(dcctx,
+                    dtbuf.data(), dtbuf.size(),
+                    block_data, this_block, d.data, d.size, 19);
+                if (!ZSTD_isError(sz) && sz + 1 < best_dsz) {
+                    best_dsz = sz + 1;
+                    best_did = d.id;
+                }
+            }
+            ZSTD_freeCCtx(dcctx);
+
+            // Compare dict result against current encoding
+            // For use_generator blocks: compare against preprocess_size (already compressed)
+            // For non-use_generator blocks: estimate final size as zstd(preprocess_data)
+            size_t current_est = preprocess_size;
+            if (!use_generator) {
+                // Quick zstd estimate
+                size_t zest = ZSTD_compress(dtbuf.data(), dtbuf.size(),
+                    preprocess_data, preprocess_size, 19);
+                if (!ZSTD_isError(zest)) current_est = zest;
+            }
+
+            if (best_did > 0 && best_dsz < current_est) {
+                // Dict wins — rebuild as ZSTD_DICT block
+                dcctx = ZSTD_createCCtx();
+                const uint8_t* dp = nullptr; size_t dl = 0;
+                for (size_t di = 0; di < mzip_dicts::NUM_DICTS; di++) {
+                    if (mzip_dicts::ALL_DICTS[di].id == best_did) {
+                        dp = mzip_dicts::ALL_DICTS[di].data;
+                        dl = mzip_dicts::ALL_DICTS[di].size;
+                        break;
+                    }
+                }
+                size_t sz = ZSTD_compress_usingDict(dcctx,
+                    preprocess_data + 1, ZSTD_compressBound(this_block),
+                    block_data, this_block, dp, dl, 19);
+                ZSTD_freeCCtx(dcctx);
+                if (!ZSTD_isError(sz)) {
+                    preprocess_data[0] = best_did;
+                    preprocess_size = 1 + sz;
+                    analysis.type = BlockType::ZSTD_DICT;
+                    use_generator = true;
+                }
+            }
+        }
+
         size_t compressed_size;
         bool store_raw;
 
@@ -14412,7 +14622,16 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                            block_type == static_cast<uint8_t>(BlockType::KV_CONFIG) ||
                            block_type == static_cast<uint8_t>(BlockType::WORD_ENCODED) ||
                            block_type == static_cast<uint8_t>(BlockType::ML_TEMPLATE) ||
-                           block_type == static_cast<uint8_t>(BlockType::SECTION_TEMPLATE));
+                           block_type == static_cast<uint8_t>(BlockType::SECTION_TEMPLATE) ||
+                           block_type == static_cast<uint8_t>(BlockType::ZSTD_DICT) ||
+                           block_type == static_cast<uint8_t>(BlockType::CODE_STREAM) ||
+                           block_type == static_cast<uint8_t>(BlockType::NUM_EXTRACT));
+
+            // Also allow NUMERIC blocks with sparse encoding (0xFF marker)
+            if (!use_mu && block_type == static_cast<uint8_t>(BlockType::NUMERIC) && comp_size >= 2) {
+                const uint8_t* bd = &output[LEGACY_HEADER + LEGACY_BLOCK_HEADER];
+                if (bd[1] == 0xFF) use_mu = true;
+            }
 
             if (use_mu) {
                 const uint8_t* block_data = &output[LEGACY_HEADER + LEGACY_BLOCK_HEADER];
@@ -14497,29 +14716,45 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
     };
     size_t uraw_size = 2 + varint_size(size) + size;
 
-    // Helper: Check if data looks text-like (for BWT trial in MC chunks)
-    auto is_text_like = [](const uint8_t* d, size_t n) -> bool {
-        size_t sample = std::min(n, (size_t)4096);
+    // Single-window check: returns text-likeness ratio in [0.0, 1.0]
+    auto window_text_ratio = [](const uint8_t* d, size_t n) -> double {
+        if (n == 0) return 0.0;
         size_t ascii_printable = 0;
         size_t utf8_valid = 0;
-
-        for (size_t i = 0; i < sample; i++) {
+        for (size_t i = 0; i < n; i++) {
             uint8_t c = d[i];
-            // Count ASCII printable + whitespace
             if ((c >= 32 && c <= 126) || c == '\n' || c == '\r' || c == '\t')
                 ascii_printable++;
-            // Check valid UTF-8 sequences
-            else if (c >= 0xC2 && c <= 0xF4 && i + 1 < sample) {
+            else if (c >= 0xC2 && c <= 0xF4 && i + 1 < n) {
                 int expected = (c < 0xE0) ? 1 : (c < 0xF0) ? 2 : 3;
                 bool valid = true;
-                for (int j = 1; j <= expected && i + j < sample; j++) {
+                for (int j = 1; j <= expected && i + j < n; j++) {
                     if ((d[i + j] & 0xC0) != 0x80) { valid = false; break; }
                 }
                 if (valid) utf8_valid += 1 + expected;
             }
         }
-        return ascii_printable >= sample * 7 / 10 ||
-               (ascii_printable + utf8_valid) >= sample * 7 / 10;
+        return (double)(ascii_printable + utf8_valid) / (double)n;
+    };
+
+    // Robust multi-window text detection: sample 5 windows of 4KB across the file.
+    // Returns true when majority of windows look text-like. Catches files where
+    // start is text but body is binary (and vice versa).
+    auto is_text_like = [&window_text_ratio](const uint8_t* d, size_t n) -> bool {
+        constexpr size_t WIN = 4096;
+        if (n <= WIN) return window_text_ratio(d, n) >= 0.70;
+        size_t positions[5];
+        positions[0] = 0;
+        positions[1] = n / 4;
+        positions[2] = n / 2;
+        positions[3] = (n * 3) / 4;
+        positions[4] = n - WIN;
+        int text_windows = 0;
+        for (size_t pos : positions) {
+            size_t window = std::min(WIN, n - pos);
+            if (window_text_ratio(d + pos, window) >= 0.70) text_windows++;
+        }
+        return text_windows >= 3;  // majority of 5
     };
 
     // ============================================================================
@@ -14536,7 +14771,10 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
     constexpr uint8_t MC_BACKEND_BWT = 1;
     constexpr uint8_t MC_BACKEND_LZMA = 2;
 
-    if (mode == CompressionMode::SMALL && size > MC_THRESHOLD) {
+    // Try MC whenever the input is large enough and the mode allows pre/post-processing.
+    // MC wins when chunks are heterogeneous (mixed types). On homogeneous prose, the
+    // single-block BG path below typically beats it, so they compete on output size.
+    if (mode != CompressionMode::FAST && size > MC_THRESHOLD) {
         // Try multi-chunk compression
         std::vector<uint8_t> mc_temp;
         mc_temp.reserve(size);
@@ -14594,9 +14832,40 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         }
     }
 
+    // ============================================================================
+    // BG (BWT-Big single-block) format — for prose where patterns span chunks
+    // Wikipedia: per-chunk BWT loses to zstd, single-block BWT beats brotli.
+    // Format: "BG" + varint(orig_size) + bwt5_bytes
+    // Cap at 64MB to keep memory under control (libsais uses ~5N RAM).
+    // ============================================================================
+    // BG wins on prose where patterns span chunks (e.g. Wikipedia). Cap at 1GB to
+    // unlock single-block BWT on full enwik9. libsais needs ~5N RAM working set —
+    // 1GB block ≈ 5GB peak, fits within Hutter Prize's 10GB limit. SMALL mode only
+    // for the largest sizes (BALANCED stays at the safer 256MB cap).
+    std::vector<uint8_t> bg_format;
+    constexpr size_t BG_MAX_SIZE_BALANCED = 256u * 1024 * 1024;
+    constexpr size_t BG_MAX_SIZE_SMALL    = 1024u * 1024 * 1024;
+    size_t BG_MAX_SIZE = (mode == CompressionMode::SMALL)
+                         ? BG_MAX_SIZE_SMALL : BG_MAX_SIZE_BALANCED;
+    if (mode != CompressionMode::FAST && size > MC_THRESHOLD && size <= BG_MAX_SIZE
+        && is_text_like(data, size)) {
+        auto bg_body = bwt5::compress(data, size);
+        if (!bg_body.empty()) {
+            std::vector<uint8_t> bg_temp;
+            bg_temp.reserve(bg_body.size() + 16);
+            bg_temp.push_back('B');
+            bg_temp.push_back('G');
+            uint8_t vbuf[16];
+            size_t n = write_uvarint_buf(vbuf, size);
+            bg_temp.insert(bg_temp.end(), vbuf, vbuf + n);
+            bg_temp.insert(bg_temp.end(), bg_body.begin(), bg_body.end());
+            bg_format = std::move(bg_temp);
+        }
+    }
+
     // Find the smallest output format
     size_t best_size = out_pos;  // mzip format
-    int best_format = 0;  // 0=mzip, 1=zstd, 2=µRAW, 3=MC, 4=CL
+    int best_format = 0;  // 0=mzip, 1=zstd, 2=µRAW, 3=MC, 4=CL, 6=BG
 
     if (!ZSTD_isError(zstd_size) && zstd_size < best_size) {
         best_size = zstd_size;
@@ -14621,6 +14890,11 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
     if (!mu_format.empty() && mu_format.size() < best_size) {
         best_size = mu_format.size();
         best_format = 5;  // MU format
+    }
+
+    if (!bg_format.empty() && bg_format.size() < best_size) {
+        best_size = bg_format.size();
+        best_format = 6;  // BG (BWT-Big single-block) format
     }
 
     if (best_format == 1) {
@@ -14690,6 +14964,16 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         res.used_lite_format = true;  // MU format uses lite decompression path
         if (result) *result = res;
         return mu_format;
+    }
+
+    if (best_format == 6) {
+        // BG (BWT-Big single-block) format is smallest (prose 1MB-64MB)
+        res.success = true;
+        res.compressed_size = bg_format.size();
+        res.block_count = 1;
+        res.used_lite_format = true;  // BG format uses lite decompression path
+        if (result) *result = res;
+        return bg_format;
     }
 
     res.success = true;
@@ -14822,6 +15106,31 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
             case BlockType::BWT_TEXT:
                 output = bwt9::decompress(comp_data, comp_size);
                 break;
+            case BlockType::ZSTD_DICT: {
+                // Format: [dict_id:1] [zstd_data:rest]
+                if (comp_size < 2) break;
+                uint8_t dict_id = comp_data[0];
+                const uint8_t* dict_data = nullptr;
+                size_t dict_len = 0;
+                for (size_t di = 0; di < mzip_dicts::NUM_DICTS; di++) {
+                    if (mzip_dicts::ALL_DICTS[di].id == dict_id) {
+                        dict_data = mzip_dicts::ALL_DICTS[di].data;
+                        dict_len = mzip_dicts::ALL_DICTS[di].size;
+                        break;
+                    }
+                }
+                if (dict_data) {
+                    output.resize(orig_size);
+                    ZSTD_DCtx* dctx = ZSTD_createDCtx();
+                    size_t result = ZSTD_decompress_usingDict(dctx,
+                        output.data(), orig_size,
+                        comp_data + 1, comp_size - 1,
+                        dict_data, dict_len);
+                    ZSTD_freeDCtx(dctx);
+                    if (ZSTD_isError(result)) output.clear();
+                }
+                break;
+            }
             case BlockType::TEMPLATE:
                 output = decode_template(comp_data, comp_size, orig_size);
                 break;
@@ -14846,6 +15155,42 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
             case BlockType::DBF_CONSTCOL:
                 output = decode_dbf_constcol(comp_data, comp_size, orig_size);
                 break;
+            case BlockType::NUMERIC: {
+                // Sparse delta format: strategy(1) + 0xFF(1) + sparse data
+                if (comp_size >= 2 && comp_data[1] == 0xFF) {
+                    tieredcompress::Strategy strat = static_cast<tieredcompress::Strategy>(comp_data[0]);
+                    // Decode sparse
+                    std::vector<uint8_t> preproc(orig_size, 0);
+                    size_t p = 2;
+                    uint32_t count = 0; int sh = 0;
+                    while (p < comp_size && (comp_data[p] & 0x80)) {
+                        count |= (uint32_t)(comp_data[p++] & 0x7F) << sh; sh += 7;
+                    }
+                    if (p < comp_size) count |= (uint32_t)comp_data[p++] << sh;
+                    size_t spos = 0;
+                    for (uint32_t i = 0; i < count && p + 1 < comp_size; i++) {
+                        uint32_t dp = 0; sh = 0;
+                        while (p < comp_size && (comp_data[p] & 0x80)) {
+                            dp |= (uint32_t)(comp_data[p++] & 0x7F) << sh; sh += 7;
+                        }
+                        if (p < comp_size) dp |= (uint32_t)comp_data[p++] << sh;
+                        spos += dp;
+                        if (spos < preproc.size() && p < comp_size) preproc[spos] = comp_data[p++];
+                    }
+                    // Reverse strategy
+                    output.resize(orig_size);
+                    reverse_strategy(output.data(), preproc.data(), preproc.size(), orig_size, strat);
+                }
+                break;
+            }
+            case BlockType::CODE_STREAM:
+                output = decode_code_stream(comp_data, comp_size, orig_size);
+                break;
+            case BlockType::NUM_EXTRACT: {
+                auto decoded = decode_num_extract(comp_data, comp_size, orig_size);
+                output = decoded;
+                break;
+            }
             default:
                 res.error = "MU: unsupported block type";
                 if (result) *result = res;
@@ -14966,6 +15311,35 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
             return {};
         }
 
+        res.success = true;
+        res.decompressed_size = output.size();
+        if (result) *result = res;
+        return output;
+    }
+
+    // Handle BG format: BWT-Big single-block (prose 1MB-64MB)
+    // Magic: "BG" + varint(orig_size) + bwt5_bytes
+    if (data[0] == 'B' && data[1] == 'G') {
+        pos = 2;
+
+        uint64_t orig_size = 0;
+        int shift = 0;
+        while (pos < size && (data[pos] & 0x80)) {
+            orig_size |= static_cast<uint64_t>(data[pos] & 0x7F) << shift;
+            shift += 7;
+            pos++;
+        }
+        if (pos < size) {
+            orig_size |= static_cast<uint64_t>(data[pos]) << shift;
+            pos++;
+        }
+
+        auto output = bwt5::decompress(data + pos, size - pos);
+        if (output.size() != orig_size) {
+            res.error = "BG: decompressed size mismatch";
+            if (result) *result = res;
+            return {};
+        }
         res.success = true;
         res.decompressed_size = output.size();
         if (result) *result = res;
@@ -15392,6 +15766,23 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
             auto decoded = bwt9::decompress(block_data, block_size);
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
+        } else if (type == BlockType::ZSTD_DICT) {
+            // Decode zstd with pre-trained dictionary
+            if (block_size < 2) { res.error = "ZSTD_DICT block too small"; if (result) *result = res; return {}; }
+            uint8_t dict_id = block_data[0];
+            const uint8_t* dict_ptr = nullptr;
+            size_t dict_len = 0;
+            if (dict_id == 1) { dict_ptr = mzip_dicts::DICT_CODE; dict_len = mzip_dicts::DICT_CODE_SIZE; }
+            else if (dict_id == 2) { dict_ptr = mzip_dicts::DICT_CONFIG; dict_len = mzip_dicts::DICT_CONFIG_SIZE; }
+            if (!dict_ptr) { res.error = "ZSTD_DICT unknown dict_id"; if (result) *result = res; return {}; }
+            ZSTD_DCtx* dctx = ZSTD_createDCtx();
+            size_t dec_size = ZSTD_decompress_usingDict(dctx,
+                &output[out_pos], block_original_size,
+                block_data + 1, block_size - 1,
+                dict_ptr, dict_len);
+            ZSTD_freeDCtx(dctx);
+            if (ZSTD_isError(dec_size)) { res.error = "ZSTD_DICT decompression failed"; if (result) *result = res; return {}; }
+            out_pos += dec_size;
         } else if (type == BlockType::HTML_STREAM) {
             // Decode HTML stream - reconstruct from separated tag/content streams
             auto decoded = decode_html_stream(block_data, block_size, block_original_size);
@@ -15413,8 +15804,39 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::NUMERIC && strategy != tieredcompress::Strategy::NONE) {
+            const uint8_t* rev_data = block_data;
+            size_t rev_size = block_size;
+
+            // Check for sparse delta encoding: strategy(1) + 0xFF(1) + sparse data
+            std::vector<uint8_t> sparse_decoded;
+            if (block_size >= 2 && block_data[0] == (uint8_t)strategy && block_data[1] == 0xFF) {
+                // Decode sparse: reconstruct preprocessed data (mostly zeros)
+                sparse_decoded.resize(block_original_size, 0);
+                size_t p = 2;
+                // Read count (varint)
+                uint32_t count = 0; int shift = 0;
+                while (p < block_size && (block_data[p] & 0x80)) {
+                    count |= (uint32_t)(block_data[p++] & 0x7F) << shift; shift += 7;
+                }
+                if (p < block_size) count |= (uint32_t)block_data[p++] << shift;
+                // Read delta-encoded positions + values
+                size_t pos = 0;
+                for (uint32_t i = 0; i < count && p + 1 < block_size; i++) {
+                    uint32_t delta_pos = 0; shift = 0;
+                    while (p < block_size && (block_data[p] & 0x80)) {
+                        delta_pos |= (uint32_t)(block_data[p++] & 0x7F) << shift; shift += 7;
+                    }
+                    if (p < block_size) delta_pos |= (uint32_t)block_data[p++] << shift;
+                    pos += delta_pos;
+                    if (pos < sparse_decoded.size() && p < block_size)
+                        sparse_decoded[pos] = block_data[p++];
+                }
+                rev_data = sparse_decoded.data();
+                rev_size = sparse_decoded.size();
+            }
+
             size_t final_size = reverse_strategy(
-                unpreprocess_buf.data(), block_data, block_size,
+                unpreprocess_buf.data(), rev_data, rev_size,
                 block_original_size, strategy
             );
             memcpy(&output[out_pos], unpreprocess_buf.data(), final_size);
@@ -15647,6 +16069,7 @@ inline const char* block_type_name(BlockType type) {
         case BlockType::CODE_STREAM: return "CODE_STREAM";
         case BlockType::REFERENCE: return "REFERENCE";
         case BlockType::DBF_CONSTCOL: return "DBF_CONSTCOL";
+        case BlockType::ZSTD_DICT: return "ZSTD_DICT";
         case BlockType::INCOMPRESSIBLE: return "INCOMPRESSIBLE";
         default: return "UNKNOWN";
     }
