@@ -49,6 +49,9 @@ ziptest/
 
 # Python scripts (experimental)
 *.py
+# but DO track the README/bench helpers
+!generate_readme_tables.py
+!summarize_real_bench.py
 
 # Batch scripts
 *.bat
@@ -58,6 +61,8 @@ enwik9
 *.tz
 *.mzip
 *.txt
+# but DO track committed bench output
+!real_bench_results.txt
 *.jsx
 *.png
 snzip*
