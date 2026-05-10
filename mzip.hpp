@@ -14003,17 +14003,11 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                 std::vector<uint8_t> dict_comp(ZSTD_compressBound(this_block) + 2);
 
                 size_t best_dict_size = SIZE_MAX;
-                uint8_t best_dict_id = 0;  // 1=CODE, 2=CONFIG, 3=TEXT, 4=LOG, 5=QUERY
-
-                // Trial all 5 dicts, pick smallest
-                struct { uint8_t id; const uint8_t* data; size_t size; } dicts[] = {
-                    {1, mzip_dicts::DICT_CODE,   mzip_dicts::DICT_CODE_SIZE},
-                    {2, mzip_dicts::DICT_CONFIG, mzip_dicts::DICT_CONFIG_SIZE},
-                    {3, mzip_dicts::DICT_TEXT,   mzip_dicts::DICT_TEXT_SIZE},
-                    {4, mzip_dicts::DICT_LOG,    mzip_dicts::DICT_LOG_SIZE},
-                    {5, mzip_dicts::DICT_QUERY,  mzip_dicts::DICT_QUERY_SIZE},
-                };
-                for (auto& d : dicts) {
+                uint8_t best_dict_id = 0;
+                // Trial all NUM_DICTS dicts (5 synthetic + 6 real-data),
+                // pick smallest. The trial cost is amortized by trial-pick.
+                for (size_t di = 0; di < mzip_dicts::NUM_DICTS; di++) {
+                    auto& d = mzip_dicts::ALL_DICTS[di];
                     size_t sz = ZSTD_compress_usingDict(dict_cctx,
                         dict_comp.data() + 2, dict_comp.size() - 2,
                         block_data, this_block,
@@ -14455,11 +14449,16 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         }
 
         // ====================================================================
-        // Universal dict trial: for ANY block ≤16KB, try zstd+dict on
+        // Universal dict trial: for ANY block in [256B, 1MB], try zstd+dict on
         // original data. If it beats the current encoding, switch to ZSTD_DICT.
         // Runs AFTER all strategy-specific encoding is done.
+        // The pre-trained group dicts (CODE/CONFIG/TEXT/LOG/QUERY, 16KB each)
+        // carry domain keywords (k8s, terraform, sql, html tags, log fields)
+        // that brotli's 120 KB static English/web dict catches but BWT alone
+        // cannot. Worth trialing well past the original 16KB cap on real
+        // structured content; trial-pick discards the dict result if it loses.
         // ====================================================================
-        if (this_block <= 16384 && this_block >= 256) {
+        if (this_block <= 1048576 && this_block >= 256) {
             ZSTD_CCtx* dcctx = ZSTD_createCCtx();
             size_t best_dsz = SIZE_MAX;
             uint8_t best_did = 0;
@@ -15812,8 +15811,13 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
             uint8_t dict_id = block_data[0];
             const uint8_t* dict_ptr = nullptr;
             size_t dict_len = 0;
-            if (dict_id == 1) { dict_ptr = mzip_dicts::DICT_CODE; dict_len = mzip_dicts::DICT_CODE_SIZE; }
-            else if (dict_id == 2) { dict_ptr = mzip_dicts::DICT_CONFIG; dict_len = mzip_dicts::DICT_CONFIG_SIZE; }
+            for (size_t di = 0; di < mzip_dicts::NUM_DICTS; di++) {
+                if (mzip_dicts::ALL_DICTS[di].id == dict_id) {
+                    dict_ptr = mzip_dicts::ALL_DICTS[di].data;
+                    dict_len = mzip_dicts::ALL_DICTS[di].size;
+                    break;
+                }
+            }
             if (!dict_ptr) { res.error = "ZSTD_DICT unknown dict_id"; if (result) *result = res; return {}; }
             ZSTD_DCtx* dctx = ZSTD_createDCtx();
             size_t dec_size = ZSTD_decompress_usingDict(dctx,

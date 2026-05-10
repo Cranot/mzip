@@ -75,6 +75,17 @@ snzip*
 *.swo
 *~
 
+# Raw training corpus — re-fetched on demand via train_corpus/fetch.sh
+# (the trained .bin dicts are kept; the raw text/binary samples are not)
+train_corpus/md/
+train_corpus/yaml/
+train_corpus/hcl/
+train_corpus/sql/
+train_corpus/xml/
+train_corpus/code/
+# but DO track the trained .bin dicts (override the global *.bin rule)
+!train_corpus/*.bin
+
 # External dependencies (download separately)
 zstd_release/
 mingw64/

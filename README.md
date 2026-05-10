@@ -10,8 +10,8 @@ A C++17 single-header library that detects mathematical structure and per-file p
 
 | Benchmark | mzip wins | Notes |
 |---|---|---|
-| 250 synthetic tests (50 types × 5 sizes) | **233 / 250 (93.2%)** | Avg ratio 8.25× — top non-neural ratio among the 8 compressors tested. All 250 roundtrips verified. |
-| 47 real GitHub files (7.2 MB) | **13 / 47 (27.7%)** | Wins everywhere data has structure (logs, CSV, JSON, large mixed). Loses to brotli on small handwritten source code. All 47 roundtrips verified. |
+| 250 synthetic tests (50 types × 5 sizes) | **235 / 250 (94.0%)** | Avg ratio 8.26× — top non-neural ratio among the 8 compressors tested. All 250 roundtrips verified. |
+| 47 real GitHub files (7.2 MB) | **18 / 47 (38.3%)** | Wins on logs, CSV, JSON, SQL, XML, large mixed content. With pre-trained group dictionaries (CODE / CONFIG / TEXT / LOG / QUERY / Markdown / YAML / HCL / SQL / XML / source-code, real-data-trained), mzip beats brotli by **5.5×** on `sql_schema.sql` and **1.43×** on `xml_maven.xml`. Loses to brotli on small handwritten markdown / source code. All 47 roundtrips verified. |
 | enwik9 10 MB Wikipedia prose | **2,671,197 bytes** | Beats brotli:11 by 5.9%, bzip2:9 by 14.4%. Smallest output of any standard library compressor on this benchmark. |
 
 **Sections:** [Why](#why-mzip) · [Strengths & limits](#key-strengths) · [Synthetic results](#benchmark-results) · [enwik9 prose](#long-form-prose-enwik9) · [Real-world files](#real-world-file-benchmark) · [Strategies](#compression-strategies) · [Quick start](#quick-start)
@@ -38,7 +38,7 @@ The first four wins come from formula or template detection — algorithmic subs
 
 ## Key Strengths
 
-> **mzip is a specialist, not a general archiver.** On data that has structure — numeric sequences, templates, columns, prose, audio, gradients, logs — it produces meaningfully smaller output than zstd:19, brotli:11, bzip2:9, xz:9, 7z, or rar. On generic small handwritten source code (a few KB of TypeScript, Markdown, or Python) brotli's 120 KB static dictionary usually wins. The 93.2% synthetic win rate (formula-friendly suite) and 27.7% real-world win rate (47-file GitHub corpus) are both honest measurements of those two regimes. Read both, then pick the tool for the data you actually have.
+> **mzip is a specialist, not a general archiver.** On data that has structure — numeric sequences, templates, columns, prose, audio, gradients, logs, SQL, XML, K8s — it produces meaningfully smaller output than zstd:19, brotli:11, bzip2:9, xz:9, 7z, or rar. On generic small handwritten source code (a few KB of TypeScript, Markdown, or Python) brotli's 120 KB static dictionary still usually wins. The 94.0% synthetic win rate (formula-friendly suite) and 38.3% real-world win rate (47-file GitHub corpus) are both honest measurements of those two regimes. Read both, then pick the tool for the data you actually have.
 
 ### When to use mzip
 
@@ -86,8 +86,8 @@ All synthetic benchmarks below are generated deterministically by `generators.hp
 
 | Compressor | Avg Ratio | Range | Wins | Win% | Rank |
 |------------|-----------|-------|------|------|------|
-| **mzip** | **8.25x** | 1.0–32768x | **233** | **93.2%** | **1** |
-| brotli:11 | 5.78x | 1.0–1716x | 15 | 6.0% | 2 |
+| **mzip** | **8.26x** | 1.0–32768x | **235** | **94.0%** | **1** |
+| brotli:11 | 5.78x | 1.0–1716x | 13 | 5.2% | 2 |
 | bzip2:9 | 5.66x | 1.0–1001x | 5 | 2.0% | 3 |
 | rar:m5 | 5.97x | 1.0–1014x | 0 | 0.0% | 4 |
 | xz:9 | 5.89x | 1.0–997x | 0 | 0.0% | 5 |
@@ -114,7 +114,7 @@ zstd is roughly **38× faster to decompress**. Most of the gap is BWT-inverse vs
 |------|------|-------|------|
 | 4KB | 43 | 50 | 86.0% |
 | 16KB | 48 | 50 | 96.0% |
-| 64KB | 45 | 50 | 90.0% |
+| 64KB | 47 | 50 | 94.0% |
 | 256KB | 48 | 50 | 96.0% |
 | 1MB | 49 | 50 | 98.0% |
 
@@ -179,6 +179,7 @@ mzip produces the smallest output on both prefixes **among standard library comp
 Synthetic data, generated at each size by `generators.hpp` so results are reproducible.
 
 
+
 ### NUMERIC
 
 | Type | 64KB | 256KB | 1MB | Samples |
@@ -227,9 +228,9 @@ Synthetic data, generated at each size by `generators.hpp` so results are reprod
 
 | Type | 64KB | 256KB | 1MB | Samples |
 |------|------|-------|-----|---------|
-| **Docker Compose** | 2.1KB vs **2.1KB** | **5.4KB** vs 5.6KB | **17KB** vs 19KB | [64k](samples/64k/input/docker_compose.yaml) [256k](samples/256k/input/docker_compose.yaml) [1m](samples/1m/input/docker_compose.yaml) |
-| **Terraform** | 3.4KB vs **3.0KB** | 10KB vs **10KB** | 41KB vs **40KB** | [64k](samples/64k/input/terraform.tf) [256k](samples/256k/input/terraform.tf) [1m](samples/1m/input/terraform.tf) |
-| **K8s manifests** | **3.2KB** vs 3.3KB | **7.4KB** vs 7.6KB | **21KB** vs 24KB | [64k](samples/64k/input/k8s.yaml) [256k](samples/256k/input/k8s.yaml) [1m](samples/1m/input/k8s.yaml) |
+| **Docker Compose** | **1.7KB** vs 2.1KB | **5.4KB** vs 5.6KB | **17KB** vs 19KB | [64k](samples/64k/input/docker_compose.yaml) [256k](samples/256k/input/docker_compose.yaml) [1m](samples/1m/input/docker_compose.yaml) |
+| **Terraform** | **2.8KB** vs 3.0KB | 10KB vs **10KB** | 41KB vs **40KB** | [64k](samples/64k/input/terraform.tf) [256k](samples/256k/input/terraform.tf) [1m](samples/1m/input/terraform.tf) |
+| **K8s manifests** | **2.8KB** vs 3.3KB | **7.4KB** vs 7.6KB | **21KB** vs 24KB | [64k](samples/64k/input/k8s.yaml) [256k](samples/256k/input/k8s.yaml) [1m](samples/1m/input/k8s.yaml) |
 | **YAML config** | **3.8KB** vs 3.8KB | **11KB** vs 11KB | **38KB** vs 41KB | [64k](samples/64k/input/yaml_config.yaml) [256k](samples/256k/input/yaml_config.yaml) [1m](samples/1m/input/yaml_config.yaml) |
 
 *Format: **mzip** vs 2nd-best. Bold = winner.*
@@ -278,9 +279,6 @@ Synthetic data, generated at each size by `generators.hpp` so results are reprod
 | **Cargo.toml** | **3.3KB** vs 3.5KB | **9.5KB** vs 10KB | **32KB** vs 38KB | [64k](samples/64k/input/cargo.toml) [256k](samples/256k/input/cargo.toml) [1m](samples/1m/input/cargo.toml) |
 
 *Format: **mzip** vs 2nd-best. Bold = winner.*
-
----
-
 ## Real-World File Benchmark
 
 47 files (7.2 MB total) pulled from public GitHub repos — React, Linux kernel, Django, Bootstrap, lodash, plus 20+ programming-language files. Mix of source code, configs, logs, JSON, CSV, markdown. All 47 round-trip-verified.
@@ -289,42 +287,47 @@ Full per-file table: [real_bench_summary.md](real_bench_summary.md). Raw output:
 
 ### Result
 
-- **mzip wins or ties on 13 / 47 files (27.7%)**
-- brotli:11 wins 32, bzip2:9 wins 1, xz:9 wins 1, all others 0
+- **mzip wins or ties on 18 / 47 files (38.3%)**
+- brotli:11 wins 27, bzip2:9 wins 1, xz:9 wins 1, all others 0
 
-The synthetic 93.2% does not survive intact on real GitHub source code — the synthetic suite includes a lot of formula-compressible content (sequential IDs, timestamps, gradients, audio, generated templates) that hand-written code rarely contains. Read both numbers, not just one.
+The synthetic 94.0% does not survive intact on real GitHub source code — the synthetic suite includes formula-compressible content (sequential IDs, timestamps, gradients, audio, generated templates) that hand-written code rarely contains. The 11 pre-trained group dictionaries (5 synthetic-trained + 6 real-data-trained on public corpora not in this benchmark) close most of the gap on logs, CSV, JSON, SQL, XML, and structured config. Read both numbers together.
 
-### Where mzip wins
+### Where mzip wins (top advantages)
 
 | File | Size | mzip ratio | 2nd best | Advantage |
 |------|-----:|-----------:|----------|-----------|
-| apache_log_sample.log | 2.26MB | 22.83x | brotli: 116KB | +12.5% |
-| dashboard.html | 42KB | 34.04x | brotli: 1.3KB | +7.1% |
-| docker-compose.yml | 3.9KB | 4.23x | brotli: 1.0KB | +8.2% |
-| nginx_access.log | 417KB | 12.11x | bzip2: 35KB | +1.3% |
-| app.log | 464KB | 7.90x | bzip2: 60KB | +2.5% |
-| events.csv | 578KB | 7.13x | bzip2: 82KB | +1.1% |
-| lodash.js | 532KB | 7.85x | bzip2: 69KB | +2.1% |
-| metrics.prom | 176KB | 10.12x | bzip2: 17KB | +1.1% |
-| users.json | 170KB | 10.11x | bzip2: 17KB | +1.0% |
-| linux_kernel.c | 281KB | 4.41x | bzip2: 64KB | +1.0% |
-| go_http.go | 128KB | 3.74x | brotli: 34KB | +0.2% |
-| handlers.go | 14KB | 17.72x | brotli: 814B | +0.9% |
-| styles.css | 19.6KB | 9.28x | bzip2: 2.1KB | +1.3% |
+| sql_schema.sql | 4.1 KB | **20.86×** | brotli: 1.1 KB | **+81.8%** |
+| java_arraylist.java | 64.6 KB | 9.00× | brotli: 11.2 KB | +36.1% |
+| xml_maven.xml | 45.4 KB | 11.29× | brotli: 5.8 KB | +30.3% |
+| apache_log_sample.log | 2.26 MB | 22.83× | brotli: 116 KB | +12.5% |
+| go_http.go | 128 KB | 4.23× | brotli: 34.3 KB | +11.7% |
+| docker-compose.yml | 3.9 KB | 4.23× | brotli: 1.0 KB | +8.2% |
+| dashboard.html | 42.5 KB | 34.04× | brotli: 1.3 KB | +7.1% |
+| terraform_main.tf | 6.3 KB | 3.83× | brotli: 1.8 KB | +7.1% |
+| app.log | 464 KB | 7.90× | bzip2: 60.3 KB | +2.5% |
+| lodash.js | 532 KB | 7.85× | bzip2: 69.2 KB | +2.1% |
+| models.rs | 16.8 KB | 21.24× | brotli: 826 B | +1.9% |
+| nginx_access.log | 417 KB | 12.11× | bzip2: 34.9 KB | +1.3% |
+| styles.css | 19.6 KB | 9.28× | bzip2: 2.1 KB | +1.3% |
+| handlers.go | 14 KB | 17.78× | brotli: 814 B | +1.2% |
+| events.csv | 578 KB | 7.13× | bzip2: 82.0 KB | +1.1% |
+| metrics.prom | 176 KB | 10.12× | bzip2: 17.5 KB | +1.1% |
+| users.json | 170 KB | 10.11× | bzip2: 17.0 KB | +1.0% |
+| linux_kernel.c | 281 KB | 4.41× | bzip2: 64.3 KB | +1.0% |
 
-### Where brotli wins
+### Where brotli still wins
 
-Brotli's 120KB pre-built static English/web dictionary gives it a structural edge on small code/config/markdown that no per-file approach can fully match.
+Brotli's 120 KB pre-built static English/web dictionary holds an edge on small handwritten markdown / source code where the input doesn't match any of mzip's 11 group dictionaries strongly enough.
 
 | File | Size | mzip gap |
 |------|-----:|---------:|
-| contributing.md | 6.6KB | +21.7% |
-| sql_schema.sql | 4.1KB | +20.0% |
-| k8s_deployments.yaml | 21KB | +18.8% |
-| api_docs.md | 17KB | +17.4% |
-| ruby_rails.rb | 15KB | +16.6% |
+| contributing.md | 6.6 KB | +11.8% |
+| api_docs.md | 17 KB | +10.7% |
+| Dockerfile | 4.1 KB | +8.7% |
+| json_github_api.json | 6.6 KB | +8.5% |
+| vscode_main.ts | 19.8 KB | +7.1% |
 
-…and 27 more, mostly handwritten source code 4–50 KB, gaps typically +3% to +12%. Full list in [real_bench_summary.md](real_bench_summary.md).
+…and 22 more, mostly handwritten source code 4–50 KB, typical gap +3% to +7%. Full list in [real_bench_summary.md](real_bench_summary.md).
 
 ### Per-category breakdown
 
@@ -333,12 +336,14 @@ Brotli's 120KB pre-built static English/web dictionary gives it a structural edg
 | Logs | 3 | 3 | 100% |
 | CSV / columnar | 1 | 1 | 100% |
 | Metrics | 1 | 1 | 100% |
+| XML | 1 | 1 | 100% |
 | Web (HTML/CSS) | 2 | 3 | 67% |
+| Config files | 2 | 4 | 50% |
 | JSON | 1 | 2 | 50% |
-| Config files | 1 | 4 | 25% |
-| Source code (general) | 4 | 25 | 16% |
+| SQL | 1 | 2 | 50% |
+| Source code (general) | 6 | 25 | 24% |
 | Markdown | 0 | 3 | 0% |
-| SQL | 0 | 2 | 0% |
+| Other | 0 | 2 | 0% |
 
 ---
 
@@ -468,7 +473,8 @@ python generate_readme_tables.py full_bench.csv
 | `cap_fold.hpp` | Capital-letter folding (BWT_TEXT helper) |
 | `bigram_dict.hpp`, `xml_entity.hpp` | Pre-BWT preprocessing candidates (auto-deselected when they don't help) |
 | `range_coder.hpp` | LZMA-style binary range coder (variant backend) |
-| `mzip_dicts.h` | Pre-trained zstd group dictionaries (ZSTD_DICT strategy) |
+| `mzip_dicts.h` | 11 pre-trained zstd group dictionaries (5 synthetic, 6 real-data — Markdown, YAML, HCL, SQL, XML, code). Embedded ~380 KB. |
+| `train_corpus/` | Real-world corpus used to train dicts 6–11 (held out from `real_bench/`); regenerable via `train_corpus/fetch.sh`. |
 | `lzma_optimal2.hpp`, `lzma_decoder.hpp` | LZMA optimal encoder + decoder (LZMA_OPTIMAL strategy) |
 | `mzip_base64.hpp` | Base64 detect / decode helper (BASE64_DECODE strategy) |
 | `generators.hpp` | Single source of truth for benchmark / test data |
