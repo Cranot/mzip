@@ -4,63 +4,83 @@
 
 > *Store the formula, not the data.*
 
+## TL;DR
+
+A C++17 single-header library that detects mathematical structure and per-file patterns before reaching for an entropy coder. On data that has structure (numeric sequences, templates, columns, prose, audio, gradients, logs) it produces meaningfully smaller output than zstd:19, brotli:11, bzip2:9, xz:9, 7z, and rar. On generic small source code it is competitive but rarely beats brotli. Every output is round-trip-verified before the encoder commits to it.
+
+| Benchmark | mzip wins | Notes |
+|---|---|---|
+| 250 synthetic tests (50 types × 5 sizes) | **233 / 250 (93.2%)** | Avg ratio 8.25× — top non-neural ratio among the 8 compressors tested. All 250 roundtrips verified. |
+| 47 real GitHub files (7.2 MB) | **13 / 47 (27.7%)** | Wins everywhere data has structure (logs, CSV, JSON, large mixed). Loses to brotli on small handwritten source code. All 47 roundtrips verified. |
+| enwik9 10 MB Wikipedia prose | **2,671,197 bytes** | Beats brotli:11 by 5.9%, bzip2:9 by 14.4%. Smallest output of any standard library compressor on this benchmark. |
+
+**Sections:** [Why](#why-mzip) · [Strengths & limits](#key-strengths) · [Synthetic results](#benchmark-results) · [enwik9 prose](#long-form-prose-enwik9) · [Real-world files](#real-world-file-benchmark) · [Strategies](#compression-strategies) · [Quick start](#quick-start)
+
+---
+
 ## Why mzip?
 
-mzip detects mathematical structure in your data and compresses it optimally. Where other compressors see bytes, mzip sees patterns.
+Most compressors treat all bytes as random and rely on LZ77 + entropy coding. Real data is rarely random — it has structure that LZ77 cannot reach: a sequential-ID column is a formula `v[i] = a + b·i`, a JSON API response is a template with variables, an audio waveform is a smooth function. mzip detects that structure first and substitutes the *minimal description* before the entropy coder ever runs.
 
-| Pattern Detected | mzip | Best Alternative | Advantage |
-|------------------|------|------------------|-----------|
-| Sequential IDs (`1, 2, 3, ...`) | **32 bytes** | bzip2: 3.4KB | **106x better** |
-| Repeating templates (JSON APIs) | **10KB** | brotli: 49KB | **4.9x better** |
-| Audio PCM waveforms | **2.1KB** | bzip2: 4KB | **2x better** |
-| Image gradients | **124 bytes** | brotli: 397B | **3.2x better** |
-| Wikipedia prose (10MB enwik9) | **2.67 MB** | brotli:11: 2.83 MB | **5.9% smaller** |
+A few representative wins (1 MB inputs, vs the best of zstd:19 / brotli:11 / bzip2:9 / xz:9 / 7z / rar):
 
-**Result:** **93.2% win rate** across 250 tests (50 data types × 5 sizes) against 8 compressors including brotli:11, bzip2:9, xz:9, 7z, and rar:m5 — and the smallest output of any standard library compressor on long-form English prose (see [Long-Form Prose](#long-form-prose-enwik9) below). All 250 roundtrips verified.
+| Input pattern | mzip output | Best other | Advantage |
+|---|---|---|---|
+| Sequential database IDs | **32 B** | bzip2: 3.4 KB | **106× smaller** |
+| Repeating JSON API templates | **10 KB** | brotli: 49 KB | **4.9× smaller** |
+| 16-bit audio PCM | **1.7 KB** | bzip2: 4.0 KB | **2.4× smaller** |
+| RGB image gradient | **124 B** | brotli: 397 B | **3.2× smaller** |
+| 10 MB enwik9 Wikipedia prose | **2.67 MB** | brotli:11: 2.83 MB | **5.9% smaller** |
+
+The first four wins come from formula or template detection — algorithmic substitutions LZ77 has no path to. The fifth win comes from a tuned BWT pipeline (capfold + word dict + LZP-after-dict + multi-tree Huffman with per-block dynamic trial) that puts mzip at the top of standard library compressors on long-form English prose.
 
 ---
 
 ## Key Strengths
 
-### Where mzip Dominates
+> **mzip is a specialist, not a general archiver.** On data that has structure — numeric sequences, templates, columns, prose, audio, gradients, logs — it produces meaningfully smaller output than zstd:19, brotli:11, bzip2:9, xz:9, 7z, or rar. On generic small handwritten source code (a few KB of TypeScript, Markdown, or Python) brotli's 120 KB static dictionary usually wins. The 93.2% synthetic win rate (formula-friendly suite) and 27.7% real-world win rate (47-file GitHub corpus) are both honest measurements of those two regimes. Read both, then pick the tool for the data you actually have.
 
-| Data Category | Win Rate | Why |
-|---------------|----------|-----|
-| **Numeric sequences** | 100% (40/40) | Formula compression: `v[i] = a + b·i` beats any LZ77 |
-| **Binary / audio / sensor** | 100% (20/20) | Delta + ALP for floats, Paeth/E8E9 predictors |
-| **Text (prose / markdown)** | 100% (15/15) | BWT pipeline + capfold + word dict + LZP-after-dict |
-| **Code (JS, Py, Go, Rust, ...)** | 94.5% (52/55) | Identifier-stream separation, BWT, ZSTD_DICT trial |
-| **Build files (Makefile, Cargo, package.json)** | 93.3% (14/15) | Template extraction, dict-trial |
-| **Logs (access, syslog, JSON log)** | 80–96% | Columnar separation + BWT per column |
-| **Files ≥256KB** | 97% (97/100) | More data → more patterns to detect |
+### When to use mzip
 
-### Where Others Win
+- Long-form English text (≥ 1 MB): prose, books, email archives, Wikipedia-class content. mzip beats brotli:11 by 5.9% on enwik9 10 MB.
+- Generated / templated data: K8s manifests, OpenAPI output, log streams, repeating JSON, SQL INSERTs, generated docs.
+- Numeric arrays and time series: sequential IDs, timestamps, counters, sensor data, audio PCM, GPS coordinates, float arrays.
+- Stream-separable formats: CSV, fixed-width logs, HTML, large XML, JSON Lines.
+- Anything ≥ 256 KB where compression ratio is the budget you care about.
+
+### When *not* to use mzip
+
+- Latency-bound read paths: mzip decompresses ~38× slower than zstd. If your hot path opens compressed files repeatedly, use zstd.
+- Small handwritten source code (a few KB of code/config/markdown): brotli usually wins by 3–20%.
+- Already-compressed or encrypted data: nothing to detect, RAW path falls back to zstd:19 — just use zstd directly.
+- General folder backup / archival: ZPAQ, 7z LZMA2, and xz are mature CLI archivers with broader format support. mzip is a library, not an archive format.
+
+### Where mzip wins big
+
+| Data category | Synthetic win rate | Why |
+|---|---|---|
+| Numeric sequences (IDs, timestamps, counters) | 100% (40/40) | Formula compression: `v[i] = a + b·i` beats any LZ77 |
+| Binary / audio / sensor | 100% (20/20) | Delta + ALP for floats, Paeth/E8E9 predictors |
+| Long-form text (prose / markdown) | 100% (15/15) | BWT pipeline + capfold + word dict + LZP-after-dict |
+| Code (JS, Py, Go, Rust, ...) at scale | 94.5% (52/55) | Identifier-stream separation, BWT, ZSTD_DICT trial |
+| Logs (access / syslog / JSON log) | 80–96% | Columnar separation + BWT per column |
+| Anything ≥ 256 KB | 97% (97/100) | More data → more patterns to detect |
+
+### Where mzip loses
 
 | Scenario | Winner | Why |
-|----------|--------|-----|
-| Small text/code (4-16KB) | brotli:11 | 120KB pre-built static English dict gives an edge no per-file approach can fully match |
-| Random/encrypted data | zstd | No patterns to detect, just raw entropy coding |
-
----
-
-## How It Works
-
-Most compressors treat all data as random bytes. But real data has structure:
-
-| Pattern | Example | What mzip does |
-|---------|---------|----------------|
-| Sequential values | `1, 2, 3, 4, ...` | Store formula `v[i] = start + i × step` |
-| Repeating templates | Same function 100x with different IDs | Store template once + variable list |
-| Columnar data | Log files with fixed columns | Separate columns, compress each optimally |
-| Audio samples | Smooth waveforms | Delta encoding exploits sample-to-sample correlation |
-
-zstd-19 compresses 1MB of sequential IDs to 8KB. mzip compresses it to 32 bytes.
+|---|---|---|
+| Small handwritten source code (4–30 KB) | brotli:11 | brotli ships a 120 KB pre-built English/web dictionary; per-file approaches can't fully match it without shipping their own |
+| Random / encrypted / already-compressed data | zstd | No patterns to detect — entropy coder is all that's left |
+| Decompression speed | zstd | mzip is ~38× slower to decompress (BWT vs LZ77 inverse). Trade-off, not a bug. See [Decompression Speed (the trade-off)](#decompression-speed-the-trade-off). |
 
 ---
 
 ## Benchmark Results
 
-All benchmarks run on synthetic data generated by `generators.hpp`. Click sample links to download the exact input/output files.
+All synthetic benchmarks below are generated deterministically by `generators.hpp` (seeded RNG, seed=42). Click sample links to download the exact input bytes the table reports on.
+
+> **Roundtrip-verified.** mzip's encoder verifies its own output decodes back to the input before returning. Strategies that produce non-roundtrippable bytes are auto-discarded in favor of the next-best valid candidate. All 250 synthetic + 47 real-world results below pass verification.
 
 ### Overall Compressor Scoreboard (250 tests: 50 types × 5 sizes)
 
@@ -75,16 +95,18 @@ All benchmarks run on synthetic data generated by `generators.hpp`. Click sample
 | zstd:19 | 5.14x | 1.0–2641x | 0 | 0.0% | 7 |
 | gzip:9 | 4.78x | 1.0–240x | 0 | 0.0% | 8 |
 
-*Verified: 250/250 roundtrips pass. Total input: 66.60 MB. lz4/snappy excluded (speed-focused).*
+*Verified: 250/250 roundtrips pass. Total input: 66.60 MB. lz4/snappy excluded (speed-focused, optimize for a different point on the curve).*
 
-### Decompression Speed
+### Decompression Speed (the trade-off)
 
-| Compressor | Time (ms) | Speed (MB/s) |
-|------------|-----------|--------------|
-| zstd | 92 | 722 |
-| mzip | 3523 | 19 |
+mzip optimizes for the smallest output and accepts a slower decode in return. If your workload is read-heavy and latency-bound, this is the wrong tool — use zstd. If you write once and store / transfer often, the savings show up on every later read.
 
-*zstd decompresses ~38x faster than mzip. Speed is the known weak point — see [IMPROVEMENTS.md](IMPROVEMENTS.md) for the planned streaming/incremental decode path.*
+| Compressor | Decode time (66.6 MB) | Decode speed |
+|---|---:|---:|
+| zstd:19 | 92 ms | 722 MB/s |
+| mzip | 3,523 ms | 19 MB/s |
+
+zstd is roughly **38× faster to decompress**. Most of the gap is BWT-inverse vs LZ77-inverse — a structural difference, not a tuning gap. Compression time on the same suite is mzip ≈ 3.5× slower than zstd:19, which is closer because both are doing real work. Streaming / incremental decode is on the [roadmap](IMPROVEMENTS.md) but not in main yet.
 
 ### Win Rate by Size
 
@@ -132,31 +154,30 @@ The remaining gaps are all on small (4–16KB) text/code/config where brotli's p
 
 ## Long-Form Prose (enwik9)
 
-Standard Mahoney text-compression benchmark: prefix of `enwik9` (Wikipedia XML).
-mzip's BWT pipeline produces the smallest output of any standard library compressor on this content.
+[`enwik9`](https://www.mattmahoney.net/dc/text.html) is the canonical benchmark for text compressors — the first 10⁹ bytes of an English Wikipedia dump. The numbers below are mzip vs every standard library compressor on the first 1 MB and 10 MB prefixes.
 
-| Compressor | enwik9 1MB | enwik9 10MB | Class |
+| Compressor | enwik9 1 MB | enwik9 10 MB | Class |
 |---|---:|---:|---|
 | zstd:19 | 312,639 | 2,921,957 | LZ77 + entropy |
 | gzip:9 | 356,643 | 3,720,323 | LZ77 + Huffman |
 | bzip2:9 | 294,484 | 3,054,639 | BWT + multi-tree Huffman |
 | xz:9 | 302,832 | 2,844,360 | LZMA |
 | 7z:mx9 | 302,910 | 2,844,433 | LZMA2 |
-| brotli:11 | 293,057 | 2,827,632 | LZ77 + Huffman + 120KB static dict |
+| brotli:11 | 293,057 | 2,827,632 | LZ77 + Huffman + 120 KB static dict |
 | **mzip** | **286,307** | **2,671,197** | **BWT + capfold + word dict + LZP-after-dict, per-block dynamic trial** |
+| *bzip3* † | *~245,000* | *~2,300,000* | *BWT + LZP + arithmetic + 1-symbol context model (CLI, not a library)* |
+| *bsc-m03* † | *—* | *—* | *LZP + BWT + M03 context coder (CLI, research-grade, not a library)* |
 
-**On 10MB enwik9, mzip beats brotli:11 by 5.9%, xz/7z by 6.5%, bzip2:9 by 14.4%.**
-At 1MB, mzip beats brotli:11 by 2.4%, xz/7z by 5.8%, bzip2:9 by 2.9%.
+mzip produces the smallest output on both prefixes **among standard library compressors** — beats brotli:11 by 5.9%, xz/7z by 6.5%, bzip2:9 by 14.4% on 10 MB; beats brotli:11 by 2.4%, xz/7z by 5.8%, bzip2:9 by 2.9% on 1 MB.
 
-The remaining gap to context-coder compressors (bzip3 at ~2.30 MB, bsc-m03 at ~163 MB on enwik9 1GB)
-is architectural — they replace the entropy backend with adaptive arithmetic coding driven by a
-post-BWT context model. See [BWT_ROADMAP.md](BWT_ROADMAP.md) for the path forward.
+† **The honest ceiling.** bzip3 and bsc-m03 are CLI archive tools (not embeddable libraries) that replace the entropy backend with adaptive arithmetic coding driven by a post-BWT context model. They beat mzip on enwik9 by ~14% (bzip3) to ~20% (bsc-m03) at the cost of much slower compression and no library API. ZPAQ achieves better ratios still (closer to cmix) at the cost of being orders of magnitude slower. Closing the gap to bzip3/bsc-class without giving up the library API is the goal of [BWT_ROADMAP.md](BWT_ROADMAP.md).
 
 ---
 
 ## Per-Category Tables
 
 Synthetic data, generated at each size by `generators.hpp` so results are reproducible.
+
 
 ### NUMERIC
 
@@ -257,16 +278,21 @@ Synthetic data, generated at each size by `generators.hpp` so results are reprod
 | **Cargo.toml** | **3.3KB** vs 3.5KB | **9.5KB** vs 10KB | **32KB** vs 38KB | [64k](samples/64k/input/cargo.toml) [256k](samples/256k/input/cargo.toml) [1m](samples/1m/input/cargo.toml) |
 
 *Format: **mzip** vs 2nd-best. Bold = winner.*
-## Real-World File Benchmark (47 GitHub files, 7.2MB)
 
-Different from the synthetic suite above: real source code, configs, logs, and data files pulled from production-style GitHub repos (React, Linux kernel, Django, Bootstrap, plus 20+ programming languages). All 47 files round-trip-verified.
+---
 
-See [real_bench_summary.md](real_bench_summary.md) for the full per-file table.
+## Real-World File Benchmark
 
-### Headline
+47 files (7.2 MB total) pulled from public GitHub repos — React, Linux kernel, Django, Bootstrap, lodash, plus 20+ programming-language files. Mix of source code, configs, logs, JSON, CSV, markdown. All 47 round-trip-verified.
+
+Full per-file table: [real_bench_summary.md](real_bench_summary.md). Raw output: [real_bench_results.txt](real_bench_results.txt).
+
+### Result
 
 - **mzip wins or ties on 13 / 47 files (27.7%)**
-- brotli:11 wins 32, bzip2:9 wins 1, xz:9 wins 1
+- brotli:11 wins 32, bzip2:9 wins 1, xz:9 wins 1, all others 0
+
+The synthetic 93.2% does not survive intact on real GitHub source code — the synthetic suite includes a lot of formula-compressible content (sequential IDs, timestamps, gradients, audio, generated templates) that hand-written code rarely contains. Read both numbers, not just one.
 
 ### Where mzip wins
 
@@ -297,7 +323,8 @@ Brotli's 120KB pre-built static English/web dictionary gives it a structural edg
 | k8s_deployments.yaml | 21KB | +18.8% |
 | api_docs.md | 17KB | +17.4% |
 | ruby_rails.rb | 15KB | +16.6% |
-| ...and 27 more, mostly source code 4–50KB | | typically +3% to +12% |
+
+…and 27 more, mostly handwritten source code 4–50 KB, gaps typically +3% to +12%. Full list in [real_bench_summary.md](real_bench_summary.md).
 
 ### Per-category breakdown
 
@@ -313,125 +340,83 @@ Brotli's 120KB pre-built static English/web dictionary gives it a structural edg
 | Markdown | 0 | 3 | 0% |
 | SQL | 0 | 2 | 0% |
 
-### Honest read
-
-mzip's win rate jumps from 27.7% to **93.2% on synthetic data** because the synthetic suite includes formula-compressible content (sequential IDs, timestamps, gradients, audio waveforms, generated templates) that real GitHub source code rarely contains. On generic source code <30KB, brotli's static dictionary is hard to beat without shipping our own.
-
-mzip dominates when the data has detectable structure: logs, CSV, JSON, metrics, prose, large mixed content. It is competitive but rarely wins on small hand-written source files.
-
 ---
 
 ## Compression Strategies
 
-mzip automatically detects the best strategy for your data and trials multiple variants per block, picking the smallest:
+The encoder runs detection on every block, picks a candidate strategy from one of five families below, then trials multiple variants per block and keeps the smallest output that round-trip-verifies.
 
-### Formula / numeric
+| Family | Picked when | Headline strategies |
+|---|---|---|
+| **Formula / numeric** | Bytes look like a generator output: linear, periodic, geometric, modular, smooth | LINEAR_GEN, NUMERIC (delta / strided / ALP), PERIODIC, MODULAR, LINEAR_PRED |
+| **Templates / structured text** | Repeating lines or blocks with a few varying tokens (logs, generated docs, K8s, SQL INSERTs) | TEMPLATE, SECTION_TEMPLATE, ML_TEMPLATE, WORD_TEMPLATE / MULTI_WORD_TEMPLATE, LINE_GROUP_TEMPLATE |
+| **Stream separation** | Fixed columns, tag/content split, key/value records | COLUMNAR / BLOCK_COLUMNAR, CSV_COLUMNAR, JSON_COLUMNAR, HTML_STREAM, URL_STREAM, DBF_CONSTCOL |
+| **Binary / executable** | x86 code, raw RGB, sparse bitmaps, base64 text | E8E9_X86 + LZMA_OPTIMAL, PAETH_RGB, SPARSE, BASE64_DECODE |
+| **Text backends** | None of the above fits — prose, code, config, mixed | BWT_TEXT, BG (single-block BWT for ≥1 MB), MC (per-chunk pick), ZSTD_DICT (4–16 KB code/config), WORD_ENCODED, KV_CONFIG, RAW (fallback to zstd:19) |
 
-| Strategy | What it does | Best for | Example ratio |
-|----------|--------------|----------|---------------|
-| **LINEAR_GEN** | Stores `v[i] = a + b·i` formula | Sequential IDs, timestamps, counters | 32768x |
-| **NUMERIC** | Delta / strided / ALP for floats | Audio PCM, sensor data, FP arrays | 485x |
-| **PERIODIC** | Repeating byte pattern | Cyclic / synthetic data | 7000x |
-| **GEOMETRIC / QUADRATIC / RECURRENCE** | Higher-order formulas | Powers, squares, Fibonacci-like | 10–310x |
-| **MODULAR** | Wrapping counter `(base + i·step) mod N` | 16-bit counters, ring buffers | 88889x |
-| **LINEAR_PRED16/32** | First-order predictor on smooth ramps | Sine waves, smooth gradients | 99.7% entropy reduction |
+The BWT text backend (BWT_TEXT / BG) is itself a per-block trial over: pre-RLE on/off, dict size ∈ {64, 128, 192, 255}, number of Huffman trees ∈ {3..7}, LZP-after-dict min-match ∈ {10, 20, 40}, capfold on/off. The smallest valid combination wins.
 
-### Templates / structured text
-
-| Strategy | What it does | Best for | Example ratio |
-|----------|--------------|----------|---------------|
-| **TEMPLATE / CHAR_TEMPLATE** | Single-line template + variables | Logs, metrics | 25–42% over zstd |
-| **SECTION_TEMPLATE** | Multi-line template + per-section variables | Code blocks, generated docs | 100x |
-| **ML_TEMPLATE / ML_TEMPLATE_DUAL** | Function-block template with hoist | JS/TS / repeated interfaces | 44% over zstd |
-| **WORD_TEMPLATE / MULTI_WORD_TEMPLATE** | Sections identical except 1–N variables | OpenAPI output, K8s manifests | 44% on K8s Ingress |
-| **LINE_TEMPLATE** | Variable-length lines + linear vars | SQL INSERTs | 14x over zstd |
-| **LINE_GROUP_TEMPLATE** | Group lines by type, sub-strategy each | Email headers, mixed logs | 68% over zstd |
-
-### Stream separation
-
-| Strategy | What it does | Best for | Example ratio |
-|----------|--------------|----------|---------------|
-| **COLUMNAR / BLOCK_COLUMNAR** | Separate fixed-width columns | Access / nginx logs, fixed records | +52–78% vs zstd |
-| **CSV_COLUMNAR** | Per-column encoding | CSV with sequential IDs | LINEAR_GEN per column |
-| **JSON_COLUMNAR** | Extract sequential numeric fields | JSON lines | 1085 B better than brotli |
-| **HTML_STREAM** | Tag/content split, BWT each stream | HTML ≥128KB | 3.3% over brotli at 256KB |
-| **URL_STREAM** | URL component split | URL lists | 32% over zstd at 256KB |
-| **DUAL_STREAM** | Interleaved tag/value separation | Protobuf-like binary | competitive at scale |
-| **DBF_CONSTCOL** | Eliminate constant columns + zstd | dBASE / FoxPro fixed records | 3.4% over brotli on real DBF |
-
-### Binary / executable
-
-| Strategy | What it does | Best for | Example ratio |
-|----------|--------------|----------|---------------|
-| **E8E9_X86 / BINARY_X86 / LZMA_OPTIMAL** | Normalize x86 CALL/JMP addresses + LZMA | x86 binaries, executables | 49% entropy reduction |
-| **PAETH_RGB** | PNG-style predictor for raw images | RGB gradients, smooth pixel data | 84% entropy reduction |
-| **SPARSE** | Delta-encoded positions for >90% zeros | Sparse bitmaps | 1.3–1.5x over zstd |
-| **BASE64_DECODE** | Decode → compress → re-encode | Base64 text streams | 1.76% over brotli |
-
-### Text backends
-
-| Strategy | What it does | Best for | Example ratio |
-|----------|--------------|----------|---------------|
-| **BWT_TEXT** | Multi-tree Huffman on BWT, capfold + word dict + LZP-after-dict | Prose 4KB–1MB | beats brotli/bzip2 on prose ≥1MB |
-| **BG (BWT-Big)** | Single-block BWT for prose 1MB–1GB | Wikipedia, books | 5.9% over brotli on enwik9 10MB |
-| **MC (Multi-Chunk)** | Per-chunk backend pick (zstd vs BWT) | Large heterogeneous binaries | beats xz/bzip2 on PDFs |
-| **ZSTD_DICT** | zstd with one of 5 pre-trained group dicts | Code/config 4–16KB | beats brotli at 4–16KB on code/config |
-| **WORD_ENCODED** | Word-level encoding | Natural-language prose | 25% over zstd |
-| **KV_CONFIG** | Structural KV encoding | INI / YAML configs | 7% over brotli |
-| **PHRASE_DICT / SORTED_DICT** | Adaptive substring dict / line reorder | Repetitive structured text | beats brotli on some |
-| **RAW** | Falls back to zstd-19 | Random / encrypted data | 1x |
-
-The BWT pipeline (BWT_TEXT / BG) trials per block: pre-RLE on/off, dict size {64,128,192,255},
-NT (number of Huffman trees) ∈ {3..7}, LZP-after-dict min_match ∈ {10,20,40}, and capfold on/off,
-keeping whichever combination produced the smallest output.
+For the full enum of named strategies (~30) with selection rules, grep `BlockType::` and `case BlockType::` in [`mzip.hpp`](mzip.hpp) — each block-type carries a one-line `// what it does` comment at its definition.
 
 ---
 
 ## Quick Start
 
-### Option 1: Single-Header (Recommended)
+**Requirements:** a C++17 compiler and the zstd library headers + shared object. Install zstd if you don't already have it:
+
+```bash
+# macOS
+brew install zstd
+
+# Debian / Ubuntu
+sudo apt install libzstd-dev
+
+# Fedora
+sudo dnf install libzstd-devel
+
+# Windows / MSYS2
+pacman -S mingw-w64-x86_64-zstd
+```
+
+### Option 1: Single-header (recommended)
+
+The amalgamated header bundles mzip + the BWT pipeline + libsais. You only need to add zstd.
 
 ```cpp
-// In ONE .cpp file:
+// In ONE translation unit:
 #include <zstd.h>
 #define MZIP_IMPLEMENTATION
 #include "mzip_amalgamated.hpp"
 
-// In other files:
+// In every other translation unit that uses mzip:
 #include "mzip_amalgamated.hpp"
 
-// Usage
-auto compressed = mzip::compress(data.data(), data.size());
+// Usage:
+auto compressed   = mzip::compress(data.data(), data.size());
 auto decompressed = mzip::decompress(compressed.data(), compressed.size());
 ```
 
-### Option 2: Separate Headers
+### Option 2: Separate headers
 
 ```cpp
-#include <zstd.h>      // Required: include zstd first
+#include <zstd.h>      // include zstd first
 #include "mzip.hpp"
 
-// Compress
-std::vector<uint8_t> data = /* your data */;
-auto compressed = mzip::compress(data.data(), data.size());
-
-// Decompress
+auto compressed   = mzip::compress(data.data(), data.size());
 auto decompressed = mzip::decompress(compressed.data(), compressed.size());
 ```
 
 ### Build
 
-Requires C++17 and zstd:
-
 ```bash
-# Single-header (no libsais.c needed - it's bundled)
-g++ -O3 -march=native -I/path/to/zstd/include \
-    -L/path/to/zstd/lib -o mzip_cli mzip_cli.cpp -lzstd
+# Single-header build (libsais bundled inside)
+g++ -std=c++17 -O3 -march=native -o mzip_cli mzip_cli.cpp -lzstd
 
-# Separate headers
-g++ -O3 -march=native -I/path/to/zstd/include \
-    -L/path/to/zstd/lib -o mzip_cli mzip_cli.cpp libsais.c -lzstd
+# Separate-headers build (needs libsais.c too)
+g++ -std=c++17 -O3 -march=native -o mzip_cli mzip_cli.cpp libsais.c -lzstd
 ```
+
+If your zstd headers are not on the default search path, add `-I/path/to/zstd/include -L/path/to/zstd/lib`.
 
 ### CLI Usage
 
@@ -448,24 +433,25 @@ g++ -O3 -march=native -I/path/to/zstd/include \
 ## Run Benchmarks
 
 ```bash
-# Build benchmark tool
-g++ -O3 -march=native -I./zstd/include -L./zstd/lib \
-    -o mzip_bench mzip_bench.cpp libsais.c -lzstd
+# Build (assumes zstd is installed; otherwise add -I/-L flags as in Quick Start above)
+g++ -std=c++17 -O3 -march=native -o mzip_bench mzip_bench.cpp libsais.c -lzstd
 
-# Run all benchmarks (50 types × 5 sizes = 250 tests)
-./mzip_bench
+# Synthetic suite — 50 types × 5 sizes = 250 tests, ~10–15 min
+./mzip_bench --csv full_bench.csv
 
-# Quick test (64KB only)
+# Quick (64 KB only)
 ./mzip_bench --quick
 
-# Test specific type
+# Single type, all sizes
 ./mzip_bench --type graphql
 
-# Real file (single)
+# Single real file
 ./mzip_bench --file path/to/file.bin
 
-# Export CSV (used to regenerate the tables in this README)
-./mzip_bench --csv full_bench.csv
+# All 47 real-world files
+./mzip_bench --file real_bench/*
+
+# Regenerate the README tables from a fresh CSV
 python generate_readme_tables.py full_bench.csv
 ```
 
@@ -493,17 +479,23 @@ python generate_readme_tables.py full_bench.csv
 | `mzip_test.cpp` | Quick debug / single-type test |
 | `mzip_unit_tests.cpp` | Unit tests for core strategies |
 | `generate_readme_tables.py` | Auto-generate the markdown tables above from `full_bench.csv` |
-| `samples/` | Sample files at 4KB/16KB/64KB/256KB/1MB |
+| `summarize_real_bench.py` | Auto-generate `real_bench_summary.md` from `real_bench_results.txt` |
+| `samples/` | Sample files at 4 / 16 / 64 / 256 KB and 1 MB |
+| `real_bench/` | 47 real-world files used by the real-world benchmark |
+| `full_bench.csv` | Latest synthetic benchmark CSV (one row per (type, size)) |
+| `real_bench_results.txt` | Latest real-files benchmark raw output |
+| `real_bench_summary.md` | Auto-generated summary of `real_bench_results.txt` |
 | `BWT_ROADMAP.md` | Path from current BWT pipeline toward bzip3 / bsc-m03 class |
 | `HUNT_LOG.md` | Per-loss diagnosis log (Loss / Strategy / Claim / Verdict / Action) |
+| `IMPROVEMENTS.md` | Architectural / adoption-focused improvement plan |
 
 ---
 
-## License
+## License & Contact
 
-**Dual Licensed:** AGPL-3.0 OR Commercial
+**Dual-licensed: AGPL-3.0 OR commercial.**
 
-- **AGPL-3.0:** Free for open source. Service deployment requires source release.
-- **Commercial:** Contact for proprietary use.
+- **AGPL-3.0** — free for open-source projects. If you deploy mzip as part of a network service (SaaS, hosted API, etc.), the AGPL requires you to make your source available.
+- **Commercial** — for proprietary or closed-source use, open a [GitHub issue](https://github.com/Cranot/mzip/issues/new) tagged `commercial-license` and I'll follow up. Same for bug reports, benchmarks on your own data, or proposing a new strategy.
 
-Third-party: libsais (Apache 2.0), stb_image (Public Domain), zstd (BSD, external)
+Third-party code bundled in the repo: [libsais](https://github.com/IlyaGrebnov/libsais) (Apache 2.0), [stb_image](https://github.com/nothings/stb) (Public Domain). zstd is required at link-time but not bundled (BSD).

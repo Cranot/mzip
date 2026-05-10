@@ -167,8 +167,10 @@ def main():
                 mzip_s = format_size(mzip)
                 other_s = format_size(best_other)
 
-                if mzip <= best_other:
+                if mzip < best_other:
                     cols.append(f"**{mzip_s}** vs {other_s}")
+                elif mzip == best_other:
+                    cols.append(f"{mzip_s} = {other_s} (tie)")
                 else:
                     cols.append(f"{mzip_s} vs **{other_s}**")
 
