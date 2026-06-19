@@ -83,6 +83,8 @@ train_corpus/hcl/
 train_corpus/sql/
 train_corpus/xml/
 train_corpus/code/
+train_corpus/json/
+train_corpus/dockerfile/
 # but DO track the trained .bin dicts (override the global *.bin rule)
 !train_corpus/*.bin
 

@@ -85,9 +85,28 @@ fetch code "https://raw.githubusercontent.com/rust-lang/rust/master/library/core
 fetch code "https://raw.githubusercontent.com/rust-lang/rust/master/library/std/src/io/mod.rs" rust_io.rs
 fetch code "https://raw.githubusercontent.com/openjdk/jdk/master/src/java.base/share/classes/java/util/HashMap.java" jdk_hashmap.java
 fetch code "https://raw.githubusercontent.com/openjdk/jdk/master/src/java.base/share/classes/java/util/ArrayList.java" jdk_arraylist.java
+fetch code "https://raw.githubusercontent.com/jashkenas/underscore/master/underscore.js" underscore.js
+fetch code "https://raw.githubusercontent.com/microsoft/TypeScript/main/src/compiler/parser.ts" ts_parser.ts
+fetch code "https://raw.githubusercontent.com/microsoft/TypeScript/main/src/compiler/checker.ts" ts_checker.ts
+fetch code "https://raw.githubusercontent.com/microsoft/TypeScript/main/src/compiler/scanner.ts" ts_scanner.ts
+fetch code "https://raw.githubusercontent.com/microsoft/TypeScript/main/src/compiler/utilities.ts" ts_utilities.ts
+fetch code "https://raw.githubusercontent.com/babel/babel/main/packages/babel-parser/src/parser/expression.ts" babel_expr.ts
+fetch code "https://raw.githubusercontent.com/facebook/react/main/packages/react/src/ReactHooks.js" react_hooks.js
+fetch code "https://raw.githubusercontent.com/vuejs/core/main/packages/runtime-core/src/component.ts" vue_component.ts
+
+# JSON: package manifests and OpenAPI specs
+mkdir -p json
+fetch json "https://raw.githubusercontent.com/microsoft/vscode/main/package.json" vscode_pkg.json
+fetch json "https://raw.githubusercontent.com/facebook/react/main/package.json" react_pkg.json
+fetch json "https://raw.githubusercontent.com/tailwindlabs/tailwindcss/main/package.json" tw_pkg.json
+fetch json "https://raw.githubusercontent.com/sveltejs/svelte/main/package.json" svelte_pkg.json
+fetch json "https://raw.githubusercontent.com/vercel/next.js/canary/package.json" next_pkg.json
+fetch json "https://raw.githubusercontent.com/swagger-api/swagger-petstore/master/src/main/resources/openapi.json" petstore.json
+fetch json "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/examples/v3.0/petstore.json" oai_petstore.json
+fetch json "https://raw.githubusercontent.com/elastic/elasticsearch/main/rest-api-spec/src/main/resources/rest-api-spec/api/search.json" es_search.json
 
 echo "done"
-for d in md yaml hcl sql xml code; do
+for d in md yaml hcl sql xml code json; do
   count=$(ls "$d" 2>/dev/null | wc -l)
   size=$(du -sb "$d" 2>/dev/null | awk '{print $1}')
   echo "  $d: $count files, $size bytes"
