@@ -13016,8 +13016,14 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // - Random strings (no patterns to exploit)
         // Skip expensive O(n²) template detectors when entropy is high.
         // This is a "fast fail" optimization - cheap entropy check saves expensive detection.
-        const bool low_entropy_text = (result.entropy < 5.5);   // Rich structure likely
-        const bool mid_entropy_text = (result.entropy < 6.0);   // Some structure possible
+        // Printable-ratio gate: entropy alone misclassifies BINARY arrays (float/sensor: low entropy but ~37%
+        // printable) as text, then per-line parsers (csv/json/columnar/template) chew the whole block for nothing
+        // (nyctaxi 4MB ~35s). Real text is >70% printable. The bwt9/xz/brotli backstops still run, so wins are kept.
+        size_t _prn = (n < 65536) ? n : 65536, _pr = 0;
+        for (size_t _i = 0; _i < _prn; _i++) { uint8_t _c = data[_i]; if ((_c >= 32 && _c < 127) || _c == 9 || _c == 10 || _c == 13) _pr++; }
+        const bool looks_text = (_prn == 0) || ((double)_pr / (double)_prn > 0.70);
+        const bool low_entropy_text = (result.entropy < 5.5) && looks_text;   // Rich structure likely
+        const bool mid_entropy_text = (result.entropy < 6.0) && looks_text;   // Some structure possible
         // high entropy (>6.0): Skip most template detectors, fall through to TEXT/zstd
 
         // Try SECTION_TEMPLATE first - repeating multi-line sections with {N} (Markdown!)
@@ -14517,7 +14523,10 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         // cannot. Worth trialing well past the original 16KB cap on real
         // structured content; trial-pick discards the dict result if it loses.
         // ====================================================================
-        if (this_block <= 1048576 && this_block >= 256) {
+        // SPEED: dicts are 16-64KB and target small (4-16KB) files — they never win 256KB-1MB blocks, where
+        // the 12x zstd-19 dict trial is pure cost (~6s/MB). Cap at 256KB (MZIP_MAXRATIO lifts it to 1MB).
+        size_t dict_trial_max = std::getenv("MZIP_MAXRATIO") ? 1048576 : 262144;
+        if (this_block <= dict_trial_max && this_block >= 256) {
             ZSTD_CCtx* dcctx = ZSTD_createCCtx();
             size_t best_dsz = SIZE_MAX;
             uint8_t best_did = 0;
