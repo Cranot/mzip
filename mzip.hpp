@@ -45,6 +45,8 @@
 #include "bwt_compress_v9.hpp"  // Smart adaptive BWT: v8 for small, v4 for large (optimal across all sizes)
 #define CM_BACKEND_USE_BWT
 #include "cm_backend.hpp"       // BWT+CM (bzip3-class) entropy backend — trial-vs-bwt9/zstd, codec flag 3
+#include "brotli_shim.hpp"      // brotli encoder/decoder decls — ensemble backstop candidate (link the DLLs)
+#include "liblzma_shim.hpp"     // liblzma (xz) encoder/decoder decls — ensemble backstop candidate (link the DLL)
 #include "mzip_dicts.h"         // Pre-trained zstd dictionaries for code/config (beats brotli at 4-16KB)
 #include "mzip_base64.hpp"      // Base64 de-encoding: decode to binary, compress, re-encode (1.76% better than brotli)
 #include "lzma_optimal2.hpp"    // LZMA optimal encoder: beats xz on x86 binaries with E8/E9 filter
@@ -131,6 +133,8 @@ enum class BlockType : uint8_t {
     DBF_CONSTCOL = 0x36,        // DBF constant column elimination + zstd (beats brotli by 3.4% on space-padded DBF!)
     ZSTD_DICT = 0x37,           // zstd with pre-trained static dictionary (beats brotli at 4-16KB on code/config!)
     CM_TEXT = 0x38,             // BWT + context-mixing (bzip3-class): beats BWT_TEXT/bwt9 ~5-15% on text/logs
+    BROTLI = 0x39,              // brotli-11 backstop (ensemble: never lose to brotli on small code/config)
+    XZLIB = 0x3A,               // liblzma (xz -9e) backstop (ensemble: flips large-repetitive vs our lzma_opt2)
 
     // === CROSS-BLOCK ENCODINGS (Mutual Algorithmic Information) ===
     REFERENCE = 0x30,          // Delta from similar previous block (zstd dictionary mode)
@@ -14561,6 +14565,53 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             }
         }
 
+        // ====================================================================
+        // Universal LZMA + brotli backstop (best-of-ensemble, trial-and-keep):
+        //   lzma_opt2 (our optimal LZMA) flips large-repetitive vs xz (e.g. SQL dumps);
+        //   brotli-11 flips small code/config vs brotli's static dict. Switch only if strictly smaller.
+        // ====================================================================
+        if (this_block >= 64) {
+            size_t cap = ZSTD_compressBound(this_block);
+            size_t cur = preprocess_size;
+            if (!use_generator) {
+                std::vector<uint8_t> tb(cap + 64);
+                size_t z = ZSTD_compress(tb.data(), tb.size(), preprocess_data, preprocess_size, 19);
+                if (!ZSTD_isError(z)) cur = z;
+            }
+            // xz (liblzma -9 EXTREME) trial -> XZLIB. Genuine xz-quality LZMA; flips large-repetitive (SQL dumps).
+            {
+                size_t xbound = lzma_stream_buffer_bound(this_block);
+                std::vector<uint8_t> xb(xbound);
+                size_t xpos = 0;
+                if (lzma_easy_buffer_encode(9u | MZ_LZMA_PRESET_EXTREME, MZ_LZMA_CHECK_NONE, nullptr,
+                                            block_data, this_block, xb.data(), &xpos, xbound) == MZ_LZMA_OK
+                    && xpos < cur && xpos <= cap) {
+                    memcpy(preprocess_data, xb.data(), xpos);
+                    preprocess_size = xpos;
+                    analysis.type = BlockType::XZLIB;
+                    use_generator = true;
+                    cur = xpos;
+                }
+            }
+            // brotli-11 trial (ensemble backstop) -> BROTLI. Trial BOTH generic(0) + text(1) modes,
+            // keep smaller — text mode often beats brotli's CLI default on code/config, covering our framing.
+            size_t bcap = BrotliEncoderMaxCompressedSize(this_block);
+            if (bcap == 0) bcap = this_block + 1024;
+            std::vector<uint8_t> bb(bcap);
+            for (int bmode = 0; bmode <= 1; bmode++) {
+                size_t bsz = bcap;
+                if (BrotliEncoderCompress(MZ_BROTLI_QUALITY, MZ_BROTLI_WINDOW, bmode,
+                                          this_block, block_data, &bsz, bb.data())
+                    && bsz < cur && bsz <= cap) {
+                    memcpy(preprocess_data, bb.data(), bsz);
+                    preprocess_size = bsz;
+                    analysis.type = BlockType::BROTLI;
+                    use_generator = true;
+                    cur = bsz;
+                }
+            }
+        }
+
         size_t compressed_size;
         bool store_raw;
 
@@ -15998,6 +16049,32 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
             e8e9_filter_decode(decompressed.data(), decompressed.size());
             memcpy(&output[out_pos], decompressed.data(), decompressed.size());
             out_pos += decompressed.size();
+        } else if (type == BlockType::BROTLI) {
+            // brotli backstop decode
+            std::vector<uint8_t> decoded(block_original_size ? block_original_size : 1);
+            size_t dsz = block_original_size;
+            if (BrotliDecoderDecompress(block_size, block_data, &dsz, decoded.data()) != MZ_BROTLI_DECODE_SUCCESS
+                || dsz != block_original_size) {
+                res.error = "brotli decompression failed";
+                if (result) *result = res;
+                return {};
+            }
+            memcpy(&output[out_pos], decoded.data(), dsz);
+            out_pos += dsz;
+        } else if (type == BlockType::XZLIB) {
+            // xz (liblzma) backstop decode
+            std::vector<uint8_t> decoded(block_original_size ? block_original_size : 1);
+            uint64_t memlimit = UINT64_MAX;
+            size_t in_pos = 0, out_pos2 = 0;
+            if (lzma_stream_buffer_decode(&memlimit, 0, nullptr, block_data, &in_pos, block_size,
+                                          decoded.data(), &out_pos2, decoded.size()) != MZ_LZMA_OK
+                || out_pos2 != block_original_size) {
+                res.error = "xz decompression failed";
+                if (result) *result = res;
+                return {};
+            }
+            memcpy(&output[out_pos], decoded.data(), out_pos2);
+            out_pos += out_pos2;
         } else if (type == BlockType::LZMA_RAW) {
             // Decompress LZMA (no E8/E9 filter)
             auto decompressed = lzma_dec::decompress(block_data, block_size);
