@@ -4513,8 +4513,8 @@ inline std::vector<uint8_t> encode_html_stream(const uint8_t* data, size_t n) {
     auto [tags, content] = separate_html_streams(data, n);
 
     // Compress each stream with BWT v5
-    auto tags_bwt = bwt5::compress(tags.data(), tags.size());
-    auto content_bwt = bwt5::compress(content.data(), content.size());
+    auto tags_bwt = bwt9::compress(tags.data(), tags.size());
+    auto content_bwt = bwt9::compress(content.data(), content.size());
 
     // Build output: sizes as varints + data
     std::vector<uint8_t> result;
@@ -4561,8 +4561,8 @@ inline std::vector<uint8_t> decode_html_stream(const uint8_t* data, size_t n, si
     if (pos + tags_size + content_size > n) return {};
 
     // Decompress streams
-    auto tags = bwt5::decompress(data + pos, tags_size);
-    auto content = bwt5::decompress(data + pos + tags_size, content_size);
+    auto tags = bwt9::decompress(data + pos, tags_size);
+    auto content = bwt9::decompress(data + pos + tags_size, content_size);
 
     // Reconstruct HTML
     std::vector<uint8_t> result;
@@ -4766,10 +4766,10 @@ inline std::vector<uint8_t> encode_url_stream(const uint8_t* data, size_t n) {
     auto sep = separate_url_streams(data, n);
 
     // Compress each stream with BWT v5
-    auto proto_bwt = bwt5::compress(sep.protocols.data(), sep.protocols.size());
-    auto domain_bwt = bwt5::compress(sep.domains.data(), sep.domains.size());
-    auto path_bwt = bwt5::compress(sep.paths.data(), sep.paths.size());
-    auto param_bwt = bwt5::compress(sep.params.data(), sep.params.size());
+    auto proto_bwt = bwt9::compress(sep.protocols.data(), sep.protocols.size());
+    auto domain_bwt = bwt9::compress(sep.domains.data(), sep.domains.size());
+    auto path_bwt = bwt9::compress(sep.paths.data(), sep.paths.size());
+    auto param_bwt = bwt9::compress(sep.params.data(), sep.params.size());
 
     // Build output
     std::vector<uint8_t> result;
@@ -4822,13 +4822,13 @@ inline std::vector<uint8_t> decode_url_stream(const uint8_t* data, size_t n, siz
     if (pos + proto_size + domain_size + path_size + param_size > n) return {};
 
     // Decompress streams
-    auto protocols = bwt5::decompress(data + pos, proto_size);
+    auto protocols = bwt9::decompress(data + pos, proto_size);
     pos += proto_size;
-    auto domains = bwt5::decompress(data + pos, domain_size);
+    auto domains = bwt9::decompress(data + pos, domain_size);
     pos += domain_size;
-    auto paths = bwt5::decompress(data + pos, path_size);
+    auto paths = bwt9::decompress(data + pos, path_size);
     pos += path_size;
-    auto params = bwt5::decompress(data + pos, param_size);
+    auto params = bwt9::decompress(data + pos, param_size);
 
     // Reconstruct URLs
     // Each stream has segments separated by 0x00
@@ -8568,7 +8568,7 @@ inline std::vector<uint8_t> encode_columnar(const ColumnarParams& params) {
         }
 
         // BWT compress 8 columns
-        auto col8_bwt = bwt5::compress(col8_data.data(), col8_data.size());
+        auto col8_bwt = bwt9::compress(col8_data.data(), col8_data.size());
 
         // Build response_time column
         std::vector<uint8_t> time_data;
@@ -8579,7 +8579,7 @@ inline std::vector<uint8_t> encode_columnar(const ColumnarParams& params) {
 
 
         // BWT compress response_time (BWT beats zstd by 144 bytes on numeric strings!)
-        auto time_bwt = bwt5::compress(time_data.data(), time_data.size());
+        auto time_bwt = bwt9::compress(time_data.data(), time_data.size());
 
         // Format v2: 0xFE + row_count(varint) + bwt8_size(varint) + bwt8 + time_size(varint) + time_bwt + trailing_len(varint) + trailing
         result.push_back(0xFE);  // Marker for 8+1 split format
@@ -8664,7 +8664,7 @@ inline std::vector<uint8_t> decode_columnar(const uint8_t* encoded, size_t encod
         if (ptr < end) bwt_size |= (size_t)(*ptr++) << shift;
 
         if (ptr + bwt_size > end) return {};
-        auto col8_data = bwt5::decompress(ptr, bwt_size);
+        auto col8_data = bwt9::decompress(ptr, bwt_size);
         ptr += bwt_size;
 
         // Read time BWT size and decompress
@@ -8679,7 +8679,7 @@ inline std::vector<uint8_t> decode_columnar(const uint8_t* encoded, size_t encod
         if (ptr + time_size > end) return {};
 
         // Decompress time column with BWT
-        auto time_data = bwt5::decompress(ptr, time_size);
+        auto time_data = bwt9::decompress(ptr, time_size);
         ptr += time_size;
 
         // Parse 8 columns from BWT-decompressed data
@@ -14899,7 +14899,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             // Jan 2026: Only try BWT for text-like chunks (avoid O(n²) hang on binary)
             std::vector<uint8_t> chunk_bwt;
             if (is_text_like(chunk_data, this_chunk)) {
-                chunk_bwt = bwt5::compress(chunk_data, this_chunk);
+                chunk_bwt = bwt9::compress(chunk_data, this_chunk);
                 if (chunk_bwt.size() < best_chunk_size) {
                     best_backend = MC_BACKEND_BWT;
                     best_chunk_size = chunk_bwt.size();
@@ -14939,7 +14939,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                          ? BG_MAX_SIZE_SMALL : BG_MAX_SIZE_BALANCED;
     if (mode != CompressionMode::FAST && size > MC_THRESHOLD && size <= BG_MAX_SIZE
         && is_text_like(data, size)) {
-        auto bg_body = bwt5::compress(data, size);
+        auto bg_body = bwt9::compress(data, size);
         if (!bg_body.empty()) {
             std::vector<uint8_t> bg_temp;
             bg_temp.reserve(bg_body.size() + 16);
@@ -15118,7 +15118,7 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
         }
 
         // Decompress v5 data
-        auto output = bwt5::decompress(data + pos, size - pos);
+        auto output = bwt9::decompress(data + pos, size - pos);
 
         if (output.size() != orig_size) {
             res.error = "BWT decompression size mismatch";
@@ -15382,7 +15382,7 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
                 }
             } else if (backend == 1) {
                 // BWT
-                chunk_output = bwt5::decompress(data + pos, chunk_comp);
+                chunk_output = bwt9::decompress(data + pos, chunk_comp);
                 if (chunk_output.size() != chunk_orig) {
                     res.error = "MC: BWT chunk decompression failed";
                     if (result) *result = res;
@@ -15427,7 +15427,7 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
             pos++;
         }
 
-        auto output = bwt5::decompress(data + pos, size - pos);
+        auto output = bwt9::decompress(data + pos, size - pos);
         if (output.size() != orig_size) {
             res.error = "BG: decompressed size mismatch";
             if (result) *result = res;
