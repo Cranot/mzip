@@ -53,6 +53,7 @@ EXPECT={  # type -> specialized encoders that SHOULD fire (else MISSED-SPECIAL)
  "Numeric":{"LINEAR_GEN","NUMERIC","DELTA","TIMESTAMP","LINEAR_GEN_APPROX","PERIODIC","GEOMETRIC","RECURRENCE","MODULAR","SPARSE","QUADRATIC"},
  "TypeScript":{"ML_TEMPLATE_DUAL","ML_TEMPLATE","SECTION_TEMPLATE","TEMPLATE"},
  "SQL":{"LINE_TEMPLATE","TEMPLATE"}, "Markdown":{"SECTION_TEMPLATE","TEMPLATE","LINE_GROUP_TPL"},
+ "TSV":{"CSV_COLUMNAR","COLUMNAR"}, "NDJSON":{"JSON_COLUMNAR"}, "SVG":{"HTML_STREAM"},
 }
 RB="real_bench/"; EX="corpus_extra/"; SM="samples/64k/input/"
 CORPUS={  # type -> files (mix of real + the new real numeric/TS + a few synth for coverage)
@@ -66,6 +67,8 @@ CORPUS={  # type -> files (mix of real + the new real numeric/TS + a few synth f
  "Other-langs":[RB+f for f in ("rust_lib.rs","clojure_core.clj","ruby_rails.rb","swift_stdlib.swift")],
  "Numeric":sorted(glob.glob(EX+"*.bin")),
  "TOML":[SM+"toml_config.toml"], "INI":[SM+"ini_config.ini"], "GraphQL":[SM+"graphql.graphql"], "Email":[SM+"email_headers.txt"],
+ "Protobuf-schema":[EX+"misc/descriptor.proto"], "reStructuredText":[EX+"misc/cpython_intro.rst"],
+ "TSV":[EX+"misc/events.tsv"], "SVG":[EX+"misc/example.svg"], "NDJSON":[EX+"misc/users.ndjson"], "Diff/patch":[EX+"misc/changes.patch"],
 }
 
 issues=[]; ok=0; total=0

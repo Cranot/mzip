@@ -13158,8 +13158,8 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // Try NUM_EXTRACT for files with many embedded numbers (Makefiles, configs)
         // Key insight: Numbers create entropy. Extract them, compress template separately.
         // 900 bytes better than brotli on Makefiles!
-        if (mid_entropy_text && n >= 1024) {
-            NumExtractParams num_params;
+        if (mid_entropy_text && n >= 1024 && n <= 2097152) {  // cap at 2MB: num_extract targets small Makefiles/configs;
+            NumExtractParams num_params;                       // it's O(n) heavy string-alloc and never wins multi-MB blobs (speed)
             if (detect_num_extract(data, n, num_params)) {
                 result.type = BlockType::NUM_EXTRACT;
                 result.num_extract = num_params;
@@ -14610,21 +14610,27 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                     cur = xpos;
                 }
             }
-            // brotli-11 trial (ensemble backstop) -> BROTLI. Trial BOTH generic(0) + text(1) modes,
-            // keep smaller — text mode often beats brotli's CLI default on code/config, covering our framing.
-            size_t bcap = BrotliEncoderMaxCompressedSize(this_block);
-            if (bcap == 0) bcap = this_block + 1024;
-            std::vector<uint8_t> bb(bcap);
-            for (int bmode = 0; bmode <= 1; bmode++) {
-                size_t bsz = bcap;
-                if (BrotliEncoderCompress(MZ_BROTLI_QUALITY, MZ_BROTLI_WINDOW, bmode,
-                                          this_block, block_data, &bsz, bb.data())
-                    && bsz < cur && bsz <= cap) {
-                    memcpy(preprocess_data, bb.data(), bsz);
-                    preprocess_size = bsz;
-                    analysis.type = BlockType::BROTLI;
-                    use_generator = true;
-                    cur = bsz;
+            // brotli-11 trial (ensemble backstop) -> BROTLI. Trial BOTH generic(0) + text(1) modes, keep smaller.
+            // SPEED GATE: brotli-11 (the slowest backstop, x2 modes) only helps small text/code via its dict; on
+            // blocks > MZ_BACKSTOP_BROTLI_MAX (1 MB) bwt9/xz/numeric always win, so skip it there. Set MZIP_MAXRATIO
+            // (env) to trial it on all sizes for absolute max ratio.
+            size_t brotli_cap_bytes = (1u << 20);
+            if (std::getenv("MZIP_MAXRATIO")) brotli_cap_bytes = (size_t)-1;
+            if (this_block <= brotli_cap_bytes) {
+                size_t bcap = BrotliEncoderMaxCompressedSize(this_block);
+                if (bcap == 0) bcap = this_block + 1024;
+                std::vector<uint8_t> bb(bcap);
+                for (int bmode = 0; bmode <= 1; bmode++) {
+                    size_t bsz = bcap;
+                    if (BrotliEncoderCompress(MZ_BROTLI_QUALITY, MZ_BROTLI_WINDOW, bmode,
+                                              this_block, block_data, &bsz, bb.data())
+                        && bsz < cur && bsz <= cap) {
+                        memcpy(preprocess_data, bb.data(), bsz);
+                        preprocess_size = bsz;
+                        analysis.type = BlockType::BROTLI;
+                        use_generator = true;
+                        cur = bsz;
+                    }
                 }
             }
         }

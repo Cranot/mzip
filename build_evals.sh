@@ -42,4 +42,18 @@ if command -v curl >/dev/null 2>&1 && [ ! -f corpus_extra/ts/typescript_types.d.
   find corpus_extra/ts -size 0 -delete 2>/dev/null || true
   echo "fetched real TS corpus (if online)"
 fi
+# real new-type corpus (#13): proto/rst/svg fetched; tsv/ndjson/patch derived from local real data
+if [ ! -f corpus_extra/misc/descriptor.proto ]; then
+  mkdir -p corpus_extra/misc
+  command -v curl >/dev/null 2>&1 && {
+    curl -sL --max-time 30 "https://raw.githubusercontent.com/protocolbuffers/protobuf/main/src/google/protobuf/descriptor.proto" -o corpus_extra/misc/descriptor.proto 2>/dev/null || true
+    curl -sL --max-time 30 "https://raw.githubusercontent.com/python/cpython/main/Doc/tutorial/introduction.rst" -o corpus_extra/misc/cpython_intro.rst 2>/dev/null || true
+    curl -sL --max-time 40 "https://upload.wikimedia.org/wikipedia/commons/8/84/Example.svg" -o corpus_extra/misc/example.svg 2>/dev/null || true
+  }
+  [ -f real_bench/events.csv ] && python3 -c "import csv;rows=list(csv.reader(open('real_bench/events.csv')));open('corpus_extra/misc/events.tsv','w',newline='').write('\n'.join('\t'.join(r) for r in rows))" 2>/dev/null || true
+  [ -f real_bench/users.json ] && python3 -c "import json;d=json.load(open('real_bench/users.json'));it=d if isinstance(d,list) else (d.get('users') or d.get('data') or list(d.values())[0]);open('corpus_extra/misc/users.ndjson','w').write('\n'.join(json.dumps(x) for x in it[:5000])) if isinstance(it,list) else None" 2>/dev/null || true
+  git diff 4a9bd5f..HEAD -- mzip.hpp > corpus_extra/misc/changes.patch 2>/dev/null || true
+  find corpus_extra/misc -size 0 -delete 2>/dev/null || true
+  echo "prepped real new-type corpus"
+fi
 echo "OK — all eval binaries built."

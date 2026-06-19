@@ -91,3 +91,30 @@ train_corpus/dockerfile/
 # External dependencies (download separately)
 zstd_release/
 mingw64/
+
+# Large compression working artifacts (regenerable; never commit)
+enwik9
+enwik9.*
+e10m*
+e100*
+emid*
+_enwik*
+*.lpaq1
+*.big
+*.big[0-9]*
+*.match
+*.final
+*.run
+*.2s
+*.mz
+*.dec
+*.lpq
+*.w2
+*.cm
+*.back
+*.wrt
+t.back
+t.lpq
+.tmp_*
+corpus_extra/
+benchmark_data/

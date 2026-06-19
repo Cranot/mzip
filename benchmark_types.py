@@ -81,6 +81,10 @@ TYPES = {
  "TOML(synth)":([SM+"toml_config.toml"],0), "INI(synth)":([SM+"ini_config.ini"],0),
  "GraphQL(synth)":([SM+"graphql.graphql"],0), "Email(synth)":([SM+"email_headers.txt"],0),
  "Protobuf(synth)":([SM+"protobuf_like.bin"],0), "Base64(synth)":([SM+"base64.txt"],0),
+ # NEW real types (#13)
+ "Protobuf-schema":([EX+"misc/descriptor.proto"],1), "reStructuredText":([EX+"misc/cpython_intro.rst"],1),
+ "TSV":([EX+"misc/events.tsv"],1), "SVG":([EX+"misc/example.svg"],1),
+ "NDJSON":([EX+"misc/users.ndjson"],1), "Diff/patch":([EX+"misc/changes.patch"],1),
 }
 
 def ratio(o,c): return f"{o/c:.2f}x" if c>0 else "-"
