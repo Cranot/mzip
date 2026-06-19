@@ -1,170 +1,152 @@
 #!/usr/bin/env python3
 # ============================================================================
-# benchmark_types.py — STANDARD type-stratified compression benchmark.
-#   mzip(+CM) vs the world's standard compressors, at max settings, on REAL files.
-#   mzip output is roundtrip-verified. Auto-detects which compressors actually work.
-#
-# Prereqs (build once):  bash build_evals.sh     (builds zc.exe, mzip_cm.exe, mzip_base.exe)
-# Run:                   python3 benchmark_types.py            (full)
-#                        python3 benchmark_types.py --quick    (one file per type)
-# Output:                bench_types_report.md  (full tables) + ASCII summary to console.
-# See CLAUDE.md "Evals & scripts" for conventions.
+# benchmark_types.py v2 — RICHER, FAIRER, PRAGMATIC type-stratified benchmark.
+#   mzip(+CM) vs the world's standard compressors, max settings, on real files.
+#   Richer:   ~32 content types incl. real scientific time-series + shell + finer config splits.
+#   Fairer:   zstd-19 AND zstd-22; per-file win/tie/loss; real vs synthetic labeled;
+#             container framing acknowledged (mzip is an archive; a per-file "tie" = within 32 B of best).
+#   Pragmatic: compression throughput (MB/s) — mzip trades speed for ratio.
+# Prereqs: bash build_evals.sh   |   Run: python3 benchmark_types.py [--quick]   |   Out: bench_types_report.md
 # ============================================================================
-import subprocess, glob, os, sys, shutil
+import subprocess, glob, os, sys, shutil, time
 
 ROOT = os.path.dirname(os.path.abspath(__file__)); os.chdir(ROOT)
 QUICK = "--quick" in sys.argv
 
-# ---- resolve WORKING compressor commands (w64devkit ships a broken xz; probe everything) ----
-def works(cmd):
-    try:
-        r = subprocess.run(cmd + [__file__], capture_output=True)
-        return len(r.stdout) > 0
-    except Exception:
-        return False
-
 def find_xz():
-    # w64devkit ships a broken xz first on PATH; the working one sits next to brotli (mingw64/bin)
-    cands = []
-    b = shutil.which("brotli")
-    if b: cands.append(os.path.join(os.path.dirname(b), "xz.exe"))
+    cands=[]; b=shutil.which("brotli")
+    if b: cands.append(os.path.join(os.path.dirname(b),"xz.exe"))
     cands += ["/mingw64/bin/xz.exe", shutil.which("xz") or "xz"]
-    for cand in cands:
+    for c in cands:
         try:
-            if cand and subprocess.run([cand,"-9","-e","-c",__file__],capture_output=True).stdout:
-                return cand
+            if c and subprocess.run([c,"-9","-e","-c",__file__],capture_output=True).stdout: return c
         except Exception: pass
     return None
-
 XZ = find_xz()
-# candidate external standards: (label, size-fn). zstd via our zc.exe (no zstd CLI on PATH).
-def ext_cmd(tool):
-    return {
-        "gzip-9":   ["gzip","-9","-c"],
-        "bzip2-9":  ["bzip2","-9","-c"],
-        "brotli-11":["brotli","-q","11","-c"],
-        "xz-9e":    ([XZ,"-9","-e","-c"] if XZ else None),
-    }.get(tool)
 
-def stdout_size(cmd, f):
-    try: return len(subprocess.run(cmd+[f], capture_output=True).stdout)
+def _stdout(cmd,f):
+    try: return len(subprocess.run(cmd+[f],capture_output=True).stdout)
     except Exception: return 0
-
-def zstd_size(f):
+def _zstd(f,lvl):
     if not os.path.exists("zc.exe"): return 0
-    r = subprocess.run(["./zc.exe", f, "19"], capture_output=True, text=True)
+    r=subprocess.run(["./zc.exe",f,str(lvl)],capture_output=True,text=True)
     try: return int(r.stdout.strip())
     except: return 0
-
-def mzip_size(f, withcm=True):
-    exe = "./mzip_cm.exe" if withcm else "./mzip_base.exe"
-    if not os.path.exists(exe): return 0
-    out = f".tmp_{os.getpid()}.mz"
-    subprocess.run([exe,"c",f,out], capture_output=True)
-    sz = os.path.getsize(out) if os.path.exists(out) else 0
-    ok = True
+def _mzip(f,withcm):
+    exe="./mzip_cm.exe" if withcm else "./mzip_base.exe"
+    if not os.path.exists(exe): return (0,0.0)
+    out=f".tmp_{os.getpid()}.mz"; t0=time.time()
+    subprocess.run([exe,"c",f,out],capture_output=True); dt=time.time()-t0
+    sz=os.path.getsize(out) if os.path.exists(out) else 0; ok=True
     if withcm:
-        dec = out+".out"; subprocess.run([exe,"d",out,dec], capture_output=True)
-        ok = os.path.exists(dec) and open(dec,"rb").read()==open(f,"rb").read()
+        dec=out+".o"; subprocess.run([exe,"d",out,dec],capture_output=True)
+        ok=os.path.exists(dec) and open(dec,"rb").read()==open(f,"rb").read()
         if os.path.exists(dec): os.remove(dec)
     if os.path.exists(out): os.remove(out)
-    return sz if (not withcm or ok) else -1
+    return (sz if (not withcm or ok) else -1, dt)
 
-# ---- the tool table: only keep ones that work ----
-# order: external standards first, then our two variants
-RAW_TOOLS = ["gzip-9","bzip2-9","zstd-19","xz-9e","mzip(noCM)","brotli-11","mzip+CM"]
-def size_of(tool, f):
-    if tool=="zstd-19":     return zstd_size(f)
-    if tool=="mzip+CM":     return mzip_size(f, True)
-    if tool=="mzip(noCM)":  return mzip_size(f, False)
-    if tool=="xz-9e":       return stdout_size(ext_cmd("xz-9e"), f) if XZ else 0
-    return stdout_size(ext_cmd(tool), f)
-# probe availability on this script file
-TOOLS = [t for t in RAW_TOOLS if (t=="zstd-19" and os.path.exists("zc.exe"))
-         or (t in ("mzip+CM","mzip(noCM)") and os.path.exists("mzip_cm.exe" if "CM)" not in t else "mzip_base.exe"))
-         or (t=="xz-9e" and XZ)
-         or (t in ("gzip-9","bzip2-9","brotli-11") and size_of(t, __file__) > 0)]
-if "mzip+CM" not in TOOLS:
-    sys.exit("ERROR: mzip_cm.exe missing. Run: bash build_evals.sh")
-EXT = [t for t in TOOLS if t.startswith(("gzip","bzip2","zstd","xz","brotli"))]
+TOOLS=["gzip-9","bzip2-9","zstd-19","zstd-22","xz-9e","mzip(noCM)","brotli-11","mzip+CM"]
+EXT  =["gzip-9","bzip2-9","zstd-19","zstd-22","xz-9e","brotli-11"]
+def size_of(tool,f):
+    if tool=="gzip-9":   return _stdout(["gzip","-9","-c"],f)
+    if tool=="bzip2-9":  return _stdout(["bzip2","-9","-c"],f)
+    if tool=="brotli-11":return _stdout(["brotli","-q","11","-c"],f)
+    if tool=="xz-9e":    return _stdout([XZ,"-9","-e","-c"],f) if XZ else 0
+    if tool=="zstd-19":  return _zstd(f,19)
+    if tool=="zstd-22":  return _zstd(f,22)
+    return 0
 
-# ---- top content types worldwide -> HELD-OUT real files (real_bench/, NOT mzip's dict-training set) ----
-# train_corpus/ is mzip's dictionary TRAINING data (per fetch.sh) -> excluded for fairness.
-RB = "real_bench/"
+RB="real_bench/"; SM="samples/64k/input/"; EX="corpus_extra/"
+OTHER=[RB+f for f in ("clojure_core.clj","csharp_list.cs","elixir_genserver.ex","julia_base.jl",
+  "kotlin_stdlib.kt","lua_neovim.lua","php_laravel.php","ruby_rails.rb","rust_lib.rs","scala_list.scala",
+  "swift_stdlib.swift","zig_std.zig")]
 TYPES = {
-    "HTML":       [RB+"dashboard.html"],
-    "CSS":        [RB+"bootstrap.css", RB+"styles.css"],
-    "JavaScript": [RB+"lodash.js", RB+"webpack.config.js"],
-    "TypeScript": [RB+"handlers.ts", RB+"vscode_main.ts"],
-    "JSON":       [RB+"users.json", RB+"json_github_api.json"],
-    "XML":        [RB+"xml_maven.xml"],
-    "YAML":       [RB+"k8s_deployments.yaml", RB+"docker-compose.yml", RB+".github_workflows_ci.yml"],
-    "SQL":        [RB+"sql_schema.sql", RB+"users_dump.sql"],
-    "CSV":        [RB+"events.csv"],
-    "Markdown":   [RB+"api_docs.md", RB+"contributing.md", RB+"readme_large.md"],
-    "Log":        [RB+"apache_log_sample.log", RB+"app.log", RB+"nginx_access.log"],
-    "C/C++":      [RB+"linux_kernel.c", RB+"cpp_vector.hpp"],
-    "Python":     [RB+"django_models.py", RB+"flask_app.py", RB+"services.py"],
-    "Java":       [RB+"java_arraylist.java"],
-    "Go":         [RB+"go_http.go", RB+"handlers.go"],
-    "Other-langs":[RB+"clojure_core.clj", RB+"csharp_list.cs", RB+"elixir_genserver.ex", RB+"julia_base.jl",
-                   RB+"kotlin_stdlib.kt", RB+"lua_neovim.lua", RB+"php_laravel.php", RB+"ruby_rails.rb",
-                   RB+"rust_lib.rs", RB+"scala_list.scala", RB+"swift_stdlib.swift", RB+"zig_std.zig"],
-    "Config/Make":[RB+"Dockerfile", RB+"Makefile", RB+"linux_makefile", RB+"terraform_main.tf",
-                   RB+".env.example", RB+".gitignore"],
-    "Metrics":    [RB+"metrics.prom"],
+ "HTML":([RB+"dashboard.html"],1), "CSS":([RB+"bootstrap.css",RB+"styles.css"],1),
+ "JavaScript":([RB+"lodash.js",RB+"webpack.config.js"],1), "TypeScript":([RB+"handlers.ts",RB+"vscode_main.ts"],1),
+ "JSON":([RB+"users.json",RB+"json_github_api.json"],1), "XML":([RB+"xml_maven.xml"],1),
+ "YAML":([RB+"k8s_deployments.yaml",RB+"docker-compose.yml",RB+".github_workflows_ci.yml"],1),
+ "SQL":([RB+"sql_schema.sql",RB+"users_dump.sql"],1), "CSV":([RB+"events.csv"],1),
+ "Markdown":([RB+"api_docs.md",RB+"contributing.md",RB+"readme_large.md"],1),
+ "Log":([RB+"apache_log_sample.log",RB+"app.log",RB+"nginx_access.log"],1),
+ "C/C++":([RB+"linux_kernel.c",RB+"cpp_vector.hpp"],1),
+ "Python":([RB+"django_models.py",RB+"flask_app.py",RB+"services.py"],1), "Java":([RB+"java_arraylist.java"],1),
+ "Go":([RB+"go_http.go",RB+"handlers.go"],1), "Other-langs":(OTHER,1),
+ "Dockerfile":([RB+"Dockerfile"],1), "Makefile":([RB+"Makefile",RB+"linux_makefile"],1),
+ "Terraform":([RB+"terraform_main.tf"],1), "Env/dotfiles":([RB+".env.example",RB+".gitignore"],1),
+ "Metrics":([RB+"metrics.prom"],1),
+ "Shell":(sorted(glob.glob(EX+"shell/*")),1),
+ "Numeric-temp":([EX+"citytemp_float.bin"],1), "Numeric-gyro":([EX+"phonegyro_sensor.bin"],1),
+ "Numeric-gas":([EX+"tsgas_series.bin"],1), "Numeric-taxi":([EX+"nyctaxi_cols.bin"],1),
+ "TOML(synth)":([SM+"toml_config.toml"],0), "INI(synth)":([SM+"ini_config.ini"],0),
+ "GraphQL(synth)":([SM+"graphql.graphql"],0), "Email(synth)":([SM+"email_headers.txt"],0),
+ "Protobuf(synth)":([SM+"protobuf_like.bin"],0), "Base64(synth)":([SM+"base64.txt"],0),
 }
 
 def ratio(o,c): return f"{o/c:.2f}x" if c>0 else "-"
 def pct(a,b):   return f"{(a-b)/a*100:+.2f}%" if a>0 else "n/a"
 
-rows=[]; overall={t:0 for t in TOOLS}; overall_orig=0; rt_fail=0; type_meta={}
-for typ,files in TYPES.items():
+rows=[]; overall={t:0 for t in TOOLS}; ov_real={t:0 for t in TOOLS}
+orig_all=orig_real=rt_fail=0
+fwin=ftie=floss=rwin=rtie=rloss=0
+mzip_bytes=mzip_secs=0.0
+for typ,(files,real) in TYPES.items():
     files=[f for f in files if os.path.isfile(f) and os.path.getsize(f)>0]
     if QUICK: files=files[:1]
     if not files: continue
-    orig=sum(os.path.getsize(f) for f in files)
-    sizes={t:0 for t in TOOLS}
+    orig=0; sizes={t:0 for t in TOOLS}
     for f in files:
-        for t in TOOLS:
-            s=size_of(t,f)
-            if s==-1: rt_fail+=1; s=mzip_size(f,False)
-            sizes[t]+=s
-    rows.append((typ,len(files),orig,sizes)); overall_orig+=orig
+        fb=os.path.getsize(f); orig+=fb
+        rec={}
+        for t in EXT: rec[t]=size_of(t,f)
+        rec["mzip(noCM)"]=_mzip(f,False)[0]
+        mz,dt=_mzip(f,True); mzip_bytes+=fb; mzip_secs+=dt
+        if mz==-1: rt_fail+=1; mz=rec["mzip(noCM)"]
+        rec["mzip+CM"]=mz
+        for t in TOOLS: sizes[t]+=rec[t]
+        ext={t:rec[t] for t in EXT if rec[t]>0}
+        if ext:
+            best=min(ext.values())
+            cat="win" if mz<=best else ("tie" if mz<=best+32 else "loss")
+            if cat=="win": fwin+=1; rwin+=(1 if real else 0)
+            elif cat=="tie": ftie+=1; rtie+=(1 if real else 0)
+            else: floss+=1; rloss+=(1 if real else 0)
+    rows.append((typ,len(files),orig,sizes,real)); orig_all+=orig
     for t in TOOLS: overall[t]+=sizes[t]
-    ext={t:sizes[t] for t in EXT if sizes[t]>0}
-    best_ext=min(ext,key=ext.get) if ext else None
-    ranked=sorted([(sizes[t],t) for t in TOOLS if sizes[t]>0],key=lambda x:x[0])
-    rank=next((i for i,(_,t) in enumerate(ranked,1) if t=="mzip+CM"),len(ranked))
-    type_meta[typ]=(best_ext, ext.get(best_ext,0), sizes["mzip+CM"], rank)
+    if real:
+        orig_real+=orig
+        for t in TOOLS: ov_real[t]+=sizes[t]
 
 L=[]
-L.append("# Type-stratified compression benchmark — mzip+CM vs the world\n")
-L.append(f"Real files, each compressor at max ({', '.join(TOOLS)}). mzip roundtrip-verified. "
-         f"Sizes = TOTAL bytes per content type. Roundtrip failures: **{rt_fail}**. "
-         f"{'(QUICK: 1 file/type)' if QUICK else ''}\n")
-L.append("| Type | files | orig | "+" | ".join(TOOLS)+" | best | mzip+CM |")
-L.append("|---|--:|--:|"+"--:|"*len(TOOLS)+"--|--|")
-for typ,nf,orig,sizes in rows:
-    best_ext,best_sz,mz,rank=type_meta[typ]
-    cells=" | ".join(str(sizes[t]) for t in TOOLS)
-    verdict = "**WINS**" if (mz>0 and best_sz>0 and mz<=best_sz) else f"#{rank} (best={best_ext})"
-    L.append(f"| {typ} | {nf} | {orig} | {cells} | {best_ext or '-'} | {verdict} |")
-L.append(f"| **ALL** | | {overall_orig} | "+" | ".join(str(overall[t]) for t in TOOLS)+" | | |")
-L.append("\n## Compression ratio (orig/comp, higher=better)\n")
+L.append("# Type-stratified compression benchmark v2 — mzip+CM vs the world (richer/fairer/pragmatic)\n")
+L.append(f"{len(rows)} content types. Standards at max (gzip-9, bzip2-9, zstd-19, zstd-22, xz-9e, brotli-11). "
+         f"mzip roundtrip-verified ({rt_fail} failures). Sizes = TOTAL bytes/type. **R**=real GitHub files/real "
+         f"datasets; **syn**=generated samples. mzip is a self-describing archive (~10–14 B/file header) vs raw "
+         f"streams — a per-file 'tie' = mzip within 32 B of the best standard (framing-bound).\n")
+L.append("| Type | R? | files | orig | "+" | ".join(TOOLS)+" |")
+L.append("|---|:--:|--:|--:|"+"--:|"*len(TOOLS))
+for typ,nf,orig,sizes,real in rows:
+    L.append(f"| {typ} | {'R' if real else 'syn'} | {nf} | {orig} | "+" | ".join(str(sizes[t]) for t in TOOLS)+" |")
+L.append(f"| **ALL** | | | {orig_all} | "+" | ".join(str(overall[t]) for t in TOOLS)+" |")
+L.append(f"| **REAL only** | | | {orig_real} | "+" | ".join(str(ov_real[t]) for t in TOOLS)+" |")
+L.append("\n## Ratios (orig/comp, higher=better)\n")
 L.append("| Type | "+" | ".join(TOOLS)+" |"); L.append("|---|"+"--:|"*len(TOOLS))
-for typ,nf,orig,sizes in rows:
-    L.append(f"| {typ} | "+" | ".join(ratio(orig,sizes[t]) for t in TOOLS)+" |")
-L.append(f"| **ALL** | "+" | ".join(ratio(overall_orig,overall[t]) for t in TOOLS)+" |")
-mzwins=sum(1 for t in type_meta.values() if t[2]>0 and t[1]>0 and t[2]<=t[1])
-firsts=sum(1 for t in type_meta.values() if t[3]==1)
+for typ,nf,orig,sizes,real in rows:
+    L.append(f"| {typ}{'' if real else ' (syn)'} | "+" | ".join(ratio(orig,sizes[t]) for t in TOOLS)+" |")
+L.append(f"| **ALL** | "+" | ".join(ratio(orig_all,overall[t]) for t in TOOLS)+" |")
+L.append(f"| **REAL** | "+" | ".join(ratio(orig_real,ov_real[t]) for t in TOOLS)+" |")
+nf_all=fwin+ftie+floss; nf_r=rwin+rtie+rloss
+mbps=(mzip_bytes/1e6)/mzip_secs if mzip_secs>0 else 0
 L.append("\n## Standing\n")
-L.append(f"- mzip+CM beats EVERY standard compressor on **{mzwins}/{len(rows)}** content types")
-L.append(f"- mzip+CM is rank #1 overall (incl. vs mzip-noCM) on {firsts}/{len(rows)} types")
-L.append(f"- overall vs brotli-11: {pct(overall.get('brotli-11',0),overall['mzip+CM'])}  | vs zstd-19: {pct(overall.get('zstd-19',0),overall['mzip+CM'])}  | vs xz-9e: {pct(overall.get('xz-9e',0),overall['mzip+CM'])}")
-L.append(f"- CM contribution: mzip(noCM)->mzip+CM = {pct(overall.get('mzip(noCM)',0),overall['mzip+CM'])}")
+L.append(f"- **Per-file (all {nf_all}):** mzip+CM wins **{fwin}**, framing-ties {ftie}, loses {floss}.")
+L.append(f"- **Per-file (real {nf_r}):** wins **{rwin}**, framing-ties {rtie}, loses {rloss}.")
+L.append(f"- **Overall ratio (REAL — fair headline):** mzip+CM {ratio(orig_real,ov_real['mzip+CM'])} vs brotli {ratio(orig_real,ov_real['brotli-11'])}, xz {ratio(orig_real,ov_real['xz-9e'])}, zstd-22 {ratio(orig_real,ov_real['zstd-22'])}, bzip2 {ratio(orig_real,ov_real['bzip2-9'])}.")
+L.append(f"- Overall (REAL) smaller by: brotli {pct(ov_real['brotli-11'],ov_real['mzip+CM'])}, zstd-22 {pct(ov_real['zstd-22'],ov_real['mzip+CM'])}, xz {pct(ov_real['xz-9e'],ov_real['mzip+CM'])}.")
+L.append(f"- **Overall ratio (ALL incl. synth):** mzip+CM {ratio(orig_all,overall['mzip+CM'])} vs brotli {ratio(orig_all,overall['brotli-11'])}, xz {ratio(orig_all,overall['xz-9e'])}.")
+L.append(f"- CM contribution (REAL): {pct(ov_real['mzip(noCM)'],ov_real['mzip+CM'])}.")
+L.append(f"- **Speed (pragmatic):** mzip+CM ~{mbps:.1f} MB/s — trial-everything ensemble (CM+BWT+dicts+xz+brotli per block); zstd/brotli are 10–100×+ faster. Ratio over speed.")
 open("bench_types_report.md","w",encoding="utf-8").write("\n".join(L))
-print(f"tools={TOOLS}")
-print(f"types={len(rows)} rt_fail={rt_fail}  mzip+CM wins {mzwins}/{len(rows)} types, rank#1 on {firsts}")
-print(f"overall vs brotli {pct(overall.get('brotli-11',0),overall['mzip+CM'])}, vs zstd {pct(overall.get('zstd-19',0),overall['mzip+CM'])}, vs xz {pct(overall.get('xz-9e',0),overall['mzip+CM'])}, CM adds {pct(overall.get('mzip(noCM)',0),overall['mzip+CM'])}")
+print(f"types={len(rows)} rt_fail={rt_fail}")
+print(f"per-file ALL: win {fwin} / tie {ftie} / loss {floss}   |   REAL: win {rwin} / tie {rtie} / loss {rloss}")
+print(f"REAL overall: mzip+CM {ratio(orig_real,ov_real['mzip+CM'])} | vs brotli {pct(ov_real['brotli-11'],ov_real['mzip+CM'])}, xz {pct(ov_real['xz-9e'],ov_real['mzip+CM'])}, zstd-22 {pct(ov_real['zstd-22'],ov_real['mzip+CM'])} | CM {pct(ov_real['mzip(noCM)'],ov_real['mzip+CM'])}")
+print(f"mzip+CM speed ~{mbps:.1f} MB/s")
 print("full -> bench_types_report.md")

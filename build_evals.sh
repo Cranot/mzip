@@ -23,4 +23,14 @@ echo "mzip_base.exe...";  g++ -O3 -std=c++17 -march=native -DMZIP_NO_CM -o mzip_
 echo "cmtest.exe...";     g++ -O3 -std=c++17 -DCM_BACKEND_TEST -DCM_BACKEND_USE_BWT -x c++ cm_backend.hpp -x none libsais.o -o cmtest.exe
 echo "bwt9_probe.exe..."; g++ -O3 -std=c++17 bwt9_probe.cpp libsais.o -o bwt9_probe.exe
 echo "mzip_ut.exe...";    g++ -O3 -std=c++17 -march=native -D_USE_MATH_DEFINES -o mzip_ut.exe mzip_unit_tests.cpp libsais.c -I $INC $LIB $BRO
+# prep extra real corpora for benchmark_types.py v2 (numeric time-series truncated to 4MB + repo shell scripts)
+if [ -d benchmark_data ] && [ ! -f corpus_extra/citytemp_float.bin ]; then
+  mkdir -p corpus_extra/shell
+  head -c 4194304 benchmark_data/citytemp.bin   > corpus_extra/citytemp_float.bin    2>/dev/null || true
+  head -c 4194304 benchmark_data/phone-gyro.bin > corpus_extra/phonegyro_sensor.bin  2>/dev/null || true
+  head -c 4194304 benchmark_data/ts_gas.bin     > corpus_extra/tsgas_series.bin      2>/dev/null || true
+  head -c 4194304 benchmark_data/nyc-taxi.bin   > corpus_extra/nyctaxi_cols.bin      2>/dev/null || true
+  cp build_evals.sh run_final.sh run_mem.sh match3.sh dict.sh phase23.sh overnight.sh screen_run.sh corpus_extra/shell/ 2>/dev/null || true
+  echo "prepped corpus_extra/ (numeric + shell)"
+fi
 echo "OK — all eval binaries built."
