@@ -14789,7 +14789,8 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         // IMPORTANT: Only use MU for blocks stored RAW (is_raw=true), since
         // MU format doesn't preserve the zstd compression layer!
         // ========================================================================
-        constexpr size_t MU_MAX_SIZE = 16384;  // Only for files <= 16KB
+        constexpr size_t MU_MAX_SIZE = 65536;  // <=64KB: MU header (~5B) is size-agnostic; the ~9B saving vs the
+                                               // compact format matters most where output is small (small structured files)
         if (size <= MU_MAX_SIZE && is_raw) {
             // Text-oriented strategies that benefit from MU format
             // Only use MU when data is stored raw (is_raw=true), meaning the
@@ -14804,7 +14805,12 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                            block_type == static_cast<uint8_t>(BlockType::SECTION_TEMPLATE) ||
                            block_type == static_cast<uint8_t>(BlockType::ZSTD_DICT) ||
                            block_type == static_cast<uint8_t>(BlockType::CODE_STREAM) ||
-                           block_type == static_cast<uint8_t>(BlockType::NUM_EXTRACT));
+                           block_type == static_cast<uint8_t>(BlockType::NUM_EXTRACT) ||
+                           // backstop blocks are also self-contained (payload = full stream) — MU saves ~9B/file
+                           // over the compact format on small files where brotli/xz/cm win (the only remaining "losses")
+                           block_type == static_cast<uint8_t>(BlockType::BROTLI) ||
+                           block_type == static_cast<uint8_t>(BlockType::XZLIB) ||
+                           block_type == static_cast<uint8_t>(BlockType::CM_TEXT));
 
             // Also allow NUMERIC blocks with sparse encoding (0xFF marker)
             if (!use_mu && block_type == static_cast<uint8_t>(BlockType::NUMERIC) && comp_size >= 2) {
@@ -15288,6 +15294,24 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
             case BlockType::CM_TEXT:
                 output = cmbk::decompress_bwt(comp_data, comp_size);
                 break;
+            case BlockType::BROTLI: {
+                // backstop brotli stream stored whole — decode straight to orig_size
+                output.resize(orig_size);
+                size_t dsz = orig_size;
+                if (BrotliDecoderDecompress(comp_size, comp_data, &dsz, output.data()) != MZ_BROTLI_DECODE_SUCCESS
+                    || dsz != orig_size) output.clear();
+                break;
+            }
+            case BlockType::XZLIB: {
+                // backstop xz (liblzma) stream stored whole
+                output.resize(orig_size);
+                uint64_t memlimit = UINT64_MAX;
+                size_t in_pos = 0, out_pos2 = 0;
+                if (lzma_stream_buffer_decode(&memlimit, 0, nullptr, comp_data, &in_pos, comp_size,
+                                              output.data(), &out_pos2, output.size()) != MZ_LZMA_OK
+                    || out_pos2 != orig_size) output.clear();
+                break;
+            }
             case BlockType::ZSTD_DICT: {
                 // Format: [dict_id:1] [zstd_data:rest]
                 if (comp_size < 2) break;
