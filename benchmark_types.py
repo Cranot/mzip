@@ -62,7 +62,8 @@ OTHER=[RB+f for f in ("clojure_core.clj","csharp_list.cs","elixir_genserver.ex",
   "swift_stdlib.swift","zig_std.zig")]
 TYPES = {
  "HTML":([RB+"dashboard.html"],1), "CSS":([RB+"bootstrap.css",RB+"styles.css"],1),
- "JavaScript":([RB+"lodash.js",RB+"webpack.config.js"],1), "TypeScript":([RB+"handlers.ts",RB+"vscode_main.ts"],1),
+ "JavaScript":([RB+"lodash.js",RB+"webpack.config.js"],1),
+ "TypeScript":([RB+"handlers.ts",RB+"vscode_main.ts"]+sorted(glob.glob(EX+"ts/*")),1),  # +real type-def files (representative)
  "JSON":([RB+"users.json",RB+"json_github_api.json"],1), "XML":([RB+"xml_maven.xml"],1),
  "YAML":([RB+"k8s_deployments.yaml",RB+"docker-compose.yml",RB+".github_workflows_ci.yml"],1),
  "SQL":([RB+"sql_schema.sql",RB+"users_dump.sql"],1), "CSV":([RB+"events.csv"],1),

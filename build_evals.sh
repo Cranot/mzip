@@ -33,4 +33,13 @@ if [ -d benchmark_data ] && [ ! -f corpus_extra/citytemp_float.bin ]; then
   cp build_evals.sh run_final.sh run_mem.sh match3.sh dict.sh phase23.sh overnight.sh screen_run.sh corpus_extra/shell/ 2>/dev/null || true
   echo "prepped corpus_extra/ (numeric + shell)"
 fi
+# real representative TypeScript (type-def/interface-heavy — where mzip's structure encoders win); optional, needs net
+if command -v curl >/dev/null 2>&1 && [ ! -f corpus_extra/ts/typescript_types.d.ts ]; then
+  mkdir -p corpus_extra/ts
+  curl -sL --max-time 30 "https://unpkg.com/typescript@5.4.5/lib/typescript.d.ts" -o corpus_extra/ts/typescript_types.d.ts 2>/dev/null || true
+  curl -sL --max-time 30 "https://raw.githubusercontent.com/microsoft/TypeScript/main/src/compiler/types.ts" -o corpus_extra/ts/compiler_types.ts 2>/dev/null || true
+  curl -sL --max-time 30 "https://unpkg.com/rxjs@7.8.1/dist/types/internal/Observable.d.ts" -o corpus_extra/ts/rxjs_observable.d.ts 2>/dev/null || true
+  find corpus_extra/ts -size 0 -delete 2>/dev/null || true
+  echo "fetched real TS corpus (if online)"
+fi
 echo "OK — all eval binaries built."
