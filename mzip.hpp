@@ -14582,6 +14582,19 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                 size_t z = ZSTD_compress(tb.data(), tb.size(), preprocess_data, preprocess_size, 19);
                 if (!ZSTD_isError(z)) cur = z;
             }
+            // bwt9 (BWT + context-mixing, bzip3-class) trial -> BWT_TEXT (decoded via bwt9). Catches
+            // BWT-friendly data the type detectors MISS (float/sensor arrays, structured binary) where
+            // it beats bzip2/xz/zstd. Tried first so ties prefer our own tech over the external backstops.
+            {
+                auto b9 = bwt9::compress(block_data, this_block);
+                if (!b9.empty() && b9.size() < cur && b9.size() <= cap) {
+                    memcpy(preprocess_data, b9.data(), b9.size());
+                    preprocess_size = b9.size();
+                    analysis.type = BlockType::BWT_TEXT;
+                    use_generator = true;
+                    cur = b9.size();
+                }
+            }
             // xz (liblzma -9 EXTREME) trial -> XZLIB. Genuine xz-quality LZMA; flips large-repetitive (SQL dumps).
             {
                 size_t xbound = lzma_stream_buffer_bound(this_block);
