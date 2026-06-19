@@ -78,9 +78,12 @@ for typ,files in CORPUS.items():
         cat="BACKSTOP" if chosen in BACKSTOP else ("GENERAL" if chosen in GENERAL else "SPECIAL")
         exp=EXPECT.get(typ)
         flags=[]
+        # ACTIONABLE only when mzip isn't already winning comfortably (gap < 1%). If mzip wins big via a general
+        # encoder (e.g. bwt9 subsumes COLUMNAR on short logs), a "missed" specialized encoder is moot, not a bug.
+        actionable = gap < 1.0
         if mz>bs+32: flags.append(f"LOSS vs {bt} ({gap:+.1f}%)")
-        if chosen in BACKSTOP: flags.append(f"BACKSTOP-RELIANT ({chosen})")
-        if exp and chosen not in exp and cat!="SPECIAL": flags.append(f"MISSED-SPECIAL (want {'/'.join(sorted(exp))}, got {chosen})")
+        if actionable and chosen in BACKSTOP: flags.append(f"BACKSTOP-RELIANT ({chosen})")
+        if actionable and exp and chosen not in exp and cat!="SPECIAL": flags.append(f"MISSED-SPECIAL (want {'/'.join(sorted(exp))}, got {chosen})")
         if exp and chosen in exp and mz>bs+32: flags.append(f"WEAK-SPECIAL ({chosen} fired but ties/loses {bt})")
         if flags: issues.append((typ,os.path.basename(f),chosen,gap,bt," | ".join(flags)))
         else: ok+=1
