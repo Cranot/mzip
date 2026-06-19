@@ -10,6 +10,10 @@
 #pragma once
 #include "bwt_compress_v5.hpp"
 #include "bwt_compress_v8.hpp"
+#ifndef CM_BACKEND_USE_BWT
+#define CM_BACKEND_USE_BWT
+#endif
+#include "cm_backend.hpp"   // mode 2 = BWT + context-mixing (bzip3-class) entropy backend
 
 namespace bwt9 {
 
@@ -53,6 +57,16 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t n) {
         output.insert(output.end(), result.begin(), result.end());
     }
 
+    // mode 2: BWT + context-mixing (bzip3-class) — trial vs v5/v8, keep if smaller. Covers EVERY bwt9 call-site.
+#ifndef MZIP_NO_CM
+    auto cm = cmbk::compress_bwt(data, n);
+    if (!cm.empty() && cm.size() + 3 < output.size()) {
+        output.clear();
+        output.push_back('B'); output.push_back('9'); output.push_back(2);
+        output.insert(output.end(), cm.begin(), cm.end());
+    }
+#endif
+
     return output;
 }
 
@@ -60,13 +74,11 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t n) {
     if (n < 4) return {};
     if (data[0] != 'B' || data[1] != '9') return {};
 
-    Mode mode = (Mode)data[2];
+    uint8_t m = data[2];
 
-    if (mode == Mode::USE_V8) {
-        return bwt8::decompress(data + 3, n - 3);
-    } else {
-        return bwt5::decompress(data + 3, n - 3);
-    }
+    if (m == (uint8_t)Mode::USE_V8) return bwt8::decompress(data + 3, n - 3);
+    if (m == 2)                     return cmbk::decompress_bwt(data + 3, n - 3);
+    return bwt5::decompress(data + 3, n - 3);
 }
 
 // =============================================================================
