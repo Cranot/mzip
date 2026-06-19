@@ -31,6 +31,8 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
+#include <cstdio>
+#include <cstdlib>
 #include <vector>
 #include <array>
 #include <algorithm>
@@ -141,6 +143,8 @@ enum class BlockType : uint8_t {
 
     INCOMPRESSIBLE = 0xFF
 };
+
+inline const char* block_type_name(BlockType type);  // fwd decl (defined below) — for MZIP_STATS telemetry
 
 // ============================================================================
 // Complexity Theory Infrastructure (Kolmogorov, Gell-Mann, Bennett)
@@ -14649,6 +14653,12 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             }
         }
 
+        // Diagnostic telemetry: which encoder actually fired per block (set env MZIP_STATS=1).
+        // Powers diagnose_encoders.py — finds where specialized encoders DON'T fire (mzip leans on fallback/backstop).
+        if (std::getenv("MZIP_STATS"))
+            std::fprintf(stderr, "MZSTATS\t%s\t%zu\t%zu\n", block_type_name(analysis.type),
+                         (size_t)this_block, (size_t)compressed_size);
+
         // Write block header
         output[out_pos++] = static_cast<uint8_t>(analysis.type);
         output[out_pos++] = static_cast<uint8_t>(strategy);
@@ -16250,6 +16260,11 @@ inline const char* block_type_name(BlockType type) {
         case BlockType::REFERENCE: return "REFERENCE";
         case BlockType::DBF_CONSTCOL: return "DBF_CONSTCOL";
         case BlockType::ZSTD_DICT: return "ZSTD_DICT";
+        case BlockType::CM_TEXT: return "CM_TEXT";
+        case BlockType::BROTLI: return "BROTLI";
+        case BlockType::XZLIB: return "XZLIB";
+        case BlockType::JSON_COLUMNAR: return "JSON_COLUMNAR";
+        case BlockType::NUM_EXTRACT: return "NUM_EXTRACT";
         case BlockType::INCOMPRESSIBLE: return "INCOMPRESSIBLE";
         default: return "UNKNOWN";
     }
