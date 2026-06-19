@@ -118,3 +118,10 @@ t.lpq
 .tmp_*
 corpus_extra/
 benchmark_data/
+
+# stray working outputs
+dclm_*.csv
+*.100
+p1.base
+r.100
+i.100

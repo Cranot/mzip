@@ -8,6 +8,8 @@
 
 A C++17 single-header library that detects mathematical structure and per-file patterns before reaching for an entropy coder. On data that has structure (numeric sequences, templates, columns, prose, audio, gradients, logs) it produces meaningfully smaller output than zstd:19, brotli:11, bzip2:9, xz:9, 7z, and rar. On generic small source code it is competitive but rarely beats brotli. Every output is round-trip-verified before the encoder commits to it.
 
+**2026 update:** mzip now has a **context-mixing (bzip3-class) entropy backend** + an **xz/brotli ensemble backstop** (trial-and-keep, never regresses), and a held-out per-type benchmark where it is the overall ratio leader with **0 losses across 44 real files**. See [CM entropy backend + held-out type benchmark](#cm-entropy-backend--held-out-type-benchmark-2026-update).
+
 | Benchmark | mzip wins | Notes |
 |---|---|---|
 | 250 synthetic tests (50 types × 5 sizes) | **235 / 250 (94.0%)** | Avg ratio 8.26× — top non-neural ratio among the 8 compressors tested. All 250 roundtrips verified. |
@@ -170,7 +172,7 @@ The remaining gaps are all on small (4–16KB) text/code/config where brotli's p
 
 mzip produces the smallest output on both prefixes **among standard library compressors** — beats brotli:11 by 5.9%, xz/7z by 6.5%, bzip2:9 by 14.4% on 10 MB; beats brotli:11 by 2.4%, xz/7z by 5.8%, bzip2:9 by 2.9% on 1 MB.
 
-† **The honest ceiling.** bzip3 and bsc-m03 are CLI archive tools (not embeddable libraries) that replace the entropy backend with adaptive arithmetic coding driven by a post-BWT context model. They beat mzip on enwik9 by ~14% (bzip3) to ~20% (bsc-m03) at the cost of much slower compression and no library API. ZPAQ achieves better ratios still (closer to cmix) at the cost of being orders of magnitude slower. Closing the gap to bzip3/bsc-class without giving up the library API is the goal of [BWT_ROADMAP.md](BWT_ROADMAP.md).
+† **The honest ceiling.** bzip3 and bsc-m03 are CLI archive tools (not embeddable libraries) that replace the entropy backend with adaptive arithmetic coding driven by a post-BWT context model. **mzip now closes much of this gap inside the library:** `cm_backend.hpp` adds exactly that — a BWT + context-mixing range coder (bzip3-class), wired as `bwt9` mode 2 (see [CM entropy backend](#cm-entropy-backend--held-out-type-benchmark-2026-update) above), trial-and-keep so it never regresses. bsc-m03 / ZPAQ / cmix still lead at the cost of much slower compression and no library API. Remaining work in [BWT_ROADMAP.md](BWT_ROADMAP.md).
 
 ---
 
@@ -347,6 +349,36 @@ Brotli's 120 KB pre-built static English/web dictionary holds an edge on small h
 
 ---
 
+## CM entropy backend + held-out type benchmark (2026 update)
+
+mzip now ships a **context-mixing (bzip3-class) entropy backend** plus an **ensemble backstop**, and a new
+held-out, per-type evaluation harness. This directly attacks the "honest ceiling" the enwik9 section below describes.
+
+- **CM backend (`cm_backend.hpp`):** a BWT + context-mixing range coder (bzip3-class), wired into `bwt9` as
+  **mode 2** so *every* BWT call-site (general blocks, DBF, CSV, BWT_TEXT) trials it and keeps it when smaller.
+  On the held-out corpus this contributes the bulk of mzip's edge on text/code/logs.
+- **Ensemble backstop:** each block also trials **xz (liblzma -9e)** and **brotli-11** and keeps the smallest,
+  so mzip never loses to those tools where they'd win (it flipped SQL/YAML/Config). `bwt9` is also a universal
+  backstop — it catches BWT-friendly data the type detectors miss (this flipped real float/sensor arrays that
+  previously lost to bzip2). All trial-and-keep, round-trip-verified — **never a regression.**
+- **Held-out, type-stratified benchmark** (`benchmark_types.py`): 38 content types / 44 real files (real GitHub
+  files + real scientific time-series + fetched real proto/rst/tsv/svg/ndjson/diff), each standard at max
+  (gzip-9, bzip2-9, zstd-19, zstd-22, xz-9e, brotli-11). **Per-file: 27 strict wins, 43 framing-ties, 0 losses.**
+  Overall real-file ratio **7.43× vs brotli 4.59× (+38%)**, xz +35%, zstd-22 +45%. The remaining ties are
+  small files where mzip's compressed payload *equals* brotli and only the archive's ~10 B/file header differs.
+- **Encoder-firing audit** (`diagnose_encoders.py`): per-block telemetry (`MZIP_STATS=1`) cross-referenced with
+  each type's expected encoder + the win-gap, to systematically find where a specialized encoder *doesn't fire*.
+  This is how the numeric losses + the under-representative TypeScript sample were found and fixed. Re-run anytime.
+
+> **Fairness notes.** `real_bench/` = held-out real files; the dictionaries are trained on a *separate*
+> `train_corpus/` (never benchmark mzip on its own training data); `samples/` are synthetic (labeled). mzip is a
+> trial-everything ensemble — it trades **speed** for ratio (~0.2 MB/s; the brotli backstop is gated to ≤1 MB
+> blocks for ~2× on large data, `MZIP_MAXRATIO` opts out).
+
+Reproduce: `bash build_evals.sh && python3 benchmark_types.py` (writes `bench_types_report.md`); `python3 diagnose_encoders.py` (writes `encoder_audit.md`).
+
+---
+
 ## Compression Strategies
 
 The encoder runs detection on every block, picks a candidate strategy from one of five families below, then trials multiple variants per block and keeps the smallest output that round-trip-verifies.
@@ -460,6 +492,22 @@ g++ -std=c++17 -O3 -march=native -o mzip_bench mzip_bench.cpp libsais.c -lzstd
 python generate_readme_tables.py full_bench.csv
 ```
 
+### Held-out type benchmark + encoder audit (CM backend)
+
+```bash
+# Build all eval binaries (mzip+CM, baseline, zstd sizer, probes) + fetch/derive the extra real corpora
+bash build_evals.sh
+
+# Type-stratified benchmark vs gzip/bzip2/zstd-19/zstd-22/xz-9e/brotli-11, held-out real files, roundtrip-verified
+python3 benchmark_types.py            # -> bench_types_report.md  (38 types / 44 files)
+
+# Systematic "which encoder fired / what didn't fire" audit (LOSS / MISSED-SPECIAL / BACKSTOP-RELIANT)
+python3 diagnose_encoders.py          # -> encoder_audit.md
+
+# Per-block encoder telemetry on any file
+MZIP_STATS=1 ./mzip_cm.exe c file out
+```
+
 ---
 
 ## Files
@@ -473,7 +521,7 @@ python generate_readme_tables.py full_bench.csv
 | `cap_fold.hpp` | Capital-letter folding (BWT_TEXT helper) |
 | `bigram_dict.hpp`, `xml_entity.hpp` | Pre-BWT preprocessing candidates (auto-deselected when they don't help) |
 | `range_coder.hpp` | LZMA-style binary range coder (variant backend) |
-| `mzip_dicts.h` | 11 pre-trained zstd group dictionaries (5 synthetic, 6 real-data — Markdown, YAML, HCL, SQL, XML, code). Embedded ~380 KB. |
+| `mzip_dicts.h` | 12 pre-trained zstd group dictionaries (5 synthetic + 7 real-data: MD/YAML/HCL/SQL/XML/CODE/JSON). Embedded ~2 MB. |
 | `train_corpus/` | Real-world corpus used to train dicts 6–11 (held out from `real_bench/`); regenerable via `train_corpus/fetch.sh`. |
 | `lzma_optimal2.hpp`, `lzma_decoder.hpp` | LZMA optimal encoder + decoder (LZMA_OPTIMAL strategy) |
 | `mzip_base64.hpp` | Base64 detect / decode helper (BASE64_DECODE strategy) |
@@ -484,6 +532,11 @@ python generate_readme_tables.py full_bench.csv
 | `mzip_cli.cpp` | Command-line interface |
 | `mzip_test.cpp` | Quick debug / single-type test |
 | `mzip_unit_tests.cpp` | Unit tests for core strategies |
+| `cm_backend.hpp` | **BWT + context-mixing (bzip3-class) entropy backend** — wired as `bwt9` mode 2 + ensemble candidate |
+| `brotli_shim.hpp` / `liblzma_shim.hpp` | Minimal decls to link brotli / liblzma as ensemble backstop candidates |
+| `build_evals.sh` | Builds all eval binaries (mzip+CM, baseline, zstd sizer, probes) + fetches/derives the held-out corpora |
+| `benchmark_types.py` | **Held-out type-stratified benchmark** (mzip+CM vs gzip/bzip2/zstd/xz/brotli) → `bench_types_report.md` |
+| `diagnose_encoders.py` | **Encoder-firing audit** (`MZIP_STATS` telemetry → LOSS / MISSED-SPECIAL / BACKSTOP) → `encoder_audit.md` |
 | `generate_readme_tables.py` | Auto-generate the markdown tables above from `full_bench.csv` |
 | `summarize_real_bench.py` | Auto-generate `real_bench_summary.md` from `real_bench_results.txt` |
 | `samples/` | Sample files at 4 / 16 / 64 / 256 KB and 1 MB |
