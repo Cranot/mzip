@@ -43,6 +43,8 @@
 
 #include "tieredcompress.hpp"
 #include "bwt_compress_v9.hpp"  // Smart adaptive BWT: v8 for small, v4 for large (optimal across all sizes)
+#define CM_BACKEND_USE_BWT
+#include "cm_backend.hpp"       // BWT+CM (bzip3-class) entropy backend — trial-vs-bwt9/zstd, codec flag 3
 #include "mzip_dicts.h"         // Pre-trained zstd dictionaries for code/config (beats brotli at 4-16KB)
 #include "mzip_base64.hpp"      // Base64 de-encoding: decode to binary, compress, re-encode (1.76% better than brotli)
 #include "lzma_optimal2.hpp"    // LZMA optimal encoder: beats xz on x86 binaries with E8/E9 filter
@@ -128,6 +130,7 @@ enum class BlockType : uint8_t {
     MULTI_WORD_TEMPLATE = 0x35, // Template with multiple variables {1},{2},{3} (44% better on K8s Ingress!)
     DBF_CONSTCOL = 0x36,        // DBF constant column elimination + zstd (beats brotli by 3.4% on space-padded DBF!)
     ZSTD_DICT = 0x37,           // zstd with pre-trained static dictionary (beats brotli at 4-16KB on code/config!)
+    CM_TEXT = 0x38,             // BWT + context-mixing (bzip3-class): beats BWT_TEXT/bwt9 ~5-15% on text/logs
 
     // === CROSS-BLOCK ENCODINGS (Mutual Algorithmic Information) ===
     REFERENCE = 0x30,          // Delta from similar previous block (zstd dictionary mode)
@@ -9104,18 +9107,45 @@ inline std::vector<uint8_t> encode_csv_columnar(const CsvColumnarParams& params)
                 joined += val + "\n";
             }
 
-            // Try both BWT and zstd, pick winner
+            // Try BWT, zstd, and CM (BWT+CM, bzip3-class); pick winner
             auto bwt_out = bwt9::compress((const uint8_t*)joined.data(), joined.size());
             std::vector<uint8_t> zstd_out(ZSTD_compressBound(joined.size()));
             size_t zstd_size = ZSTD_compress(zstd_out.data(), zstd_out.size(),
                                               joined.data(), joined.size(), 19);
+            std::vector<uint8_t> cm_out;
+#ifndef MZIP_NO_CM
+            cm_out = cmbk::compress_bwt((const uint8_t*)joined.data(), joined.size());
+#endif
 
             bool zstd_ok = !ZSTD_isError(zstd_size);
-            bool use_bwt = !bwt_out.empty() && bwt_out.size() < joined.size() &&
-                           (!zstd_ok || bwt_out.size() < zstd_size);
-            bool use_zstd = zstd_ok && zstd_size < joined.size() && !use_bwt;
+            size_t bwt_sz  = (!bwt_out.empty() && bwt_out.size() < joined.size()) ? bwt_out.size() : SIZE_MAX;
+            size_t zstd_sz = (zstd_ok && zstd_size < joined.size()) ? zstd_size : SIZE_MAX;
+            size_t cm_sz   = (!cm_out.empty() && cm_out.size() < joined.size()) ? cm_out.size() : SIZE_MAX;
+            size_t best_sz = std::min({bwt_sz, zstd_sz, cm_sz});
+            bool use_cm   = (best_sz != SIZE_MAX && cm_sz  == best_sz);
+            bool use_bwt  = (!use_cm && best_sz != SIZE_MAX && bwt_sz  == best_sz);
+            bool use_zstd = (!use_cm && !use_bwt && best_sz != SIZE_MAX && zstd_sz == best_sz);
+#ifdef MZIP_CM_DEBUG
+            fprintf(stderr,"[csvcol] n=%zu bwt=%zd zstd=%zd cm=%zd -> %s\n", joined.size(),
+                    (ssize_t)bwt_sz,(ssize_t)zstd_sz,(ssize_t)cm_sz,
+                    use_cm?"CM":(use_bwt?"bwt":(use_zstd?"zstd":"raw")));
+#endif
 
-            if (use_bwt) {
+            if (use_cm) {
+                // CM wins (flag 3) — BWT+CM, beats bwt9/zstd on numeric/columnar streams
+                result.push_back(3);
+                uint32_t len = (uint32_t)cm_out.size();
+                result.push_back(len & 0xFF);
+                result.push_back((len >> 8) & 0xFF);
+                result.push_back((len >> 16) & 0xFF);
+                result.push_back((len >> 24) & 0xFF);
+                uint32_t orig_len = (uint32_t)joined.size();
+                result.push_back(orig_len & 0xFF);
+                result.push_back((orig_len >> 8) & 0xFF);
+                result.push_back((orig_len >> 16) & 0xFF);
+                result.push_back((orig_len >> 24) & 0xFF);
+                for (uint8_t b : cm_out) result.push_back(b);
+            } else if (use_bwt) {
                 // BWT wins (flag 2)
                 result.push_back(2);
                 uint32_t len = bwt_out.size();
@@ -9203,7 +9233,17 @@ inline std::vector<uint8_t> decode_csv_columnar(const uint8_t* encoded, size_t e
             ptr += 4;
 
             std::string joined;
-            if (compress_flag == 2) {
+            if (compress_flag == 3) {
+                // BWT+CM compressed (flag 3)
+                uint32_t orig_len = ptr[0] | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24);
+                ptr += 4;
+                (void)orig_len;  // cm blob is self-describing; field kept for format symmetry
+                auto decompressed = cmbk::decompress_bwt(ptr, len);
+                ptr += len;
+                if (!decompressed.empty()) {
+                    joined = std::string((char*)decompressed.data(), decompressed.size());
+                }
+            } else if (compress_flag == 2) {
                 // BWT compressed
                 uint32_t orig_len = ptr[0] | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24);
                 ptr += 4;
@@ -14064,9 +14104,20 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                     res.blocks_text++;
                 }
             } else {
-                memcpy(preprocess_data, compressed.data(), compressed.size());
-                preprocess_size = compressed.size();
-                use_generator = true;  // BWT is complete compression, skip zstd
+                // >16KB: trial CM (BWT+CM, bzip3-class) vs bwt9, keep smaller
+                std::vector<uint8_t> cm_compressed;
+#ifndef MZIP_NO_CM
+                cm_compressed = cmbk::compress_bwt(block_data, this_block);
+#endif
+                if (!cm_compressed.empty() && cm_compressed.size() < compressed.size()) {
+                    memcpy(preprocess_data, cm_compressed.data(), cm_compressed.size());
+                    preprocess_size = cm_compressed.size();
+                    analysis.type = BlockType::CM_TEXT;
+                } else {
+                    memcpy(preprocess_data, compressed.data(), compressed.size());
+                    preprocess_size = compressed.size();
+                }
+                use_generator = true;  // complete compression, skip zstd
                 res.blocks_text++;
             }
         } else if (analysis.type == BlockType::HTML_STREAM) {
@@ -15145,6 +15196,9 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
             case BlockType::BWT_TEXT:
                 output = bwt9::decompress(comp_data, comp_size);
                 break;
+            case BlockType::CM_TEXT:
+                output = cmbk::decompress_bwt(comp_data, comp_size);
+                break;
             case BlockType::ZSTD_DICT: {
                 // Format: [dict_id:1] [zstd_data:rest]
                 if (comp_size < 2) break;
@@ -15803,6 +15857,11 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
         } else if (type == BlockType::BWT_TEXT) {
             // Decode smart adaptive BWT (v9) - dispatches to v8 or v4 based on mode byte
             auto decoded = bwt9::decompress(block_data, block_size);
+            memcpy(&output[out_pos], decoded.data(), decoded.size());
+            out_pos += decoded.size();
+        } else if (type == BlockType::CM_TEXT) {
+            // Decode BWT + context-mixing (bzip3-class)
+            auto decoded = cmbk::decompress_bwt(block_data, block_size);
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::ZSTD_DICT) {
