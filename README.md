@@ -331,7 +331,7 @@ Reproduce the full per-file table with the real-world benchmark — see [Run Ben
 - **mzip wins or ties on 18 / 47 files (38.3%)**
 - brotli:11 wins 27, bzip2:9 wins 1, xz:9 wins 1, all others 0
 
-The synthetic 94.0% does not survive intact on real GitHub source code — the synthetic suite includes formula-compressible content (sequential IDs, timestamps, gradients, audio, generated templates) that hand-written code rarely contains. The 11 pre-trained group dictionaries (5 synthetic-trained + 6 real-data-trained on public corpora not in this benchmark) close most of the gap on logs, CSV, JSON, SQL, XML, and structured config. Read both numbers together.
+The synthetic 94.0% does not survive intact on real GitHub source code — the synthetic suite includes formula-compressible content (sequential IDs, timestamps, gradients, audio, generated templates) that hand-written code rarely contains. The 12 pre-trained group dictionaries (5 synthetic-trained + 7 real-data-trained on public corpora not in this benchmark) close most of the gap on logs, CSV, JSON, SQL, XML, and structured config. Read both numbers together.
 
 ### Where mzip wins (top advantages)
 
@@ -358,7 +358,7 @@ The synthetic 94.0% does not survive intact on real GitHub source code — the s
 
 ### Where brotli still wins
 
-Brotli's 120 KB pre-built static English/web dictionary holds an edge on small handwritten markdown / source code where the input doesn't match any of mzip's 11 group dictionaries strongly enough.
+Brotli's 120 KB pre-built static English/web dictionary holds an edge on small handwritten markdown / source code where the input doesn't match any of mzip's 12 group dictionaries strongly enough.
 
 | File | Size | mzip gap |
 |------|-----:|---------:|
@@ -531,7 +531,7 @@ MZIP_STATS=1 ./mzip_cm.exe c file out
 | `bigram_dict.hpp`, `xml_entity.hpp` | Pre-BWT preprocessing candidates (auto-deselected when they don't help) |
 | `range_coder.hpp` | LZMA-style binary range coder (variant backend) |
 | `mzip_dicts.h` | 12 pre-trained zstd group dictionaries (5 synthetic + 7 real-data: MD/YAML/HCL/SQL/XML/CODE/JSON). Embedded ~2 MB. |
-| `train_corpus/` | Real-world corpus used to train dicts 6–11 (held out from `real_bench/`); regenerable via `train_corpus/fetch.sh`. |
+| `train_corpus/` | Real-world corpus used to train dicts 6–12 (held out from `real_bench/`); regenerable via `train_corpus/fetch.sh`. |
 | `lzma_optimal2.hpp`, `lzma_decoder.hpp` | LZMA optimal encoder + decoder (LZMA_OPTIMAL strategy) |
 | `mzip_base64.hpp` | Base64 detect / decode helper (BASE64_DECODE strategy) |
 | `generators.hpp` | Single source of truth for benchmark / test data |
