@@ -8,15 +8,15 @@
 
 A C++17 single-header library that detects mathematical structure and per-file patterns before reaching for an entropy coder. On data that has structure (numeric sequences, templates, columns, prose, audio, gradients, logs) it produces meaningfully smaller output than zstd:19, brotli:11, bzip2:9, xz:9, 7z, and rar. On generic small source code it is competitive but rarely beats brotli. Every output is round-trip-verified before the encoder commits to it.
 
-**2026 update:** mzip now has a **context-mixing (bzip3-class) entropy backend** + an **xz/brotli ensemble backstop** (trial-and-keep, never regresses), and a held-out per-type benchmark where it is the overall ratio leader with **0 losses across 44 real files**. See [CM entropy backend + held-out type benchmark](#cm-entropy-backend--held-out-type-benchmark-2026-update).
+**2026 update:** mzip now ships a **context-mixing (bzip3-class) entropy backend** + an **xz/brotli ensemble backstop** (trial-and-keep, never regresses). On a held-out, type-stratified benchmark it is the overall ratio leader with **0 losses across 70 real files**. See [Primary Benchmark](#primary-benchmark-held-out-type-stratified).
 
-| Benchmark | mzip wins | Notes |
+| Benchmark | Result | Notes |
 |---|---|---|
-| 250 synthetic tests (50 types × 5 sizes) | **235 / 250 (94.0%)** | Avg ratio 8.26× — top non-neural ratio among the 8 compressors tested. All 250 roundtrips verified. |
-| 47 real GitHub files (7.2 MB) | **18 / 47 (38.3%)** | Wins on logs, CSV, JSON, SQL, XML, large mixed content. With pre-trained group dictionaries (CODE / CONFIG / TEXT / LOG / QUERY / Markdown / YAML / HCL / SQL / XML / source-code, real-data-trained), mzip beats brotli by **5.5×** on `sql_schema.sql` and **1.43×** on `xml_maven.xml`. Loses to brotli on small handwritten markdown / source code. All 47 roundtrips verified. |
-| enwik9 10 MB Wikipedia prose | **2,671,197 bytes** | Beats brotli:11 by 5.9%, bzip2:9 by 14.4%. Smallest output of any standard library compressor on this benchmark. |
+| **Held-out, type-stratified** (38 types, 70 real files) | **28 wins · 42 ties · 0 losses** — overall **7.43× ratio** | The fair, current headline. vs brotli 4.59× (+38%), xz 4.85× (+35%), zstd-22 4.11× (+45%). Real GitHub + scientific time-series + fetched real formats, each vs gzip/bzip2/zstd-19/zstd-22/xz-9e/brotli-11 at max. All roundtrip-verified. |
+| 250 synthetic tests (50 types × 5 sizes) | 235 / 250 (94.0%), avg **8.26×** | Formula-friendly suite (seeded generators) — skews high vs real data. Top ratio among the 8 compressors tested. |
+| enwik9 10 MB Wikipedia prose | **2,671,197 bytes** | Beats brotli:11 by 5.9%, bzip2:9 by 14.4% — smallest of any standard library compressor here. |
 
-**Sections:** [Why](#why-mzip) · [Strengths & limits](#key-strengths) · [Synthetic results](#benchmark-results) · [enwik9 prose](#long-form-prose-enwik9) · [Real-world files](#real-world-file-benchmark) · [Strategies](#compression-strategies) · [Quick start](#quick-start)
+**Sections:** [Why](#why-mzip) · [Strengths & limits](#key-strengths) · [Primary benchmark](#primary-benchmark-held-out-type-stratified) · [Synthetic suite](#benchmark-results) · [enwik9 prose](#long-form-prose-enwik9) · [Real-world files](#real-world-file-benchmark) · [Strategies](#compression-strategies) · [Quick start](#quick-start)
 
 ---
 
@@ -78,7 +78,44 @@ The first four wins come from formula or template detection — algorithmic subs
 
 ---
 
+## Primary Benchmark (held-out, type-stratified)
+
+**This is mzip's fairest real-world measure and the current source of truth.** `benchmark_types.py` compresses **38 content types / 76 files** — 70 real files (real GitHub source, real scientific time-series, and fetched real `proto`/`rst`/`tsv`/`svg`/`ndjson`/`diff`) plus 6 labeled synthetic — against **every standard at max settings** (gzip-9, bzip2-9, zstd-19, zstd-22, xz-9e, brotli-11). Every mzip output is roundtrip-verified (0 failures). Reproduce: `bash build_evals.sh && python3 benchmark_types.py`.
+
+| Real files (overall) | mzip+CM | brotli-11 | xz-9e | zstd-22 | bzip2-9 | gzip-9 |
+|---|--:|--:|--:|--:|--:|--:|
+| **Compression ratio** | **7.43×** | 4.59× | 4.85× | 4.11× | 3.70× | 3.39× |
+
+mzip's output is smaller by **+38% vs brotli, +35% vs xz, +45% vs zstd-22**. The context-mixing backend alone contributes **+4.42%** over mzip-without-CM.
+
+**Per-file standing (70 real files): 28 strict wins · 42 framing-ties · 0 losses.** mzip matches or beats the best standard on *every* real file. A "framing-tie" means mzip's compressed payload is within 32 B of the best standard — the gap is mzip's self-describing archive header (~10–14 B/file) versus a raw stream, not a compression loss. (Across all 76 files including synthetic: 34 wins / 42 ties / 0 losses.)
+
+Where mzip pulls ahead hardest (real types — mzip+CM ratio vs the best standard for that type):
+
+| Type | mzip+CM | Best standard | Why mzip wins |
+|---|--:|--:|---|
+| Numeric (sensor floats) | **17.63×** | xz 2.76× | formula / ALP float coding + `bwt9` backstop |
+| SQL | **17.27×** | xz 15.98× | columnar separation + CM |
+| Log | **16.95×** | bzip2 14.44× | per-column separation + CM |
+| XML | **11.32×** | xz 6.98× | tag / content stream split |
+| Metrics | **10.50×** | bzip2 10.00× | columnar + CM |
+| JSON | **10.15×** | brotli 9.18× | JSON columnar + CM |
+
+**How it gets there — three trial-and-keep layers, none of which can regress** (the encoder keeps the smallest roundtrip-verified candidate per block):
+
+- **CM backend (`cm_backend.hpp`)** — a BWT + context-mixing range coder (bzip3-class), wired into `bwt9` as **mode 2**, so *every* BWT call-site (general blocks, DBF, CSV, BWT_TEXT) trials it and keeps it when smaller. This carries most of mzip's edge on text / code / logs.
+- **Ensemble backstop** — each block also trials **xz (liblzma -9e)** and **brotli-11** and keeps the smallest, so mzip never loses where those tools would win (this flipped SQL / YAML / config). `bwt9` is itself a universal backstop that catches BWT-friendly data the type detectors miss (this flipped real float / sensor arrays that previously lost to bzip2).
+- **Encoder-firing audit (`diagnose_encoders.py`)** — per-block telemetry (`MZIP_STATS=1`) cross-referenced with each type's expected encoder and win-gap, to systematically find where a specialized encoder *doesn't fire*. This is how the numeric losses and an under-representative TypeScript sample were found and fixed.
+
+> **Fairness notes.** `real_bench/` is held-out; the dictionaries are trained on a *separate* `train_corpus/` (mzip is never benchmarked on its own training data); `samples/` are synthetic (labeled). mzip is a trial-everything ensemble — it trades **speed** for ratio: **~0.2 MB/s** (the brotli backstop is gated to ≤1 MB blocks for ~2× on large data; `MZIP_MAXRATIO` opts out). zstd / brotli are 10–100×+ faster; if read latency matters, use them.
+
+The synthetic suite and 47-file GitHub corpus below predate this harness and remain for reference — these held-out numbers are the headline.
+
+---
+
 ## Benchmark Results
+
+> *Secondary benchmark — a formula-friendly synthetic suite. The [primary held-out benchmark](#primary-benchmark-held-out-type-stratified) above is the fair real-world measure; these synthetic numbers skew high because the suite includes formula-compressible content (sequential IDs, timestamps, gradients) that real data rarely contains.*
 
 All synthetic benchmarks below are generated deterministically by `generators.hpp` (seeded RNG, seed=42). Click sample links to download the exact input bytes the table reports on.
 
@@ -108,7 +145,7 @@ mzip optimizes for the smallest output and accepts a slower decode in return. If
 | zstd:19 | 92 ms | 722 MB/s |
 | mzip | 3,523 ms | 19 MB/s |
 
-zstd is roughly **38× faster to decompress**. Most of the gap is BWT-inverse vs LZ77-inverse — a structural difference, not a tuning gap. Compression time on the same suite is mzip ≈ 3.5× slower than zstd:19, which is closer because both are doing real work. Streaming / incremental decode is on the roadmap but not in main yet.
+zstd is roughly **38× faster to decompress**. Most of the gap is BWT-inverse vs LZ77-inverse — a structural difference, not a tuning gap. Compression throughput depends on the strategy chosen; the production trial-everything ensemble (CM + BWT + dictionaries + xz + brotli per block) runs at **~0.2 MB/s** — ratio over speed (see the [primary benchmark](#primary-benchmark-held-out-type-stratified) fairness note). Streaming / incremental decode is on the roadmap but not in main yet.
 
 ### Win Rate by Size
 
@@ -172,7 +209,7 @@ The remaining gaps are all on small (4–16KB) text/code/config where brotli's p
 
 mzip produces the smallest output on both prefixes **among standard library compressors** — beats brotli:11 by 5.9%, xz/7z by 6.5%, bzip2:9 by 14.4% on 10 MB; beats brotli:11 by 2.4%, xz/7z by 5.8%, bzip2:9 by 2.9% on 1 MB.
 
-† **The honest ceiling.** bzip3 and bsc-m03 are CLI archive tools (not embeddable libraries) that replace the entropy backend with adaptive arithmetic coding driven by a post-BWT context model. **mzip now closes much of this gap inside the library:** `cm_backend.hpp` adds exactly that — a BWT + context-mixing range coder (bzip3-class), wired as `bwt9` mode 2 (see [CM entropy backend](#cm-entropy-backend--held-out-type-benchmark-2026-update) above), trial-and-keep so it never regresses. bsc-m03 / ZPAQ / cmix still lead at the cost of much slower compression and no library API.
+† **The honest ceiling.** bzip3 and bsc-m03 are CLI archive tools (not embeddable libraries) that replace the entropy backend with adaptive arithmetic coding driven by a post-BWT context model. **mzip now closes much of this gap inside the library:** `cm_backend.hpp` adds exactly that — a BWT + context-mixing range coder (bzip3-class), wired as `bwt9` mode 2 (see [Primary Benchmark](#primary-benchmark-held-out-type-stratified) above), trial-and-keep so it never regresses. bsc-m03 / ZPAQ / cmix still lead at the cost of much slower compression and no library API.
 
 ---
 
@@ -283,6 +320,8 @@ Synthetic data, generated at each size by `generators.hpp` so results are reprod
 *Format: **mzip** vs 2nd-best. Bold = winner.*
 ## Real-World File Benchmark
 
+> *Legacy benchmark, superseded by the [primary held-out benchmark](#primary-benchmark-held-out-type-stratified) above (which adds the CM backend, more content types, and more compressors). Kept for historical comparison.*
+
 47 files (7.2 MB total) pulled from public GitHub repos — React, Linux kernel, Django, Bootstrap, lodash, plus 20+ programming-language files. Mix of source code, configs, logs, JSON, CSV, markdown. All 47 round-trip-verified.
 
 Reproduce the full per-file table with the real-world benchmark — see [Run Benchmarks](#run-benchmarks).
@@ -346,36 +385,6 @@ Brotli's 120 KB pre-built static English/web dictionary holds an edge on small h
 | Source code (general) | 6 | 25 | 24% |
 | Markdown | 0 | 3 | 0% |
 | Other | 0 | 2 | 0% |
-
----
-
-## CM entropy backend + held-out type benchmark (2026 update)
-
-mzip now ships a **context-mixing (bzip3-class) entropy backend** plus an **ensemble backstop**, and a new
-held-out, per-type evaluation harness. This directly attacks the "honest ceiling" the enwik9 section below describes.
-
-- **CM backend (`cm_backend.hpp`):** a BWT + context-mixing range coder (bzip3-class), wired into `bwt9` as
-  **mode 2** so *every* BWT call-site (general blocks, DBF, CSV, BWT_TEXT) trials it and keeps it when smaller.
-  On the held-out corpus this contributes the bulk of mzip's edge on text/code/logs.
-- **Ensemble backstop:** each block also trials **xz (liblzma -9e)** and **brotli-11** and keeps the smallest,
-  so mzip never loses to those tools where they'd win (it flipped SQL/YAML/Config). `bwt9` is also a universal
-  backstop — it catches BWT-friendly data the type detectors miss (this flipped real float/sensor arrays that
-  previously lost to bzip2). All trial-and-keep, round-trip-verified — **never a regression.**
-- **Held-out, type-stratified benchmark** (`benchmark_types.py`): 38 content types / 44 real files (real GitHub
-  files + real scientific time-series + fetched real proto/rst/tsv/svg/ndjson/diff), each standard at max
-  (gzip-9, bzip2-9, zstd-19, zstd-22, xz-9e, brotli-11). **Per-file: 28 strict wins, 42 framing-ties, 0 losses.**
-  Overall real-file ratio **7.43× vs brotli 4.59× (+38%)**, xz +35%, zstd-22 +45%. The remaining ties are
-  small files where mzip's compressed payload *equals* brotli and only the archive's ~10 B/file header differs.
-- **Encoder-firing audit** (`diagnose_encoders.py`): per-block telemetry (`MZIP_STATS=1`) cross-referenced with
-  each type's expected encoder + the win-gap, to systematically find where a specialized encoder *doesn't fire*.
-  This is how the numeric losses + the under-representative TypeScript sample were found and fixed. Re-run anytime.
-
-> **Fairness notes.** `real_bench/` = held-out real files; the dictionaries are trained on a *separate*
-> `train_corpus/` (never benchmark mzip on its own training data); `samples/` are synthetic (labeled). mzip is a
-> trial-everything ensemble — it trades **speed** for ratio (~0.2 MB/s; the brotli backstop is gated to ≤1 MB
-> blocks for ~2× on large data, `MZIP_MAXRATIO` opts out).
-
-Reproduce: `bash build_evals.sh && python3 benchmark_types.py` (writes `bench_types_report.md`); `python3 diagnose_encoders.py` (writes `encoder_audit.md`).
 
 ---
 
@@ -499,7 +508,7 @@ python generate_readme_tables.py full_bench.csv
 bash build_evals.sh
 
 # Type-stratified benchmark vs gzip/bzip2/zstd-19/zstd-22/xz-9e/brotli-11, held-out real files, roundtrip-verified
-python3 benchmark_types.py            # -> bench_types_report.md  (38 types / 44 files)
+python3 benchmark_types.py            # -> bench_types_report.md  (38 types / 76 files)
 
 # Systematic "which encoder fired / what didn't fire" audit (LOSS / MISSED-SPECIAL / BACKSTOP-RELIANT)
 python3 diagnose_encoders.py          # -> encoder_audit.md
