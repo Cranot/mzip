@@ -108,7 +108,7 @@ mzip optimizes for the smallest output and accepts a slower decode in return. If
 | zstd:19 | 92 ms | 722 MB/s |
 | mzip | 3,523 ms | 19 MB/s |
 
-zstd is roughly **38× faster to decompress**. Most of the gap is BWT-inverse vs LZ77-inverse — a structural difference, not a tuning gap. Compression time on the same suite is mzip ≈ 3.5× slower than zstd:19, which is closer because both are doing real work. Streaming / incremental decode is on the [roadmap](IMPROVEMENTS.md) but not in main yet.
+zstd is roughly **38× faster to decompress**. Most of the gap is BWT-inverse vs LZ77-inverse — a structural difference, not a tuning gap. Compression time on the same suite is mzip ≈ 3.5× slower than zstd:19, which is closer because both are doing real work. Streaming / incremental decode is on the roadmap but not in main yet.
 
 ### Win Rate by Size
 
@@ -172,7 +172,7 @@ The remaining gaps are all on small (4–16KB) text/code/config where brotli's p
 
 mzip produces the smallest output on both prefixes **among standard library compressors** — beats brotli:11 by 5.9%, xz/7z by 6.5%, bzip2:9 by 14.4% on 10 MB; beats brotli:11 by 2.4%, xz/7z by 5.8%, bzip2:9 by 2.9% on 1 MB.
 
-† **The honest ceiling.** bzip3 and bsc-m03 are CLI archive tools (not embeddable libraries) that replace the entropy backend with adaptive arithmetic coding driven by a post-BWT context model. **mzip now closes much of this gap inside the library:** `cm_backend.hpp` adds exactly that — a BWT + context-mixing range coder (bzip3-class), wired as `bwt9` mode 2 (see [CM entropy backend](#cm-entropy-backend--held-out-type-benchmark-2026-update) above), trial-and-keep so it never regresses. bsc-m03 / ZPAQ / cmix still lead at the cost of much slower compression and no library API. Remaining work in [BWT_ROADMAP.md](BWT_ROADMAP.md).
+† **The honest ceiling.** bzip3 and bsc-m03 are CLI archive tools (not embeddable libraries) that replace the entropy backend with adaptive arithmetic coding driven by a post-BWT context model. **mzip now closes much of this gap inside the library:** `cm_backend.hpp` adds exactly that — a BWT + context-mixing range coder (bzip3-class), wired as `bwt9` mode 2 (see [CM entropy backend](#cm-entropy-backend--held-out-type-benchmark-2026-update) above), trial-and-keep so it never regresses. bsc-m03 / ZPAQ / cmix still lead at the cost of much slower compression and no library API.
 
 ---
 
@@ -285,7 +285,7 @@ Synthetic data, generated at each size by `generators.hpp` so results are reprod
 
 47 files (7.2 MB total) pulled from public GitHub repos — React, Linux kernel, Django, Bootstrap, lodash, plus 20+ programming-language files. Mix of source code, configs, logs, JSON, CSV, markdown. All 47 round-trip-verified.
 
-Full per-file table: [real_bench_summary.md](real_bench_summary.md). Raw output: [real_bench_results.txt](real_bench_results.txt).
+Reproduce the full per-file table with the real-world benchmark — see [Run Benchmarks](#run-benchmarks).
 
 ### Result
 
@@ -329,7 +329,7 @@ Brotli's 120 KB pre-built static English/web dictionary holds an edge on small h
 | json_github_api.json | 6.6 KB | +8.5% |
 | vscode_main.ts | 19.8 KB | +7.1% |
 
-…and 22 more, mostly handwritten source code 4–50 KB, typical gap +3% to +7%. Full list in [real_bench_summary.md](real_bench_summary.md).
+…and 22 more, mostly handwritten source code 4–50 KB, typical gap +3% to +7%.
 
 ### Per-category breakdown
 
@@ -363,7 +363,7 @@ held-out, per-type evaluation harness. This directly attacks the "honest ceiling
   previously lost to bzip2). All trial-and-keep, round-trip-verified — **never a regression.**
 - **Held-out, type-stratified benchmark** (`benchmark_types.py`): 38 content types / 44 real files (real GitHub
   files + real scientific time-series + fetched real proto/rst/tsv/svg/ndjson/diff), each standard at max
-  (gzip-9, bzip2-9, zstd-19, zstd-22, xz-9e, brotli-11). **Per-file: 27 strict wins, 43 framing-ties, 0 losses.**
+  (gzip-9, bzip2-9, zstd-19, zstd-22, xz-9e, brotli-11). **Per-file: 28 strict wins, 42 framing-ties, 0 losses.**
   Overall real-file ratio **7.43× vs brotli 4.59× (+38%)**, xz +35%, zstd-22 +45%. The remaining ties are
   small files where mzip's compressed payload *equals* brotli and only the archive's ~10 B/file header differs.
 - **Encoder-firing audit** (`diagnose_encoders.py`): per-block telemetry (`MZIP_STATS=1`) cross-referenced with
@@ -542,11 +542,6 @@ MZIP_STATS=1 ./mzip_cm.exe c file out
 | `samples/` | Sample files at 4 / 16 / 64 / 256 KB and 1 MB |
 | `real_bench/` | 47 real-world files used by the real-world benchmark |
 | `full_bench.csv` | Latest synthetic benchmark CSV (one row per (type, size)) |
-| `real_bench_results.txt` | Latest real-files benchmark raw output |
-| `real_bench_summary.md` | Auto-generated summary of `real_bench_results.txt` |
-| `BWT_ROADMAP.md` | Path from current BWT pipeline toward bzip3 / bsc-m03 class |
-| `HUNT_LOG.md` | Per-loss diagnosis log (Loss / Strategy / Claim / Verdict / Action) |
-| `IMPROVEMENTS.md` | Architectural / adoption-focused improvement plan |
 
 ---
 
