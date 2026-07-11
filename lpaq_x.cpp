@@ -193,6 +193,98 @@ int fuzzmode=0;
 int autonomousmode=0;
 int guessedmode=0;
 
+#ifdef BITAUDIT
+///////////////////////// BITAUDIT (observation-only bit-cost attribution) //////////////////////
+// Flag-gated. Attributes the exact arithmetic-coding cost of every coded bit (during COMPRESS)
+// to the content class of the byte being coded, from a byte-parallel .cls file. No model/coder
+// state is touched; it only reads (y, clamped p) after the range is already split.
+struct BitAudit {
+  enum { NCLS = 24 };                 // classes 0..23; index NCLS is the OTHER bucket (cls id >23)
+  double cost[NCLS+1];                // accumulated coded bits per class
+  long long inbytes[NCLS+1];          // input bytes per class (counted from .cls)
+  unsigned char* cls;                 // class id per input byte (byte-parallel to input)
+  long long clssize;                  // size of cls (must == input size)
+  long long bitcount;                 // total bits coded so far
+  double nlog[4096];                  // nlog[p] = -log2(p/4096) for p in [1..4095]
+  int active;                         // 1 only if LPAQ_AUDIT_CLS was set and loaded
+
+  BitAudit(long long insize): cls(0), clssize(0), bitcount(0), active(0) {
+    for(int i=0;i<=NCLS;i++){ cost[i]=0.0; inbytes[i]=0; }
+    nlog[0]=0.0;
+    for(int p=1;p<4096;p++) nlog[p] = -log2((double)p/4096.0);
+    const char* env=getenv("LPAQ_AUDIT_CLS");
+    if(env && *env){
+      FILE* f=fopen(env,"rb");
+      if(!f){ fprintf(stderr,"BITAUDIT: cannot open LPAQ_AUDIT_CLS='%s'\n",env); exit(1); }
+      fseek(f,0,SEEK_END); clssize=ftell(f); fseek(f,0,SEEK_SET);
+      cls=(unsigned char*)malloc(clssize>0?(size_t)clssize:1);
+      if(!cls){ fprintf(stderr,"BITAUDIT: out of memory for cls (%lld bytes)\n",clssize); exit(1); }
+      if(clssize>0 && fread(cls,1,(size_t)clssize,f)!=(size_t)clssize){
+        fprintf(stderr,"BITAUDIT: short read on '%s'\n",env); exit(1); }
+      fclose(f);
+      if(clssize!=insize){
+        fprintf(stderr,"BITAUDIT: .cls size (%lld) != input size (%lld) -- aborting\n",clssize,insize);
+        exit(1);
+      }
+      active=1;
+    }
+  }
+
+  // One coded bit: actual bit y, clamped probability p (P(1)=p/4096, p in [1..4095]).
+  inline void bit(int y, int p){
+    long long bp=bitcount>>3;          // byte index of the byte currently being coded
+    ++bitcount;
+    int id=NCLS;
+    if(bp<clssize){ int c=cls[bp]; if(c>=0 && c<NCLS) id=c; }
+    cost[id] += y ? nlog[p] : nlog[4096-p];
+  }
+
+  const char* name(int i){
+    static const char* N[NCLS+1]={
+      "PROSE","XML_TAG","TITLE","PAGE_ID","REV_ID","TIMESTAMP","CONTRIB","COMMENT",
+      "REDIR_KEYWORD","REDIR_TGT_TITLE","REDIR_TGT_OTHER","LINK_TGT_NEW","LINK_TGT_SEEN",
+      "LINK_DISPLAY","TMPL_NAME","TMPL_FIELD","TMPL_VALUE","TABLE","HEADING","ENTITY",
+      "DIGITS","CATEGORY","CENSUS_PROSE","EXTLINK","OTHER"};
+    return N[i];
+  }
+
+  void emit(FILE* o, long long insize, long long compsize){
+    for(int i=0;i<=NCLS;i++) inbytes[i]=0;
+    for(long long i=0;i<clssize;i++){ int c=cls[i]; inbytes[(c>=0&&c<NCLS)?c:NCLS]++; }
+    double tcost=0.0; for(int i=0;i<=NCLS;i++) tcost+=cost[i];
+    int idx[NCLS+1]; for(int i=0;i<=NCLS;i++) idx[i]=i;   // sort class ids by coded cost desc
+    for(int i=0;i<=NCLS;i++) for(int j=i+1;j<=NCLS;j++)
+      if(cost[idx[j]]>cost[idx[i]]){ int t=idx[i]; idx[i]=idx[j]; idx[j]=t; }
+    fprintf(o,"\n=== BITAUDIT: per-class arithmetic-coding cost ===\n");
+    fprintf(o,"%-16s %12s %8s %13s %8s %8s\n","CLASS","in_bytes","%in","out_bytes","bpc","%out");
+    for(int k=0;k<=NCLS;k++){
+      int i=idx[k];
+      if(inbytes[i]==0 && cost[i]==0.0) continue;
+      double ob  = cost[i]/8.0;
+      double pin = insize? 100.0*(double)inbytes[i]/(double)insize : 0.0;
+      double bpc = inbytes[i]? cost[i]/(double)inbytes[i] : 0.0;
+      double pout= tcost? 100.0*cost[i]/tcost : 0.0;
+      fprintf(o,"%-16s %12lld %7.2f%% %13.1f %8.4f %7.2f%%\n",name(i),inbytes[i],pin,ob,bpc,pout);
+    }
+    double tob = tcost/8.0;
+    double tbpc= insize? tcost/(double)insize : 0.0;
+    fprintf(o,"%-16s %12lld %7.2f%% %13.1f %8.4f %7.2f%%\n","TOTAL",insize,100.0,tob,tbpc,100.0);
+    long long tob_i=(long long)(tob+0.5);
+    fprintf(o,"cross-check: sum-of-costs = %.1f B (rounded %lld B); actual compressed file = %lld B; "
+              "delta = %lld B (= header + arithmetic flush)\n", tob, tob_i, compsize, compsize - tob_i);
+  }
+
+  void report(long long insize, long long compsize){
+    const char* outp=getenv("LPAQ_AUDIT_OUT"); if(!outp||!*outp) outp="audit_report.txt";
+    FILE* f=fopen(outp,"wb");
+    if(f){ emit(f,insize,compsize); fclose(f); fprintf(stderr,"BITAUDIT: report written to %s\n",outp); }
+    else  fprintf(stderr,"BITAUDIT: cannot write report to '%s'\n",outp);
+    emit(stderr,insize,compsize);
+  }
+};
+BitAudit* g_audit=0;
+#endif
+
 ///////////////////////////// Squash //////////////////////////////
 
 // return p = 1/(1 + exp(-d)), d scaled by 8 bits, p scaled by 12 bits
@@ -723,15 +815,26 @@ int MEM=0;  // Global memory usage = 3*MEM bytes (1<<20 .. 1<<29)
 #else
   #define NCH 0
 #endif
+#ifdef TRIE
+  #define NTRIE 1
+  #ifdef FULL
+    #define TRIEBITS 27
+  #else
+    #define TRIEBITS 22
+  #endif
+  #define TRIEMASK ((1u<<TRIEBITS)-1)
+#else
+  #define NTRIE 0
+#endif
 #ifdef MATCH3
   #define NMATCH 4
 #else
   #define NMATCH 1
 #endif
 #ifdef ISSE2
-  #define NIN (2*NM+NMATCH+NRUN+NCH)
+  #define NIN (2*NM+NMATCH+NRUN+NCH+NTRIE)
 #else
-  #define NIN (NM+NMATCH+NRUN+NCH)
+  #define NIN (NM+NMATCH+NRUN+NCH+NTRIE)
 #endif
 #ifdef FULL
   #ifndef HTBITS
@@ -789,6 +892,14 @@ void Predictor::update(int y) {
 #ifdef RUNMAP
   static U16* rt; static StateMap sm_run(256); static U32 runhash=0; static int runpred=0, runcnt=0;
   { static int _rini=0; if(!_rini){ alloc(rt, 1u<<24); _rini=1; } }   // order-3 run records {byte,count}
+#endif
+#ifdef TRIE
+  // entity-completion expert: unbounded-order prefix -> next-byte table, keyed by a rolling
+  // hash of all bytes since a wiki construct ([[ / {{ / [http / <title>) opened. Same {byte,count}
+  // record machinery as RUNMAP; only the key differs (open-relative rolling hash vs last 3 bytes).
+  static U16* tt; static StateMap sm_trie(1024);
+  static U32 triehash=0; static int trieact=0, trielen=0, triepred=0, triecnt=0;
+  { static int _tini=0; if(!_tini){ alloc(tt, 1u<<TRIEBITS); _tini=1; } }  // {predbyte,count} records
 #endif
 #ifdef ISSECH
   static StateMap smc[8];                                    // per-stage secondary StateMaps
@@ -948,6 +1059,32 @@ void Predictor::update(int y) {
     runhash&=(1u<<24)-1;
     { U16 rec=rt[runhash]; runpred=rec>>8; runcnt=rec&0xff; }
 #endif
+#ifdef TRIE
+    { int pbb=(c4>>8)&0xff;                                   // byte before origc0
+      // (A/B) while active: train record at pre-byte hash with origc0, then advance rolling hash
+      if(trieact){
+        U16 rec=tt[triehash & TRIEMASK]; int rpb=rec>>8, rpc=rec&0xff;
+        if(rpb==origc0){ if(rpc<250) rpc++; } else { rpb=origc0; rpc=1; }
+        tt[triehash & TRIEMASK]=(U16)((rpb<<8)|rpc);
+        triehash=triehash*0x9E3779B1u+(U32)origc0+1u;          // unbounded-order prefix hash
+        if(trielen<100000) trielen++;
+        int cl=0;                                             // (C) close conditions per construct
+        if(trieact==1){ if(origc0=='|'||origc0=='\n'||origc0=='<'||(pbb==']'&&origc0==']')||trielen>96) cl=1; }
+        else if(trieact==2){ if(origc0=='|'||origc0=='\n'||origc0=='<'||(pbb=='}'&&origc0=='}')||trielen>64) cl=1; }
+        else if(trieact==3){ if(origc0==']'||origc0==' '||origc0=='\n'||origc0=='<'||trielen>256) cl=1; }
+        else { if(origc0=='<'||trielen>256) cl=1; }
+        if(cl){ trieact=0; triehash=0; }
+      }
+      // (D) open conditions; [[ and <title> share seed 1 (cross-pollination), {{=2, [http=3
+      if(pbb=='['&&origc0=='['){ trieact=1; triehash=1; trielen=0; }
+      else if(pbb=='{'&&origc0=='{'){ trieact=2; triehash=2; trielen=0; }
+      else if(pbb=='['&&origc0=='h'){ trieact=3; triehash=3; trielen=0; }
+      else if((c8&0x00ffffffffffffffULL)==0x3c7469746c653eULL){ trieact=4; triehash=1; trielen=0; }
+      // (E) read record for the upcoming byte, else stay neutral
+      if(trieact){ U16 rec=tt[triehash & TRIEMASK]; triepred=rec>>8; triecnt=rec&0xff; }
+      else { triepred=0; triecnt=0; }
+    }
+#endif
     c0=1;
     bcount=0;
   }
@@ -988,6 +1125,14 @@ void Predictor::update(int y) {
       int cb=(runcnt<16)?runcnt:(16+((runcnt>>3)<7?(runcnt>>3):7));
       rmctx=1+(predbit<<5)+cb; }                 // predicted bit + run-length bucket, <128
     in[nin++]=stretch(sm_run.p(y, rmctx)); }
+#endif
+#ifdef TRIE
+  { int tctx=0, bc=(c0<2)?0:(c0<4)?1:(c0<8)?2:(c0<16)?3:(c0<32)?4:(c0<64)?5:(c0<128)?6:7;
+    if(trieact && triecnt>0 && ((triepred+256)>>(8-bc))==c0){   // predicted byte still consistent
+      int predbit=(triepred>>(7-bc))&1;
+      int cb=(triecnt<16)?triecnt:(16+((triecnt>>3)<7?(triecnt>>3):7));
+      tctx=1+(predbit<<6)+cb+((trieact-1)<<7); }  // bit + count bucket + construct type, <1024
+    in[nin++]=stretch(sm_trie.p(y, tctx)); }
 #endif
 #ifdef ISSECH
   { static const int ORDK[8]={0,1,2,3,6,4,9,7};   // order 1,2,3,4,5,6,7,8 context slots, increasing
@@ -1081,6 +1226,10 @@ private:
     assert(xmid>=x1 && xmid<x2);
     if (mode==DECOMPRESS) y=x<=xmid;
     y ? (x2=xmid) : (x1=xmid+1);
+#ifdef BITAUDIT
+    // OBSERVATION ONLY: attribute this bit's exact coding cost (clamped p, actual y) to its class.
+    if (mode==COMPRESS && g_audit && g_audit->active) g_audit->bit(y, p);
+#endif
     if(fuzzmode && rand()<RAND_MAX/10000) {
         p = 3*p/5 + 2*(y?4096:0)/5;
         predictor.update(p>2048);
@@ -1209,8 +1358,12 @@ int main(int argc, char **argv) {
     long size=ftell(in);
     //if (size<0 || size>=0x7FFFFFFF) quit("input file too big");
     fseek(in, 0, SEEK_SET);
-    fprintf(out, "pQ%c%c%c%c%c%c", 1, argv[1][0], 
+    fprintf(out, "pQ%c%c%c%c%c%c", 1, argv[1][0],
       size>>24, size>>16, size>>8, size);
+
+#ifdef BITAUDIT
+    g_audit = new BitAudit(size);   // loads LPAQ_AUDIT_CLS (if set) + hard size check; inert if unset
+#endif
 
     // Compress
     Encoder e(COMPRESS, out);
@@ -1227,6 +1380,9 @@ int main(int argc, char **argv) {
       signal_workaround = 0;
     }
     e.flush();
+#ifdef BITAUDIT
+    if(g_audit && g_audit->active){ fflush(out); g_audit->report(size, ftell(out)); }
+#endif
   }
 
   // Decompress
