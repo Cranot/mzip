@@ -54,6 +54,72 @@
 #include "lzma_optimal2.hpp"    // LZMA optimal encoder: beats xz on x86 binaries with E8/E9 filter
 #include "lzma_decoder.hpp"     // LZMA decoder for decompression
 
+// ---------------------------------------------------------------------------
+// MZIP_TIME — per-detector timing telemetry (build with -DMZIP_TIME).
+// Sibling of the existing MZIP_STATS per-block encoder telemetry. Without the
+// define, MZ_DET(name, call) expands to exactly `(call)` and this file is
+// unchanged -- verified by byte-identity against the uninstrumented build.
+//
+// Why it exists: measured 2026-07-31, ~92% of mzip's runtime on a 4 MB columnar
+// block is neither the winning encoder (3.3%) nor xz (4.6%) nor the CM backend
+// (~0%, -DMZIP_NO_CM changes runtime by -1%). It is the detector/trial path,
+// and it is ~7.4x more expensive per byte on one 4 MB file than on another of
+// identical size and class. This tells us which detector.
+// Dump: set MZIP_TIME=1 in the environment; a table is printed to stderr at exit.
+// ---------------------------------------------------------------------------
+#ifdef MZIP_TIME
+#include <chrono>
+namespace mziptime {
+struct Acc { const char* name; double ms; long calls; long hits; };
+inline std::vector<Acc>& table(){ static std::vector<Acc> t; return t; }
+inline Acc& slot(const char* name){
+    for (auto& a : table()) if (a.name == name || strcmp(a.name,name)==0) return a;
+    table().push_back(Acc{name,0.0,0,0}); return table().back();
+}
+// generic expression timer: returns whatever the wrapped expression returns
+template<class F> inline auto timed(const char* name, F&& f) -> decltype(f()) {
+    auto t0 = std::chrono::steady_clock::now();
+    auto r = f();
+    auto t1 = std::chrono::steady_clock::now();
+    Acc& a = slot(name);
+    a.ms += std::chrono::duration<double,std::milli>(t1-t0).count();
+    a.calls++;
+    return r;
+}
+template<class F> inline bool run(const char* name, F&& f){
+    auto t0 = std::chrono::steady_clock::now();
+    bool r = f();
+    auto t1 = std::chrono::steady_clock::now();
+    Acc& a = slot(name);
+    a.ms += std::chrono::duration<double,std::milli>(t1-t0).count();
+    a.calls++; if (r) a.hits++;
+    return r;
+}
+struct Dump {
+    ~Dump(){
+        if (!getenv("MZIP_TIME")) return;
+        auto& t = table(); if (t.empty()) return;
+        std::vector<Acc> v(t.begin(), t.end());
+        std::sort(v.begin(), v.end(), [](const Acc&a,const Acc&b){ return a.ms > b.ms; });
+        double tot = 0; for (auto& a : v) tot += a.ms;
+        fprintf(stderr, "\nMZTIME  %-34s %10s %8s %7s %7s\n", "detector","ms","%","calls","hits");
+        for (auto& a : v)
+            fprintf(stderr, "MZTIME  %-34s %10.1f %7.1f%% %7ld %7ld\n",
+                    a.name, a.ms, tot>0?a.ms*100.0/tot:0.0, a.calls, a.hits);
+        fprintf(stderr, "MZTIME  %-34s %10.1f\n", "TOTAL DETECTOR TIME", tot);
+    }
+};
+inline Dump& dumper(){ static Dump d; return d; }
+} // namespace mziptime
+#define MZ_DET(name, call) (mziptime::dumper(), mziptime::run(name, [&]{ return (call); }))
+#define MZ_TIMED(name, expr) (mziptime::dumper(), mziptime::timed(name, [&]{ return (expr); }))
+#else
+#define MZ_DET(name, call) (call)
+#define MZ_TIMED(name, expr) (expr)
+#endif
+
+
+
 // Check for zstd - we require it
 #ifndef ZSTD_H_235446
 #error "mzip requires zstd. Include zstd.h before mzip.hpp"
@@ -1538,7 +1604,7 @@ inline std::vector<uint8_t> encode_line_group_template(const uint8_t* data, size
     // Line type sequence - try PERIODIC encoding first
     std::vector<uint8_t> pattern;
     size_t repeat_count;
-    if (detect_periodic_sequence(line_types, pattern, repeat_count)) {
+    if (MZ_DET("detect_periodic_sequence", detect_periodic_sequence(line_types, pattern, repeat_count))) {
         out.push_back(0x01);  // PERIODIC line types
         write_varint(out, pattern.size());
         for (uint8_t t : pattern) out.push_back(t);
@@ -12754,7 +12820,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
     // This gives 3855x compression on sequential IDs/timestamps
     if (n >= 12) {  // Need at least 3 integers
         LinearGenParams params;
-        if (detect_linear_gen(data, n, params)) {
+        if (MZ_DET("detect_linear_gen", detect_linear_gen(data, n, params))) {
             result.type = BlockType::LINEAR_GEN;
             result.linear_gen = params;
             result.logical_depth = LogicalDepth::REGENERATE;
@@ -12766,7 +12832,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // This rescues data that's 95%+ linear but has a few outliers
         LinearGenApproxParams approx_params;
         std::vector<std::pair<uint32_t, int64_t>> exceptions;
-        if (detect_linear_gen_approx(data, n, approx_params, exceptions)) {
+        if (MZ_DET("detect_linear_gen_approx", detect_linear_gen_approx(data, n, approx_params, exceptions))) {
             // === MDL-BASED SELECTION ===
             // Compare encoding cost vs zstd baseline using MDL principle.
             // If LINEAR_GEN_APPROX has lower total description length, use it.
@@ -12789,7 +12855,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
     // This gives 10x+ over zstd on exponential data
     if (n >= 16) {  // Need at least 2 integers
         GeometricParams geo_params;
-        if (detect_geometric(data, n, geo_params)) {
+        if (MZ_DET("detect_geometric", detect_geometric(data, n, geo_params))) {
             result.type = BlockType::GEOMETRIC;
             result.geometric = geo_params;
             return result;
@@ -12800,7 +12866,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
     // This gives 310x over zstd on quadratic data
     if (n >= 24) {  // Need at least 3 integers
         QuadraticParams quad_params;
-        if (detect_quadratic(data, n, quad_params)) {
+        if (MZ_DET("detect_quadratic", detect_quadratic(data, n, quad_params))) {
             result.type = BlockType::QUADRATIC;
             result.quadratic = quad_params;
             return result;
@@ -12811,7 +12877,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
     // This gives 23x over zstd on recurrence data
     if (n >= 32) {  // Need at least 4 integers
         RecurrenceParams rec_params;
-        if (detect_recurrence(data, n, rec_params)) {
+        if (MZ_DET("detect_recurrence", detect_recurrence(data, n, rec_params))) {
             result.type = BlockType::RECURRENCE;
             result.recurrence = rec_params;
             return result;
@@ -12822,7 +12888,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
     // This gives 88889x over zstd on 16-bit counter sequences!
     if (n >= 32) {  // Need at least 8 integers (32-bit) to detect wrap
         ModularParams mod_params;
-        if (detect_modular(data, n, mod_params)) {
+        if (MZ_DET("detect_modular", detect_modular(data, n, mod_params))) {
             result.type = BlockType::MODULAR;
             result.modular = mod_params;
             return result;
@@ -12833,7 +12899,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
     // This gives 12x compression on timestamps with jitter (vs 4x with regular delta)
     if (n >= 24) {  // Need at least 3 64-bit timestamps
         TimestampParams ts_params;
-        if (detect_timestamp(data, n, ts_params)) {
+        if (MZ_DET("detect_timestamp", detect_timestamp(data, n, ts_params))) {
             result.type = BlockType::TIMESTAMP;
             result.timestamp = ts_params;
             return result;
@@ -12862,7 +12928,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // This rescues data that's 95%+ periodic but has a few corrupted bytes
         PeriodicApproxParams periodic_approx_params;
         std::vector<std::pair<uint32_t, uint8_t>> periodic_exceptions;
-        if (detect_periodic_approx(data, n, periodic_approx_params, periodic_exceptions)) {
+        if (MZ_DET("detect_periodic_approx", detect_periodic_approx(data, n, periodic_approx_params, periodic_exceptions))) {
             // === MDL-BASED SELECTION ===
             // Compare encoding cost vs zstd baseline using MDL principle.
             auto complexity = estimate_periodic_approx_complexity(
@@ -12889,7 +12955,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         size_t nonzero_count;
         uint8_t common_value;
         bool all_same;
-        if (detect_sparse(data, n, nonzero_count, common_value, all_same)) {
+        if (MZ_DET("detect_sparse", detect_sparse(data, n, nonzero_count, common_value, all_same))) {
             result.type = BlockType::SPARSE;
             result.sparse_nonzero_count = nonzero_count;
             result.sparse_common_value = common_value;
@@ -12947,7 +13013,32 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
     // Check for high-zero content (>30% zeros) - LZMA's rep matches excel on zero padding
     // dilosi.doc: 54.5% zeros, LZMA saves 372 bytes vs zstd
     // NOTE: This runs AFTER numeric detection to avoid false positives on small integers
-    {
+    //
+    // SPEED GATE added 2026-07-31, and the reason matters more than the cap.
+    // lzma_opt2's optimal parse costs ~8 s/MB (LINEAR: 2.0 s @256 KB, 8.1 s @1 MB,
+    // 33.4 s @4 MB) and on this branch it has NEVER been observed to win:
+    //     nyctaxi_cols.bin 4 MB (real)  32,790 ms, 82% of the run  -> lost to BWT_TEXT
+    //     synthetic ~55% zeros, 3 sizes  2.0/8.1/33.4 s, 54/69/84% -> lost to BWT_TEXT
+    // 4 of 4 fire-and-lose. Corpus-wide it fired on 1 of 50 files and was 38.7% of ALL
+    // measured compression time.
+    //
+    // WHY IT STOPPED PAYING: its justification is "saves 372 bytes VS ZSTD". It was priced
+    // against zstd. bwt9 was added to the UNIVERSAL BACKSTOP later (see the encoder audit)
+    // and beats lzma_opt2 on exactly this content class. The branch was correct when written
+    // and was silently obsoleted by an improvement made elsewhere -- nothing forces a
+    // re-price, so nobody did one.
+    // GENERAL RULE: when a strong general backstop is added, every specialised path justified
+    // against the OLD baseline becomes unpriced. Trial-and-keep protects the RATIO
+    // automatically and protects the CLOCK not at all.
+    //
+    // The cap (1 MB, matching the brotli backstop's existing convention) is deliberately
+    // conservative: it preserves the small-file case the branch was actually measured on,
+    // where the cost is ~2 s, and drops only the large-block case where it is 8-33 s.
+    // Raise/disable with -DMZ_LZMA_RAW_MAX=<bytes>. Ratio is backstop-protected either way.
+    #ifndef MZ_LZMA_RAW_MAX
+    #define MZ_LZMA_RAW_MAX (1u << 20)
+    #endif
+    if (n <= (size_t)MZ_LZMA_RAW_MAX) {
         size_t zeros = 0;
         size_t sample_size = std::min(n, (size_t)16384);  // Sample first 16KB
         for (size_t i = 0; i < sample_size; i++) {
@@ -12963,7 +13054,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
     // This is better than BYTE_SHUFFLE2 because it compresses each stream optimally
     {
         DualStreamParams ds_params;
-        if (detect_dual_stream(data, n, ds_params)) {
+        if (MZ_DET("detect_dual_stream", detect_dual_stream(data, n, ds_params))) {
             result.type = BlockType::DUAL_STREAM;
             result.dual_stream = ds_params;
             return result;
@@ -13002,7 +13093,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // Structural encoding beats brotli by 7% on 16KB config files
         if (n >= 256) {
             KvConfigParams kv_params;
-            if (detect_kv_config(data, n, kv_params)) {
+            if (MZ_DET("detect_kv_config", detect_kv_config(data, n, kv_params))) {
                 result.type = BlockType::KV_CONFIG;
                 result.kv_config = std::move(kv_params);
                 return result;
@@ -13033,7 +13124,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // Result: 17KB API docs -> 516 bytes (32x compression!)
         if (low_entropy_text && n >= 512) {
             WordTemplateParams word_params;
-            if (detect_word_template(data, n, word_params)) {
+            if (MZ_DET("detect_word_template", detect_word_template(data, n, word_params))) {
                 result.type = BlockType::WORD_TEMPLATE;
                 result.word_template = std::move(word_params);
                 return result;
@@ -13046,7 +13137,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // Result: 65KB K8s -> 549 bytes (44% better than zstd!)
         if (low_entropy_text && n >= 1024) {
             MultiWordTemplateParams mw_params;
-            if (detect_multi_word_template(data, n, mw_params)) {
+            if (MZ_DET("detect_multi_word_template", detect_multi_word_template(data, n, mw_params))) {
                 result.type = BlockType::MULTI_WORD_TEMPLATE;
                 result.multi_word_template = std::move(mw_params);
                 return result;
@@ -13058,7 +13149,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // Entropy gate: Only try if entropy < 5.5 (highly structured text)
         if (low_entropy_text && n >= 256) {
             SectionTemplateParams sec_params;
-            if (detect_section_template(data, n, sec_params)) {
+            if (MZ_DET("detect_section_template", detect_section_template(data, n, sec_params))) {
                 result.type = BlockType::SECTION_TEMPLATE;
                 result.section_template = std::move(sec_params);
                 return result;
@@ -13072,7 +13163,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         if (low_entropy_text && n >= 256) {
             std::vector<LineGroupInfo> groups;
             std::vector<uint8_t> line_types;
-            if (detect_line_group_template(data, n, groups, line_types)) {
+            if (MZ_DET("detect_line_group_template", detect_line_group_template(data, n, groups, line_types))) {
                 result.type = BlockType::LINE_GROUP_TEMPLATE;
                 result.line_group_info = std::move(groups);
                 result.line_group_types = std::move(line_types);
@@ -13085,7 +13176,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // Fixed: SUBTEMPLATE now verifies reconstruction doesn't lose leading zeros
         if (mid_entropy_text) {
             TemplateParams tpl_params;
-            if (detect_template(data, n, tpl_params)) {
+            if (MZ_DET("detect_template", detect_template(data, n, tpl_params))) {
                 result.type = BlockType::TEMPLATE;
                 result.template_params = std::move(tpl_params);
                 return result;
@@ -13098,7 +13189,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // Entropy gate: Only try if entropy < 5.5 (expensive detector)
         if (low_entropy_text && n >= 4096) {
             CharTemplateParams char_params;
-            if (detect_char_template(data, n, char_params)) {
+            if (MZ_DET("detect_char_template", detect_char_template(data, n, char_params))) {
                 result.type = BlockType::CHAR_TEMPLATE;
                 result.char_template = std::move(char_params);
                 return result;
@@ -13110,7 +13201,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // Entropy gate: Only try if entropy < 5.5 (expensive detector)
         if (low_entropy_text && n >= 4096) {
             MLTemplateParams ml_params;
-            if (detect_ml_template(data, n, ml_params)) {
+            if (MZ_DET("detect_ml_template", detect_ml_template(data, n, ml_params))) {
                 result.type = BlockType::ML_TEMPLATE;
                 result.ml_template = ml_params;
                 return result;
@@ -13118,7 +13209,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
 
             // Try dual-template (alternating patterns like TypeScript interface+component)
             MLTemplateDualParams dual_params;
-            if (detect_ml_template_dual(data, n, dual_params)) {
+            if (MZ_DET("detect_ml_template_dual", detect_ml_template_dual(data, n, dual_params))) {
                 result.type = BlockType::ML_TEMPLATE_DUAL;
                 result.ml_template_dual = dual_params;
                 return result;
@@ -13130,7 +13221,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // and compress separate streams - each stream compresses better individually
         if (mid_entropy_text && n >= 1024) {
             CodeStreamParams code_params;
-            if (detect_code_stream(data, n, code_params)) {
+            if (MZ_DET("detect_code_stream", detect_code_stream(data, n, code_params))) {
                 result.type = BlockType::CODE_STREAM;
                 result.code_stream = std::move(code_params);
                 return result;
@@ -13142,7 +13233,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // Run at mid entropy - CSV can have some randomness in data columns
         if (mid_entropy_text && n >= 256) {
             CsvColumnarParams csv_params;
-            if (detect_csv_columnar(data, n, csv_params)) {
+            if (MZ_DET("detect_csv_columnar", detect_csv_columnar(data, n, csv_params))) {
                 result.type = BlockType::CSV_COLUMNAR;
                 result.csv_columnar = std::move(csv_params);
                 return result;
@@ -13154,7 +13245,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // 1085 bytes better than brotli on JSON structured logs!
         if (mid_entropy_text && n >= 1024) {
             JsonColumnarParams json_params;
-            if (detect_json_columnar(data, n, json_params)) {
+            if (MZ_DET("detect_json_columnar", detect_json_columnar(data, n, json_params))) {
                 result.type = BlockType::JSON_COLUMNAR;
                 result.json_columnar = std::move(json_params);
                 return result;
@@ -13166,7 +13257,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // 900 bytes better than brotli on Makefiles!
         if (mid_entropy_text && n >= 1024 && n <= 2097152) {  // cap at 2MB: num_extract targets small Makefiles/configs;
             NumExtractParams num_params;                       // it's O(n) heavy string-alloc and never wins multi-MB blobs (speed)
-            if (detect_num_extract(data, n, num_params)) {
+            if (MZ_DET("detect_num_extract", detect_num_extract(data, n, num_params))) {
                 result.type = BlockType::NUM_EXTRACT;
                 result.num_extract = num_params;
                 return result;
@@ -13179,7 +13270,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // 14x improvement on SQL dumps: 65536 bytes -> 214 bytes (vs 3085 bytes mzip default)
         if (mid_entropy_text && n >= 1024) {
             LineTemplateParams line_params;
-            if (detect_line_template(data, n, line_params)) {
+            if (MZ_DET("detect_line_template", detect_line_template(data, n, line_params))) {
                 result.type = BlockType::LINE_TEMPLATE;
                 result.line_template = std::move(line_params);
                 return result;
@@ -13192,7 +13283,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // Tested: roundtrip verification passes on generated nginx_log and access_log
         if (mid_entropy_text && n >= 4096) {
             ColumnarParams col_params;
-            if (detect_columnar_log(data, n, col_params)) {
+            if (MZ_DET("detect_columnar_log", detect_columnar_log(data, n, col_params))) {
                 result.type = BlockType::COLUMNAR;
                 result.columnar = col_params;
                 return result;
@@ -13204,7 +13295,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // Works when data is 99%+ partitioned by delimiter-separated phrases
         if (low_entropy_text && n >= 256 && n <= 2097152) {
             PhrasePartitionParams pp_params;
-            if (detect_phrase_partition(data, n, pp_params)) {
+            if (MZ_DET("detect_phrase_partition", detect_phrase_partition(data, n, pp_params))) {
                 result.type = BlockType::PHRASE_PARTITION;
                 result.phrase_partition = std::move(pp_params);
                 return result;
@@ -13216,7 +13307,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // Only for larger files - brotli's dictionary wins at small sizes
         if (n >= 128 * 1024 && n <= 16 * 1024 * 1024) {
             HtmlStreamParams html_params;
-            if (detect_html_stream(data, n, html_params)) {
+            if (MZ_DET("detect_html_stream", detect_html_stream(data, n, html_params))) {
                 result.type = BlockType::HTML_STREAM;
                 result.html_stream = html_params;
                 return result;
@@ -13228,7 +13319,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // Protocols compress to 0.1%, domains to 2.9% — huge wins!
         if (n >= 64 * 1024 && n <= 16 * 1024 * 1024) {
             UrlStreamParams url_params;
-            if (detect_url_stream(data, n, url_params)) {
+            if (MZ_DET("detect_url_stream", detect_url_stream(data, n, url_params))) {
                 result.type = BlockType::URL_STREAM;
                 result.url_stream = url_params;
                 return result;
@@ -13240,7 +13331,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // Only for larger files where overhead is justified
         if (n >= 1024) {
             Base64Params b64_params;
-            if (detect_base64(data, n, b64_params)) {
+            if (MZ_DET("detect_base64", detect_base64(data, n, b64_params))) {
                 result.type = BlockType::BASE64_DECODE;
                 result.base64 = b64_params;
                 return result;
@@ -13264,7 +13355,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // Limit: n <= 262144 because build_sorted_dict_dictionary is O(35n) string allocs
         if (mid_entropy_text && n >= 512 && n <= 262144) {
             SortedDictParams sorted_params;
-            if (detect_sorted_dict(data, n, sorted_params)) {
+            if (MZ_DET("detect_sorted_dict", detect_sorted_dict(data, n, sorted_params))) {
                 result.type = BlockType::SORTED_DICT;
                 result.sorted_dict = std::move(sorted_params);
                 return result;
@@ -13278,7 +13369,7 @@ inline BlockAnalysis analyze_block(const uint8_t* data, size_t n) {
         // Limit: n <= 262144 because detect_phrase_dict is O(57n) string allocs
         if (mid_entropy_text && n >= 256 && n <= 262144) {
             PhraseDictParams phrase_params;
-            if (detect_phrase_dict(data, n, phrase_params)) {
+            if (MZ_DET("detect_phrase_dict", detect_phrase_dict(data, n, phrase_params))) {
                 result.type = BlockType::PHRASE_DICT;
                 result.phrase_dict = std::move(phrase_params);
                 return result;
@@ -13831,7 +13922,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
 
         if (analysis.type == BlockType::LINEAR_GEN) {
             // Encode as generator parameters - 17 bytes for any size!
-            auto encoded = encode_linear_gen(analysis.linear_gen);
+            auto encoded = MZ_TIMED("encode_linear_gen", encode_linear_gen(analysis.linear_gen));
             memcpy(preprocess_data, encoded.data(), encoded.size());
             preprocess_size = encoded.size();
             use_generator = true;
@@ -13839,44 +13930,42 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::LINEAR_GEN_APPROX) {
             // Encode as generator + exceptions (Effective Complexity encoding!)
             // Rescues data that's 95%+ linear but has outliers
-            auto encoded = encode_linear_gen_approx(
-                analysis.linear_gen_approx,
-                analysis.linear_gen_approx_exceptions);
+            auto encoded = MZ_TIMED("encode_linear_gen_approx", encode_linear_gen_approx( analysis.linear_gen_approx, analysis.linear_gen_approx_exceptions));
             memcpy(preprocess_data, encoded.data(), encoded.size());
             preprocess_size = encoded.size();
             use_generator = true;
             res.blocks_numeric++;
         } else if (analysis.type == BlockType::GEOMETRIC) {
             // Encode as geometric parameters - 17 bytes for any size!
-            auto encoded = encode_geometric(analysis.geometric);
+            auto encoded = MZ_TIMED("encode_geometric", encode_geometric(analysis.geometric));
             memcpy(preprocess_data, encoded.data(), encoded.size());
             preprocess_size = encoded.size();
             use_generator = true;
             res.blocks_numeric++;
         } else if (analysis.type == BlockType::QUADRATIC) {
             // Encode as quadratic parameters - 25 bytes for any size!
-            auto encoded = encode_quadratic(analysis.quadratic);
+            auto encoded = MZ_TIMED("encode_quadratic", encode_quadratic(analysis.quadratic));
             memcpy(preprocess_data, encoded.data(), encoded.size());
             preprocess_size = encoded.size();
             use_generator = true;
             res.blocks_numeric++;
         } else if (analysis.type == BlockType::RECURRENCE) {
             // Encode as recurrence parameters - 33 bytes for any size!
-            auto encoded = encode_recurrence(analysis.recurrence);
+            auto encoded = MZ_TIMED("encode_recurrence", encode_recurrence(analysis.recurrence));
             memcpy(preprocess_data, encoded.data(), encoded.size());
             preprocess_size = encoded.size();
             use_generator = true;
             res.blocks_numeric++;
         } else if (analysis.type == BlockType::MODULAR) {
             // Encode as modular parameters - 25 bytes for any size!
-            auto encoded = encode_modular(analysis.modular);
+            auto encoded = MZ_TIMED("encode_modular", encode_modular(analysis.modular));
             memcpy(preprocess_data, encoded.data(), encoded.size());
             preprocess_size = encoded.size();
             use_generator = true;
             res.blocks_numeric++;
         } else if (analysis.type == BlockType::PERIODIC) {
             // Encode as period + pattern - period + 2 bytes
-            auto encoded = encode_periodic(block_data, analysis.period);
+            auto encoded = MZ_TIMED("encode_periodic", encode_periodic(block_data, analysis.period));
             memcpy(preprocess_data, encoded.data(), encoded.size());
             preprocess_size = encoded.size();
             use_generator = true;
@@ -13884,9 +13973,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::PERIODIC_APPROX) {
             // Encode as period + pattern + exceptions (Effective Complexity encoding!)
             // Rescues data that's 95%+ periodic but has corrupted bytes
-            auto encoded = encode_periodic_approx(block_data, this_block,
-                analysis.periodic_approx,
-                analysis.periodic_approx_exceptions);
+            auto encoded = MZ_TIMED("encode_periodic_approx", encode_periodic_approx(block_data, this_block, analysis.periodic_approx, analysis.periodic_approx_exceptions));
             memcpy(preprocess_data, encoded.data(), encoded.size());
             preprocess_size = encoded.size();
             use_generator = true;
@@ -13894,15 +13981,14 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::SPARSE) {
             // Encode with Rice coding - near-optimal for geometric gap distributions!
             // Rice coding beats bzip2 by 8.7% (100.6% of entropy vs 110% for varint)
-            auto encoded = encode_sparse_rice(block_data, this_block,
-                analysis.sparse_common_value, analysis.sparse_all_same_value);
+            auto encoded = MZ_TIMED("encode_sparse_rice", encode_sparse_rice(block_data, this_block, analysis.sparse_common_value, analysis.sparse_all_same_value));
             memcpy(preprocess_data, encoded.data(), encoded.size());
             preprocess_size = encoded.size();
             use_generator = true;
             res.blocks_raw++;  // Count separately
         } else if (analysis.type == BlockType::TIMESTAMP) {
             // Encode as delta-of-delta + zigzag + varint (Gorilla-style)
-            auto encoded = encode_timestamp(block_data, analysis.timestamp);
+            auto encoded = MZ_TIMED("encode_timestamp", encode_timestamp(block_data, analysis.timestamp));
             memcpy(preprocess_data, encoded.data(), encoded.size());
             preprocess_size = encoded.size();
             // Don't set use_generator - we want zstd on top for extra compression
@@ -14005,7 +14091,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             e8e9_filter_encode(filtered.data(), filtered.size());
 
             // Compress with LZMA optimal encoder
-            auto lzma_compressed = lzma_opt2::compress(filtered.data(), filtered.size());
+            auto lzma_compressed = MZ_TIMED("lzma_opt2 (E8/E9-filtered)", lzma_opt2::compress(filtered.data(), filtered.size()));
 
             // Store LZMA compressed data
             memcpy(preprocess_data, lzma_compressed.data(), lzma_compressed.size());
@@ -14015,7 +14101,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::LZMA_RAW) {
             // LZMA optimal without E8/E9 filter - for high-zero content
             // dilosi.doc: 54.5% zeros, saves 372 bytes vs zstd
-            auto lzma_compressed = lzma_opt2::compress(block_data, this_block);
+            auto lzma_compressed = MZ_TIMED("lzma_opt2 (raw)", lzma_opt2::compress(block_data, this_block));
 
             // Store LZMA compressed data
             memcpy(preprocess_data, lzma_compressed.data(), lzma_compressed.size());
@@ -14028,8 +14114,8 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             // Use level 9 minimum for text (set later in compression)
         } else if (analysis.type == BlockType::DBF_CONSTCOL) {
             // DBF constant column elimination — trial: CC+zstd vs BWT, pick smaller
-            auto cc_compressed = encode_dbf_constcol(block_data, this_block, zstd_level);
-            auto bwt_compressed = bwt9::compress(block_data, this_block);
+            auto cc_compressed = MZ_TIMED("encode_dbf_constcol", encode_dbf_constcol(block_data, this_block, zstd_level));
+            auto bwt_compressed = MZ_TIMED("bwt9 L14098", bwt9::compress(block_data, this_block));
 
             if (!cc_compressed.empty() && cc_compressed.size() < bwt_compressed.size()) {
                 // CC+zstd wins — store as DBF_CONSTCOL (already zstd-compressed)
@@ -14048,7 +14134,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::BWT_TEXT) {
             // BWT compression for natural text - beats zstd/bzip2 on prose, markdown, etc.
             // v9 dispatches to v8 (fixed model) for <5KB or v5 (multi-tree) for larger
-            auto compressed = bwt9::compress(block_data, this_block);
+            auto compressed = MZ_TIMED("bwt9 L14117", bwt9::compress(block_data, this_block));
 
             // At small sizes (<=16KB), trial zstd+dict — may beat BWT and brotli
             if (this_block <= 16384) {
@@ -14137,7 +14223,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::HTML_STREAM) {
             // HTML tag/content separation - beats brotli by 3.3% at 256KB+
             // This is a complete encoder - output is already fully compressed
-            auto compressed = encode_html_stream(block_data, this_block);
+            auto compressed = MZ_TIMED("encode_html_stream", encode_html_stream(block_data, this_block));
             memcpy(preprocess_data, compressed.data(), compressed.size());
             preprocess_size = compressed.size();
             use_generator = true;  // Already fully compressed, don't re-compress with zstd
@@ -14145,7 +14231,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::URL_STREAM) {
             // URL component separation - beats mzip by 6.2% on URL lists
             // Protocols compress to 0.1%, domains to 2.9%
-            auto compressed = encode_url_stream(block_data, this_block);
+            auto compressed = MZ_TIMED("encode_url_stream", encode_url_stream(block_data, this_block));
             memcpy(preprocess_data, compressed.data(), compressed.size());
             preprocess_size = compressed.size();
             use_generator = true;  // Already fully compressed, don't re-compress with zstd
@@ -14153,7 +14239,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::BASE64_DECODE) {
             // Base64 de-encoding - beats brotli by 1.76% at 1MB
             // Decode base64 to binary (25% smaller), compress, re-encode on decompress
-            auto compressed = encode_base64_decode(block_data, this_block, analysis.base64);
+            auto compressed = MZ_TIMED("encode_base64_decode", encode_base64_decode(block_data, this_block, analysis.base64));
             memcpy(preprocess_data, compressed.data(), compressed.size());
             preprocess_size = compressed.size();
             use_generator = true;  // Already fully compressed, don't re-compress with zstd
@@ -14172,7 +14258,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                 memcpy(preprocess_data, block_data, this_block);
                 res.blocks_text++;
             } else {
-                auto encoded = encode_word_text(block_data, this_block, analysis.word_encoding);
+                auto encoded = MZ_TIMED("encode_word_text", encode_word_text(block_data, this_block, analysis.word_encoding));
                 memcpy(preprocess_data, encoded.data(), encoded.size());
                 preprocess_size = encoded.size();
                 res.blocks_text++;
@@ -14231,7 +14317,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                 }
 
                 if (use_template) {
-                    auto encoded = encode_template(tp);
+                    auto encoded = MZ_TIMED("encode_template", encode_template(tp));
                     // Roundtrip verify: TEMPLATE detection has corner cases on real
                     // inputs (truncated SQL VALUES tuples, mixed-format INSERT lines)
                     // that produce encoder output the decoder reconstructs incorrectly.
@@ -14251,7 +14337,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                     // BWT often wins on text where TEMPLATE's structure doesn't compress well
                     // (e.g., Prometheus metrics with random values/timestamps)
                     if (this_block >= 256 && this_block <= 2097152) {
-                        auto bwt_result = bwt9::compress(block_data, this_block);
+                        auto bwt_result = MZ_TIMED("bwt9 @site1(L14320)", bwt9::compress(block_data, this_block));
                         memcpy(preprocess_data, bwt_result.data(), bwt_result.size());
                         preprocess_size = bwt_result.size();
                         analysis.type = BlockType::BWT_TEXT;
@@ -14275,7 +14361,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                 memcpy(preprocess_data, block_data, this_block);
                 res.blocks_text++;
             } else {
-                auto encoded = encode_char_template(analysis.char_template, zstd_level);
+                auto encoded = MZ_TIMED("encode_char_template", encode_char_template(analysis.char_template, zstd_level));
                 memcpy(preprocess_data, encoded.data(), encoded.size());
                 preprocess_size = encoded.size();
                 res.blocks_text++;
@@ -14283,14 +14369,14 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::ML_TEMPLATE) {
             // Multi-line template (JavaScript-like repeated blocks)
             // Works per-block - detection finds complete patterns within each block
-            auto encoded = encode_ml_template(analysis.ml_template);
+            auto encoded = MZ_TIMED("encode_ml_template", encode_ml_template(analysis.ml_template));
             memcpy(preprocess_data, encoded.data(), encoded.size());
             preprocess_size = encoded.size();
             res.blocks_text++;
         } else if (analysis.type == BlockType::ML_TEMPLATE_DUAL) {
             // Dual multi-line template (TypeScript interfaces + components)
             // Works per-block - detection finds complete patterns within each block
-            auto encoded = encode_ml_template_dual(analysis.ml_template_dual);
+            auto encoded = MZ_TIMED("encode_ml_template_dual", encode_ml_template_dual(analysis.ml_template_dual));
             memcpy(preprocess_data, encoded.data(), encoded.size());
             preprocess_size = encoded.size();
             res.blocks_text++;
@@ -14304,11 +14390,11 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                 memcpy(preprocess_data, block_data, this_block);
                 res.blocks_text++;
             } else {
-                auto encoded = encode_columnar(analysis.columnar);
+                auto encoded = MZ_TIMED("encode_columnar", encode_columnar(analysis.columnar));
                 // Trial: at small sizes (<64KB), COLUMNAR overhead can exceed gains.
                 // Try BWT_TEXT on raw data and pick the smaller result.
                 if (analysis.columnar.columns.size() == 9 && this_block <= 32768) {
-                    auto bwt_trial = bwt9::compress(block_data, this_block);
+                    auto bwt_trial = MZ_TIMED("bwt9 L14377", bwt9::compress(block_data, this_block));
                     if (bwt_trial.size() < encoded.size()) {
                         // BWT_TEXT wins — fall back
                         memcpy(preprocess_data, bwt_trial.data(), bwt_trial.size());
@@ -14334,7 +14420,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             }
         } else if (analysis.type == BlockType::CSV_COLUMNAR) {
             // CSV columnar with LINEAR_GEN on ID columns
-            auto encoded = encode_csv_columnar(analysis.csv_columnar);
+            auto encoded = MZ_TIMED("encode_csv_columnar", encode_csv_columnar(analysis.csv_columnar));
             // Roundtrip verify: CSV column-type detection occasionally produces
             // encoder output the decoder reconstructs incorrectly on real data
             // (e.g., events.csv with mixed numeric/string columns).
@@ -14347,7 +14433,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             } else {
                 // Fall back to BWT_TEXT for CSV that didn't roundtrip
                 if (this_block >= 256 && this_block <= 2097152) {
-                    auto bwt_result = bwt9::compress(block_data, this_block);
+                    auto bwt_result = MZ_TIMED("bwt9 @site2(L14416)", bwt9::compress(block_data, this_block));
                     memcpy(preprocess_data, bwt_result.data(), bwt_result.size());
                     preprocess_size = bwt_result.size();
                     analysis.type = BlockType::BWT_TEXT;
@@ -14362,7 +14448,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::JSON_COLUMNAR) {
             // JSON columnar: extract sequential requestId + delta timestamps
             // 1085 bytes better than brotli on JSON structured logs
-            auto encoded = encode_json_columnar(analysis.json_columnar, block_data, this_block);
+            auto encoded = MZ_TIMED("encode_json_columnar", encode_json_columnar(analysis.json_columnar, block_data, this_block));
             memcpy(preprocess_data, encoded.data(), encoded.size());
             preprocess_size = encoded.size();
             use_generator = true;  // Already fully encoded, don't re-compress
@@ -14370,7 +14456,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::NUM_EXTRACT) {
             // NUM_EXTRACT: extract embedded decimal numbers from text
             // 900 bytes better than brotli on Makefiles!
-            auto encoded = encode_num_extract(block_data, this_block);
+            auto encoded = MZ_TIMED("encode_num_extract", encode_num_extract(block_data, this_block));
             memcpy(preprocess_data, encoded.data(), encoded.size());
             preprocess_size = encoded.size();
             use_generator = true;  // Already fully encoded, don't re-compress
@@ -14378,7 +14464,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::LINE_TEMPLATE) {
             // Line template: variable-length lines with linear numeric vars (SQL INSERTs)
             // 14x improvement: stores prefix + suffix + separators + (first, delta) per var
-            auto encoded = encode_line_template(analysis.line_template, zstd_level);
+            auto encoded = MZ_TIMED("encode_line_template", encode_line_template(analysis.line_template, zstd_level));
             memcpy(preprocess_data, encoded.data(), encoded.size());
             preprocess_size = encoded.size();
             use_generator = true;  // Already fully encoded, don't re-compress
@@ -14386,7 +14472,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::PHRASE_PARTITION) {
             // Phrase partition: data exactly partitioned by repeated delimiter-separated phrases
             // Key insight: 5 phrases repeated 4900x = store phrases once + compressed indices
-            auto encoded = encode_phrase_partition(analysis.phrase_partition, block_data, this_block, zstd_level);
+            auto encoded = MZ_TIMED("encode_phrase_partition", encode_phrase_partition(analysis.phrase_partition, block_data, this_block, zstd_level));
             if (encoded.empty()) {
                 analysis.type = BlockType::TEXT;
                 memcpy(preprocess_data, block_data, this_block);
@@ -14400,7 +14486,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::DUAL_STREAM) {
             // Dual stream: interleaved data with different entropy (Protobuf-like)
             // Key insight: tags (3 bits) vs values (7 bits) compress better separately
-            auto encoded = encode_dual_stream(block_data, this_block, zstd_level);
+            auto encoded = MZ_TIMED("encode_dual_stream", encode_dual_stream(block_data, this_block, zstd_level));
             if (encoded.empty()) {
                 // Fallback to RAW if encoding fails
                 analysis.type = BlockType::RAW;
@@ -14414,7 +14500,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::PHRASE_DICT) {
             // Phrase dictionary: use zstd dictionary compression with discovered phrases
             // Key insight: mimics brotli's static dictionary but adapts per-file
-            auto encoded = encode_phrase_dict(analysis.phrase_dict, block_data, this_block, zstd_level);
+            auto encoded = MZ_TIMED("encode_phrase_dict", encode_phrase_dict(analysis.phrase_dict, block_data, this_block, zstd_level));
             if (encoded.empty()) {
                 // Fallback to regular TEXT if dictionary encoding failed
                 analysis.type = BlockType::TEXT;
@@ -14429,7 +14515,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::SORTED_DICT) {
             // Sorted dictionary: sort lines + adaptive dictionary = beats brotli!
             // Key insight: LZ77 works better on grouped similar lines
-            auto encoded = encode_sorted_dict(analysis.sorted_dict, zstd_level);
+            auto encoded = MZ_TIMED("encode_sorted_dict", encode_sorted_dict(analysis.sorted_dict, zstd_level));
             if (encoded.empty()) {
                 // Fallback to regular TEXT if encoding failed
                 analysis.type = BlockType::TEXT;
@@ -14445,7 +14531,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             // Structural key-value config encoding (INI/YAML)
             // Parses sections/keys, builds dictionaries, compresses with zstd
             // Beats brotli by 7% on 16KB config files
-            auto encoded = encode_kv_config(analysis.kv_config, zstd_level);
+            auto encoded = MZ_TIMED("encode_kv_config", encode_kv_config(analysis.kv_config, zstd_level));
             if (encoded.empty()) {
                 // Fallback to TEXT if encoding failed
                 analysis.type = BlockType::TEXT;
@@ -14460,7 +14546,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::SECTION_TEMPLATE) {
             // Repeating multi-line sections with {N} variable (Markdown, JavaScript!)
             // Works on any block - each block stores its own template + LINEAR_GEN params
-            auto encoded = encode_section_template(analysis.section_template, zstd_level);
+            auto encoded = MZ_TIMED("encode_section_template", encode_section_template(analysis.section_template, zstd_level));
             memcpy(preprocess_data, encoded.data(), encoded.size());
             preprocess_size = encoded.size();
             use_generator = true;  // Don't re-compress
@@ -14468,7 +14554,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::WORD_TEMPLATE) {
             // Repeating sections with word variable (2.4x over zstd on API docs!)
             // Each section has same structure but differs by one word that appears multiple times
-            auto encoded = encode_word_template(analysis.word_template, zstd_level);
+            auto encoded = MZ_TIMED("encode_word_template", encode_word_template(analysis.word_template, zstd_level));
             memcpy(preprocess_data, encoded.data(), encoded.size());
             preprocess_size = encoded.size();
             use_generator = true;  // Already compressed
@@ -14476,7 +14562,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::MULTI_WORD_TEMPLATE) {
             // Template with multiple variables {1},{2},{3} (44% better on K8s Ingress!)
             // K8s/Terraform sections differ by 2-3 variables (app, env, namespace)
-            auto encoded = encode_multi_word_template(analysis.multi_word_template, zstd_level);
+            auto encoded = MZ_TIMED("encode_multi_word_template", encode_multi_word_template(analysis.multi_word_template, zstd_level));
             memcpy(preprocess_data, encoded.data(), encoded.size());
             preprocess_size = encoded.size();
             use_generator = true;  // Already compressed
@@ -14484,9 +14570,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::LINE_GROUP_TEMPLATE) {
             // Multi-line-type data like email headers
             // Groups lines by prefix, applies LINEAR_GEN per group
-            auto encoded = encode_line_group_template(block_data, this_block,
-                                                       analysis.line_group_info,
-                                                       analysis.line_group_types);
+            auto encoded = MZ_TIMED("encode_line_group_template", encode_line_group_template(block_data, this_block, analysis.line_group_info, analysis.line_group_types));
             memcpy(preprocess_data, encoded.data(), encoded.size());
             preprocess_size = encoded.size();
             // Let zstd compress the encoded data (raw lines + line type sequence)
@@ -14494,7 +14578,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::CODE_STREAM) {
             // Identifier stream separation for code (beats bzip2 on JavaScript!)
             // Detection already compressed all streams - just encode the structure
-            auto encoded = encode_code_stream(analysis.code_stream);
+            auto encoded = MZ_TIMED("encode_code_stream", encode_code_stream(analysis.code_stream));
             memcpy(preprocess_data, encoded.data(), encoded.size());
             preprocess_size = encoded.size();
             use_generator = true;  // Already compressed, don't re-compress
@@ -14588,14 +14672,14 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             size_t cur = preprocess_size;
             if (!use_generator) {
                 std::vector<uint8_t> tb(cap + 64);
-                size_t z = ZSTD_compress(tb.data(), tb.size(), preprocess_data, preprocess_size, 19);
+                size_t z = MZ_TIMED("zstd-19 backstop", ZSTD_compress(tb.data(), tb.size(), preprocess_data, preprocess_size, 19));
                 if (!ZSTD_isError(z)) cur = z;
             }
             // bwt9 (BWT + context-mixing, bzip3-class) trial -> BWT_TEXT (decoded via bwt9). Catches
             // BWT-friendly data the type detectors MISS (float/sensor arrays, structured binary) where
             // it beats bzip2/xz/zstd. Tried first so ties prefer our own tech over the external backstops.
             {
-                auto b9 = bwt9::compress(block_data, this_block);
+                auto b9 = MZ_TIMED("bwt9 @backstop", bwt9::compress(block_data, this_block));
                 if (!b9.empty() && b9.size() < cur && b9.size() <= cap) {
                     memcpy(preprocess_data, b9.data(), b9.size());
                     preprocess_size = b9.size();
