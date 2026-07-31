@@ -27,13 +27,40 @@ struct Model {
         for(int idx=0;idx<512;idx++) for(int k=0;k<17;k++) C2[idx][k]=(u16)((k<<12)-(k==16?1:0));
     }
 };
+// Mixer + calibration weights, named so they can be A/B'd. SHIPPED VALUES ARE THE ORIGINAL ONES.
+//
+// 2026-07-25: a full sweep re-derived these on the exact streams mzip
+// hands to CM and found w=2,11,3 / s=14,2, worth -4.32% of CODED CM BYTES on held-out streams.
+// It was REVERTED: measured end-to-end it made the PRODUCT 21,471 B LARGER (-0.61%), because the whole
+// aggregate gain sat in one 4 MB high-entropy stream that CM LOSES to another encoder and therefore
+// never ships, while every stream CM actually wins got worse. Aggregate CM bytes is NOT the product
+// objective: trial-and-keep means CM's output only counts on blocks CM wins. Do not re-tune against
+// stream totals -- tune against end-to-end mzip output, or the same trap recurs.
+//
+// Define CMBK_TUNED_2026 to rebuild the (rejected) tuned arm for A/B. Either way the calibration stage
+// BLENDS with its input; it must never be changed to replace it (measured: replace costs +0.10%).
+#ifdef CMBK_TUNED_2026
+#  define CMBK_W0 2
+#  define CMBK_W1 11
+#  define CMBK_W2 3
+#  define CMBK_SA 14
+#  define CMBK_SB 2
+#else
+#  define CMBK_W0 7
+#  define CMBK_W1 7
+#  define CMBK_W2 2
+#  define CMBK_SA 12
+#  define CMBK_SB 4
+#endif
 static inline int predict(Model&m,int ctx,int f,int&idx,int&j){
     int p0=m.C0[ctx], p1=m.C1[m.c1][ctx], p2=m.C1[m.c2][ctx];
-    int p=((p0+p1)*7 + 2*p2)>>4;                 // fixed-weight order-0/1/2 blend
+    // fixed-weight order-0 / order-1 / lagged-order-1 blend (weights sum to 16)
+    int p=(p0*CMBK_W0 + p1*CMBK_W1 + p2*CMBK_W2)>>4;
     j=p>>12; idx=2*ctx+f;
     int x1=m.C2[idx][j], x2=m.C2[idx][j+1];
     int ssep=x1 + (((x2-x1)*(p&4095))>>12);      // 2-level SSE/APM interpolation
-    int pr=ssep*3+p; if(pr<1)pr=1; else if(pr>262143)pr=262143;
+    // Calibration BLENDS with its input (never replaces it): weights sum to 16, result is 18-bit.
+    int pr=(ssep*CMBK_SA + p*CMBK_SB)>>2; if(pr<1)pr=1; else if(pr>262143)pr=262143;
     return pr;                                   // 18-bit probability
 }
 static inline void upd(Model&m,int ctx,int idx,int j,int bit){
@@ -118,6 +145,19 @@ inline std::vector<u8> decompress(const u8* in,size_t len){
 // bytes so the order-0/1/2 model can exploit them; CM-alone loses to ZSTD on those, BWT+CM beats it).
 // Blob: varint(n) + varint(pidx+1) + CM stream. pidx+1==0 is the sentinel for "BWT failed -> raw CM".
 inline std::vector<u8> compress_bwt(const u8* buf,size_t n){
+#ifdef CMBK_DUMP
+    // measurement-only (never in a shipped build): dump the EXACT stream mzip hands to CM,
+    // so weight tuning happens on the right basis rather than on raw files.
+    if(n>=4096){ const char* d=getenv("MZIP_CMDUMP");
+        if(d){ static int seq=0; char path[1024]; snprintf(path,sizeof path,"%s/s%05d.bin",d,seq++);
+               FILE* fp=fopen(path,"wb"); if(fp){ fwrite(buf,1,n,fp); fclose(fp); } } }
+#endif
+    // libsais takes int32_t: above INT32_MAX the length silently truncates and the BWT
+    // is computed over the wrong prefix (round-trips to garbage, no error). mzip already
+    // raised its BG cap to 1 GB for single-block enwik9, so live headroom here is 2x, not
+    // the 128x a MAX_BLOCK_SIZE reading suggests. Decline instead of truncating; callers
+    // treat an empty return as "this encoder declined".
+    if(n > (size_t)INT32_MAX) return {};
     std::vector<u8> out; out.reserve(n/3+16);
     put_varint(out,(u64)n);
     if(n==0) return out;
@@ -130,6 +170,7 @@ inline std::vector<u8> compress_bwt(const u8* buf,size_t n){
 }
 inline std::vector<u8> decompress_bwt(const u8* in,size_t len){
     size_t pos=0; u64 n=get_varint(in,len,pos);
+    if(n > (u64)INT32_MAX) return {};   // symmetric with compress_bwt: no valid stream can exceed this
     std::vector<u8> out((size_t)n);
     if(n==0) return out;
     u64 pp=get_varint(in,len,pos);
