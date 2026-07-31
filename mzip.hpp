@@ -14629,7 +14629,33 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                 size_t bcap = BrotliEncoderMaxCompressedSize(this_block);
                 if (bcap == 0) bcap = this_block + 1024;
                 std::vector<uint8_t> bb(bcap);
-                for (int bmode = 0; bmode <= 1; bmode++) {
+                // ---------------------------------------------------------------------------
+                // 2026-07-31: THE SECOND BROTLI MODE WAS MEASURED INERT AND IS NO LONGER TRIALLED.
+                // This loop used to run bmode 0..1 (GENERIC, then TEXT) and keep the smaller.
+                // In the bundled libbrotli the `mode` argument of BrotliEncoderCompress produces
+                // BYTE-IDENTICAL output, so the second pass was 2x the work for nothing:
+                //   * direct encoder test, 47 held-out files x qualities {1,5,9,11} = 188 paired
+                //     comparisons: byte-identical in every one (not merely same-size).
+                //   * instrument validated in the same run - quality DOES change output
+                //     (q1 total 1,360,925 -> q11 901,544), so the harness passes args correctly.
+                //   * end-to-end: 97 files across real_bench/ + corpus_extra/ + samples/,
+                //     ZERO byte differences; runtime -12.4% and -23.2% respectively.
+                //   * 28/28 losslessness suite green on the narrowed build.
+                // brotli-11 is ~37-43% of runtime where it runs (measured via MZIP_MAXRATIO),
+                // and it wins 23 of 47 held-out blocks - the plurality - so it stays; only the
+                // redundant second mode goes.
+                //
+                // !! IF libbrotli IS EVER UPGRADED, RE-RUN THAT TEST BEFORE TRUSTING THIS. !!
+                // A build that honours the mode hint would make this a SILENT ratio regression.
+                // Restore the old behaviour with -DMZ_BROTLI_MODE_HI=1 (no code edit needed).
+                // ---------------------------------------------------------------------------
+                #ifndef MZ_BROTLI_MODE_LO
+                #define MZ_BROTLI_MODE_LO 0
+                #endif
+                #ifndef MZ_BROTLI_MODE_HI
+                #define MZ_BROTLI_MODE_HI 0
+                #endif
+                for (int bmode = MZ_BROTLI_MODE_LO; bmode <= MZ_BROTLI_MODE_HI; bmode++) {
                     size_t bsz = bcap;
                     if (BrotliEncoderCompress(MZ_BROTLI_QUALITY, MZ_BROTLI_WINDOW, bmode,
                                               this_block, block_data, &bsz, bb.data())
