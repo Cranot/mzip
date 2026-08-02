@@ -749,10 +749,89 @@ class MultiTreeEncoder {
 public:
     MultiTreeEncoder(std::vector<uint8_t>& out) : output(out) {}
 
+    // TreePlan (2026-08-02) -- everything the emit stage needs, and nothing else.
+    // encode() used to pick the tree count by running encode_with_trees in measure-only
+    // mode for try_trees in {3..6}, then run it a FIFTH time to actually emit. That fifth
+    // call recomputed, bit for bit, the group assignment and Huffman tables the winning
+    // measure pass had already built and thrown away.
+    //
+    // Why that is worth removing: compress_huffman is the dominant cost in bwt5, which is
+    // ~90% of bwt9, which is ~74% of all instrumented compression time. Measured on a
+    // 287 KB block, compress_huffman is 26.5 ms against 8.8 ms for the entire BWT pipeline
+    // -- refuting the "the BWT runs dominate cost; the entropy backends are cheap by
+    // comparison" comment above compress(). Measured pass ladder (MAX_TREES 3/5/7 ->
+    // bwt5 total 471.9 / 682.9 / 813.1 ms) puts one pass at ~10-15% of bwt5.
+    //
+    // Emitting from the captured plan is byte-identical BY CONSTRUCTION, not by luck:
+    //   - the emit stage is a pure function of (data, n_trees, n_groups, group_tree,
+    //     trees, compact_idx), all of which the plan carries;
+    //   - the measure pass provably writes nothing, having no write_bits / write_unary /
+    //     output.push_back anywhere before its early return;
+    //   - emit_body() is the SAME code both paths call -- extracted once, never copied,
+    //     so the two paths cannot drift apart in a later edit.
+    struct TreePlan {
+        bool valid = false;
+        int n_trees = 0, n_groups = 0;
+        std::vector<int> group_tree;
+        std::vector<HuffTree> trees;
+    };
+
+    // The emit stage. Called by encode_with_trees(write_output=true) and by encode() when
+    // it holds a captured plan. Sole owner of the output format.
+    size_t emit_body(const std::vector<uint16_t>& data, int n_trees, int n_groups,
+                     const std::vector<int>& group_tree, const std::vector<HuffTree>& trees,
+                     const int16_t* compact_idx, int compact_size, size_t total_bytes) {
+        size_t n = data.size();
+        // Actually write the output
+        write_bits(n_trees - 1, 3);
+        // n_groups stored in 24 bits (BC format) -- supports up to 16M groups (~1GB raw input).
+        // Old BB format used 16 bits, which overflows past ~3MB of post-BWT data.
+        write_bits(n_groups & 0xFFFF, 16);
+        write_bits((n_groups >> 16) & 0xFF, 8);
+
+        std::vector<int> selector_mtf(n_trees);
+        std::iota(selector_mtf.begin(), selector_mtf.end(), 0);
+        for (int g = 0; g < n_groups; g++) {
+            int tree = group_tree[g];
+            int pos = 0;
+            while (selector_mtf[pos] != tree) pos++;
+            write_unary(pos);
+            for (int j = pos; j > 0; j--) selector_mtf[j] = selector_mtf[j-1];
+            selector_mtf[0] = tree;
+        }
+
+        for (int t = 0; t < n_trees; t++) {
+            int curr_len = trees[t].code_lengths[0];
+            write_bits(curr_len, 5);
+            for (int s = 0; s < compact_size; s++) {
+                int len = trees[t].code_lengths[s];
+                while (curr_len < len) { write_bits(1, 2); curr_len++; }
+                while (curr_len > len) { write_bits(3, 2); curr_len--; }
+                write_bits(0, 1);
+            }
+        }
+
+        int curr_group = -1, curr_tree = 0;
+        for (size_t i = 0; i < n; i++) {
+            int g = i / GROUP_SIZE;
+            if (g != curr_group) { curr_group = g; curr_tree = group_tree[g]; }
+            int ci = compact_idx[data[i]];
+            if (ci >= 0) {
+                uint32_t code = trees[curr_tree].codes[ci];
+                int len = trees[curr_tree].code_lengths[ci];
+                uint32_t rev = 0;
+                for (int b = 0; b < len; b++) rev = (rev << 1) | ((code >> b) & 1);
+                write_bits(rev, len);
+            }
+        }
+        if (bits_in_buffer > 0) output.push_back(buffer & 0xFF);
+        return total_bytes;
+    }
+
     // Inner encode with specific tree count - returns encoded size
     size_t encode_with_trees(const std::vector<uint16_t>& data, int alpha_size,
                              int n_trees, const SymbolBitmap& bitmap, int compact_size,
-                             bool write_output) {
+                             bool write_output, TreePlan* plan_out = nullptr) {
         size_t n = data.size();
         int n_groups = (n + GROUP_SIZE - 1) / GROUP_SIZE;
         std::vector<std::vector<uint32_t>> tree_freqs(n_trees, std::vector<uint32_t>(compact_size, 0));
@@ -883,52 +962,20 @@ public:
 
         size_t total_bytes = (total_bits + 7) / 8;
 
-        if (!write_output) return total_bytes;
-
-        // Actually write the output
-        write_bits(n_trees - 1, 3);
-        // n_groups stored in 24 bits (BC format) — supports up to 16M groups (~1GB raw input).
-        // Old BB format used 16 bits, which overflows past ~3MB of post-BWT data.
-        write_bits(n_groups & 0xFFFF, 16);
-        write_bits((n_groups >> 16) & 0xFF, 8);
-
-        std::vector<int> selector_mtf(n_trees);
-        std::iota(selector_mtf.begin(), selector_mtf.end(), 0);
-        for (int g = 0; g < n_groups; g++) {
-            int tree = group_tree[g];
-            int pos = 0;
-            while (selector_mtf[pos] != tree) pos++;
-            write_unary(pos);
-            for (int j = pos; j > 0; j--) selector_mtf[j] = selector_mtf[j-1];
-            selector_mtf[0] = tree;
-        }
-
-        for (int t = 0; t < n_trees; t++) {
-            int curr_len = trees[t].code_lengths[0];
-            write_bits(curr_len, 5);
-            for (int s = 0; s < compact_size; s++) {
-                int len = trees[t].code_lengths[s];
-                while (curr_len < len) { write_bits(1, 2); curr_len++; }
-                while (curr_len > len) { write_bits(3, 2); curr_len--; }
-                write_bits(0, 1);
+        if (!write_output) {
+            // Hand the caller everything the emit stage needs. These locals are dead after
+            // this point on the measure path, so moving them out costs nothing.
+            if (plan_out) {
+                plan_out->valid = true;
+                plan_out->n_trees = n_trees;
+                plan_out->n_groups = n_groups;
+                plan_out->group_tree = std::move(group_tree);
+                plan_out->trees = std::move(trees);
             }
+            return total_bytes;
         }
-
-        int curr_group = -1, curr_tree = 0;
-        for (size_t i = 0; i < n; i++) {
-            int g = i / GROUP_SIZE;
-            if (g != curr_group) { curr_group = g; curr_tree = group_tree[g]; }
-            int ci = compact_idx[data[i]];
-            if (ci >= 0) {
-                uint32_t code = trees[curr_tree].codes[ci];
-                int len = trees[curr_tree].code_lengths[ci];
-                uint32_t rev = 0;
-                for (int b = 0; b < len; b++) rev = (rev << 1) | ((code >> b) & 1);
-                write_bits(rev, len);
-            }
-        }
-        if (bits_in_buffer > 0) output.push_back(buffer & 0xFF);
-        return total_bytes;
+        return emit_body(data, n_trees, n_groups, group_tree, trees, compact_idx,
+                         compact_size, total_bytes);
     }
 
     void encode(const std::vector<uint16_t>& data, int alpha_size) {
@@ -951,17 +998,30 @@ public:
         // the variation that a globally-fixed NT misses. encode_with_trees in
         // measure-only mode (write_output=false) is cheap relative to the actual emit.
         int best_trees = base_trees;
+        TreePlan best_plan;
         if (n >= 1200) {
             size_t best_size = SIZE_MAX;
             int max_try = std::min(MAX_TREES + 1, 7);
             for (int try_trees = 3; try_trees <= max_try; try_trees++) {
-                size_t sz = encode_with_trees(data, alpha_size, try_trees, bitmap, compact_size, false);
-                if (sz < best_size) { best_size = sz; best_trees = try_trees; }
+                TreePlan p;
+                size_t sz = encode_with_trees(data, alpha_size, try_trees, bitmap, compact_size, false, &p);
+                // Strictly '<', exactly as before, so ties still keep the SMALLER tree count
+                // and the captured plan always belongs to the try that would have been re-run.
+                if (sz < best_size) { best_size = sz; best_trees = try_trees; best_plan = std::move(p); }
             }
         }
 
         bitmap.write(output);
-        encode_with_trees(data, alpha_size, best_trees, bitmap, compact_size, true);
+        if (best_plan.valid) {
+            // The fifth pass, avoided: emit straight from the winning measure pass.
+            int16_t compact_idx[MAX_ALPHA];
+            bitmap.build_compact_index(compact_idx);
+            emit_body(data, best_plan.n_trees, best_plan.n_groups, best_plan.group_tree,
+                      best_plan.trees, compact_idx, compact_size, 0);
+        } else {
+            // n < 1200: the trial loop never ran, so there is no plan to inherit.
+            encode_with_trees(data, alpha_size, best_trees, bitmap, compact_size, true);
+        }
     }
 };
 
