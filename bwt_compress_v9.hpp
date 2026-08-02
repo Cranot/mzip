@@ -39,7 +39,14 @@ inline Mode choose_mode(size_t original_size) {
 // =============================================================================
 // Main Compress/Decompress
 // =============================================================================
-inline std::vector<uint8_t> compress(const uint8_t* data, size_t n) {
+// `cm_pre` (2026-08-02): an OPTIONAL, already-computed cmbk::compress_bwt(data, n) for this exact
+// input. Purely an efficiency channel — mode 2 below is byte-for-byte what it always was, because
+// cmbk::compress_bwt is deterministic, so a supplied result is indistinguishable from a recomputed
+// one. It exists because mzip's TEXT path computes that same stream for its own CM_TEXT trial and
+// then calls us, making the BWT+CM pass run TWICE on identical bytes. Defaults to nullptr, so every
+// other call site (all the sub-stream callers) is untouched and still computes it itself.
+inline std::vector<uint8_t> compress(const uint8_t* data, size_t n,
+                                     const std::vector<uint8_t>* cm_pre = nullptr) {
     if (n == 0) return {};
 
     Mode mode = choose_mode(n);
@@ -59,7 +66,9 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t n) {
 
     // mode 2: BWT + context-mixing (bzip3-class) — trial vs v5/v8, keep if smaller. Covers EVERY bwt9 call-site.
 #ifndef MZIP_NO_CM
-    auto cm = cmbk::compress_bwt(data, n);
+    std::vector<uint8_t> cm_local;
+    if (!cm_pre) { cm_local = cmbk::compress_bwt(data, n); cm_pre = &cm_local; }
+    const std::vector<uint8_t>& cm = *cm_pre;
     if (!cm.empty() && cm.size() + 3 < output.size()) {
         output.clear();
         output.push_back('B'); output.push_back('9'); output.push_back(2);

@@ -13823,6 +13823,55 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         size_t this_block = std::min(block_size, size - in_pos);
         const uint8_t* block_data = data + in_pos;
 
+        // ---------------------------------------------------------------------------
+        // bwt9 MEMO — 2026-08-02. bwt9::compress(block_data, this_block) is called from
+        // SIX sites in this loop, all on the IDENTICAL input, and up to two of them fire
+        // on the same block. Measured (MZIP_TIME, per file): the TEXT path and the
+        // universal backstop each pay the full cost for a bit-identical result --
+        //     linux_kernel.c  679.6 ms then 679.5 ms
+        //     clojure_core.clj 597.1 ms then 595.0 ms
+        //     lodash.js        813.7 ms then 832.8 ms
+        // bwt9 is 76.3% of all instrumented time corpus-wide (43,480 of 57,020 ms), so a
+        // duplicated call is the single most expensive redundancy in the encoder.
+        //
+        // ELIMINATING IT IS PROVABLY OUTPUT-NEUTRAL, not merely "should be": every earlier
+        // site already trials bwt9 against its alternative and keeps the SMALLER, so by the
+        // time the backstop runs, `cur` <= the bwt9 size. The backstop's `b9.size() < cur`
+        // test therefore cannot succeed on a recomputed-identical result. Memoising rather
+        // than skipping keeps the comparison logic literally unchanged, so the only thing
+        // removed is the recomputation.
+        // Deterministic by construction: same function, same pointer, same length.
+        // ---------------------------------------------------------------------------
+        bool bwt9_memo_valid = false;
+        std::vector<uint8_t> bwt9_memo;
+
+        // ...and the SAME redundancy exists one level down. bwt_compress_v9.hpp mode 2 calls
+        // cmbk::compress_bwt(data, n) on EVERY bwt9 invocation, while the TEXT path below calls it
+        // AGAIN on the identical block for its own CM_TEXT trial. So a text block paid for the
+        // BWT+CM pass twice inside a bwt9 call that was itself already duplicated. (This is also
+        // why bwt9_probe lands within ~14 B of shipped output on CM_TEXT-winning files: bwt9's own
+        // answer there IS the CM stream plus its 3-byte 'B','9',2 header.)
+        bool cm_memo_valid = false;
+        std::vector<uint8_t> cm_memo;
+        auto cm_block = [&]() -> const std::vector<uint8_t>& {
+            if (!cm_memo_valid) { cm_memo = cmbk::compress_bwt(block_data, this_block); cm_memo_valid = true; }
+            return cm_memo;
+        };
+
+        auto bwt9_block = [&]() -> const std::vector<uint8_t>& {
+            if (!bwt9_memo_valid) {
+#ifndef MZIP_NO_CM
+                // Hand bwt9 the memoised CM stream instead of letting it recompute one. Eager, but
+                // it adds no work: mode 2 computes exactly this on every call anyway.
+                bwt9_memo = bwt9::compress(block_data, this_block, &cm_block());
+#else
+                bwt9_memo = bwt9::compress(block_data, this_block);
+#endif
+                bwt9_memo_valid = true;
+            }
+            return bwt9_memo;
+        };
+
         // Analyze block
         BlockAnalysis analysis = analyze_block(block_data, this_block);
 
@@ -14115,7 +14164,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::DBF_CONSTCOL) {
             // DBF constant column elimination — trial: CC+zstd vs BWT, pick smaller
             auto cc_compressed = MZ_TIMED("encode_dbf_constcol", encode_dbf_constcol(block_data, this_block, zstd_level));
-            auto bwt_compressed = MZ_TIMED("bwt9 L14098", bwt9::compress(block_data, this_block));
+            auto bwt_compressed = MZ_TIMED("bwt9 L14098", bwt9_block());
 
             if (!cc_compressed.empty() && cc_compressed.size() < bwt_compressed.size()) {
                 // CC+zstd wins — store as DBF_CONSTCOL (already zstd-compressed)
@@ -14134,7 +14183,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::BWT_TEXT) {
             // BWT compression for natural text - beats zstd/bzip2 on prose, markdown, etc.
             // v9 dispatches to v8 (fixed model) for <5KB or v5 (multi-tree) for larger
-            auto compressed = MZ_TIMED("bwt9 L14117", bwt9::compress(block_data, this_block));
+            auto compressed = MZ_TIMED("bwt9 L14117", bwt9_block());
 
             // At small sizes (<=16KB), trial zstd+dict — may beat BWT and brotli
             if (this_block <= 16384) {
@@ -14207,7 +14256,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                 // >16KB: trial CM (BWT+CM, bzip3-class) vs bwt9, keep smaller
                 std::vector<uint8_t> cm_compressed;
 #ifndef MZIP_NO_CM
-                cm_compressed = cmbk::compress_bwt(block_data, this_block);
+                cm_compressed = cm_block();   // memoised; bwt9_block() above computed this same stream
 #endif
                 if (!cm_compressed.empty() && cm_compressed.size() < compressed.size()) {
                     memcpy(preprocess_data, cm_compressed.data(), cm_compressed.size());
@@ -14337,7 +14386,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                     // BWT often wins on text where TEMPLATE's structure doesn't compress well
                     // (e.g., Prometheus metrics with random values/timestamps)
                     if (this_block >= 256 && this_block <= 2097152) {
-                        auto bwt_result = MZ_TIMED("bwt9 @site1(L14320)", bwt9::compress(block_data, this_block));
+                        auto bwt_result = MZ_TIMED("bwt9 @site1(L14320)", bwt9_block());
                         memcpy(preprocess_data, bwt_result.data(), bwt_result.size());
                         preprocess_size = bwt_result.size();
                         analysis.type = BlockType::BWT_TEXT;
@@ -14394,7 +14443,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                 // Trial: at small sizes (<64KB), COLUMNAR overhead can exceed gains.
                 // Try BWT_TEXT on raw data and pick the smaller result.
                 if (analysis.columnar.columns.size() == 9 && this_block <= 32768) {
-                    auto bwt_trial = MZ_TIMED("bwt9 L14377", bwt9::compress(block_data, this_block));
+                    auto bwt_trial = MZ_TIMED("bwt9 L14377", bwt9_block());
                     if (bwt_trial.size() < encoded.size()) {
                         // BWT_TEXT wins — fall back
                         memcpy(preprocess_data, bwt_trial.data(), bwt_trial.size());
@@ -14433,7 +14482,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             } else {
                 // Fall back to BWT_TEXT for CSV that didn't roundtrip
                 if (this_block >= 256 && this_block <= 2097152) {
-                    auto bwt_result = MZ_TIMED("bwt9 @site2(L14416)", bwt9::compress(block_data, this_block));
+                    auto bwt_result = MZ_TIMED("bwt9 @site2(L14416)", bwt9_block());
                     memcpy(preprocess_data, bwt_result.data(), bwt_result.size());
                     preprocess_size = bwt_result.size();
                     analysis.type = BlockType::BWT_TEXT;
@@ -14679,7 +14728,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             // BWT-friendly data the type detectors MISS (float/sensor arrays, structured binary) where
             // it beats bzip2/xz/zstd. Tried first so ties prefer our own tech over the external backstops.
             {
-                auto b9 = MZ_TIMED("bwt9 @backstop", bwt9::compress(block_data, this_block));
+                auto b9 = MZ_TIMED("bwt9 @backstop", bwt9_block());
                 if (!b9.empty() && b9.size() < cur && b9.size() <= cap) {
                     memcpy(preprocess_data, b9.data(), b9.size());
                     preprocess_size = b9.size();
