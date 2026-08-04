@@ -15700,6 +15700,27 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
                 pos++;
             }
 
+            // INPUT BOUNDS CHECK for the MC (multi-chunk) branch — 2026-08-04.
+            // chunk_comp and chunk_orig are read as untrusted 64-bit varints just above and
+            // were then used with NO validation: `data + pos, chunk_comp` was handed to
+            // ZSTD_decompress / bwt9::decompress (an out-of-bounds READ when
+            // pos + chunk_comp runs past the input), and chunk_output.resize(chunk_orig)
+            // allocated from the same untrusted 64-bit value (unbounded allocation / OOM).
+            // The STANDARD block path ~250 lines below already performs exactly this test
+            // ("Truncated block data"); the MC branch was missing its twin. Two guards,
+            // matching that precedent:
+            if (pos + chunk_comp > size) {
+                res.error = "MC: truncated chunk data (corrupt or malicious archive)";
+                if (result) *result = res;
+                return {};
+            }
+            // A chunk cannot legitimately decode to more than the whole file's declared size.
+            if (chunk_orig > orig_size) {
+                res.error = "MC: chunk original size exceeds file size (corrupt or malicious archive)";
+                if (result) *result = res;
+                return {};
+            }
+
             // Decompress based on backend
             std::vector<uint8_t> chunk_output;
             if (backend == 0) {
