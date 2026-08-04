@@ -1443,8 +1443,33 @@ inline std::vector<uint8_t> compress_rc(const BwtPipelineResult& r,
 // Forward declaration: compress() needs to roundtrip-verify its candidates.
 inline std::vector<uint8_t> decompress(const uint8_t* data, size_t n, bool debug);
 
-inline std::vector<uint8_t> compress(const uint8_t* data, size_t n) {
+// `cap` (2026-08-04): the incumbent size the CALLER will compare against. Purely a
+// pruning hint -- it can only remove candidates that provably cannot win.
+//
+// THE BOUND. MultiTreeEncoder gives every symbol a code of at least one bit, so any
+// Huffman candidate built from a pipeline with S symbols is at least ceil(S/8) bytes.
+// If that already reaches `cap`, the candidate cannot be min(candidates) in any case
+// where the caller keeps the result -- because the caller discards anything >= cap.
+// Skipping it therefore leaves the returned value IDENTICAL: either some other
+// candidate is < cap and is still the min, or every candidate is >= cap and the whole
+// result is discarded either way.
+//
+// STRICTLY LIMITED TO PREFIX CODES. The range-coder arms (E/F/I/J) are arithmetic and
+// can spend LESS than one bit per symbol, so the bound does not hold for them and they
+// are never pruned. That also guarantees the candidate set never empties from pruning
+// alone: the two base range-coder arms are always generated.
+//
+// Measured usefulness: on tsgas_series.bin the incumbent (NUMERIC) is 237,945 B while
+// bwt9 would produce 3,023,955 B -- 12.7x over -- and the bound is 499,526 B, so it
+// prunes. On linux_kernel.c, where bwt9 WINS, the bound is 18,389 B against a 62,880 B
+// incumbent and correctly does not fire. It gives up only when hopeless.
+inline std::vector<uint8_t> compress(const uint8_t* data, size_t n, size_t cap = SIZE_MAX) {
     if (n == 0) return {};
+
+    // A Huffman candidate from this pipeline cannot come in under `cap`.
+    auto huff_hopeless = [cap](const BwtPipelineResult& r) -> bool {
+        return cap != SIZE_MAX && r.ok && (r.rle.size() + 7) / 8 >= cap;
+    };
 
     // Run BWT pipeline twice (with and without pre-RLE), then for each, try both
     // entropy backends (Huffman + range coder o0 + range coder o1). Plus LZP-then-BWT.
@@ -1461,6 +1486,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t n) {
 
     std::vector<std::vector<uint8_t>> candidates;
     if (pipe_with.ok) {
+        if (!huff_hopeless(pipe_with))
         candidates.push_back(compress_huffman(pipe_with,
                               static_cast<uint32_t>(rle1.size()), 'C'));
         candidates.push_back(compress_rc(pipe_with,
@@ -1469,6 +1495,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t n) {
                               static_cast<uint32_t>(rle1.size()), 'I'));
     }
     if (pipe_without.ok) {
+        if (!huff_hopeless(pipe_without))
         candidates.push_back(compress_huffman(pipe_without,
                               static_cast<uint32_t>(n), 'D'));
         candidates.push_back(compress_rc(pipe_without,
@@ -1481,7 +1508,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t n) {
     // emit ESC+code per occurrence, then BWT the encoded stream. Pays off when
     // a non-trivial fraction of the input is repeating multi-char words (prose,
     // markdown, code with common identifiers). Trial-pick gates it.
-    auto try_dict_variant = [](const uint8_t* in, size_t in_n, char header_byte,
+    auto try_dict_variant = [&huff_hopeless](const uint8_t* in, size_t in_n, char header_byte,
                                 std::vector<std::vector<uint8_t>>& cands) {
         if (in_n < 4096) return;
         WordDict dict_full = wd_build(in, in_n);
@@ -1496,6 +1523,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t n) {
             if (enc.size() >= in_n) continue;
             auto pipe_dict = run_bwt_pipeline(enc.data(), enc.size());
             if (!pipe_dict.ok) continue;
+            if (huff_hopeless(pipe_dict)) continue;
 
             std::vector<uint8_t> payload = compress_huffman(pipe_dict,
                                               static_cast<uint32_t>(enc.size()), header_byte);
@@ -1530,6 +1558,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t n) {
                     if (lzp_enc.size() >= wd_enc.size()) continue;
                     auto pipe_w = run_bwt_pipeline(lzp_enc.data(), lzp_enc.size());
                     if (!pipe_w.ok) continue;
+                    if (huff_hopeless(pipe_w)) continue;
                     std::vector<uint8_t> payload = compress_huffman(pipe_w,
                                                        static_cast<uint32_t>(lzp_enc.size()), 'W');
                     // Header BW + 1-byte min_match + dict + (data after BW header)
@@ -1560,6 +1589,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t n) {
                 if (enc.size() >= cf.size() + 256) continue;
                 auto pipe_cf = run_bwt_pipeline(enc.data(), enc.size());
                 if (!pipe_cf.ok) continue;
+                if (huff_hopeless(pipe_cf)) continue;
                 std::vector<uint8_t> payload = compress_huffman(pipe_cf,
                                                    static_cast<uint32_t>(enc.size()), 'S');
                 std::vector<uint8_t> full;
@@ -1586,7 +1616,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t n) {
                 auto bg_enc = bg_encode(wd_enc.data(), wd_enc.size(), bg_dict);
                 if (bg_enc.size() < wd_enc.size()) {
                     auto pipe_bv = run_bwt_pipeline(bg_enc.data(), bg_enc.size());
-                    if (pipe_bv.ok) {
+                    if (pipe_bv.ok && !huff_hopeless(pipe_bv)) {
                         std::vector<uint8_t> payload = compress_huffman(pipe_bv,
                                                           static_cast<uint32_t>(bg_enc.size()), 'V');
                         std::vector<uint8_t> full;
@@ -1615,7 +1645,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t n) {
                 auto enc = wd_encode(cf2.data(), cf2.size(), dict_xe);
                 if (enc.size() < cf2.size() + 256) {
                     auto pipe_xe = run_bwt_pipeline(enc.data(), enc.size());
-                    if (pipe_xe.ok) {
+                    if (pipe_xe.ok && !huff_hopeless(pipe_xe)) {
                         std::vector<uint8_t> payload = compress_huffman(pipe_xe,
                                                            static_cast<uint32_t>(enc.size()), 'U');
                         std::vector<uint8_t> full;

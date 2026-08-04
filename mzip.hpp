@@ -14728,7 +14728,26 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             // BWT-friendly data the type detectors MISS (float/sensor arrays, structured binary) where
             // it beats bzip2/xz/zstd. Tried first so ties prefer our own tech over the external backstops.
             {
-                auto b9 = MZ_TIMED("bwt9 @backstop", bwt9_block());
+                // The backstop is the LAST consumer of bwt9 for this block and it already holds
+                // the incumbent size `cur`, so hand that over as a pruning cap: bwt5 can then skip
+                // Huffman candidates that provably cannot come in under it. Worth most exactly where
+                // bwt9 is hopeless — on tsgas_series.bin the incumbent (NUMERIC) is 237,945 B while
+                // bwt9 would spend 4.8 s producing 3,023,955 B.
+                //
+                // DELIBERATELY NOT MEMOISED. A capped result is only guaranteed to equal the true
+                // one when it lands BELOW the cap; above it, pruning may have removed the true min.
+                // Caching it could hand a pruned answer to a caller that needed the exact one. Since
+                // nothing runs after the backstop there is nothing to cache it for, and if the memo
+                // is already populated (the TEXT path ran) we use that exact result untouched.
+                std::vector<uint8_t> b9_local;
+                if (!bwt9_memo_valid) {
+#ifndef MZIP_NO_CM
+                    b9_local = MZ_TIMED("bwt9 @backstop", bwt9::compress(block_data, this_block, &cm_block(), cur));
+#else
+                    b9_local = MZ_TIMED("bwt9 @backstop", bwt9::compress(block_data, this_block, nullptr, cur));
+#endif
+                }
+                const std::vector<uint8_t>& b9 = bwt9_memo_valid ? bwt9_memo : b9_local;
                 if (!b9.empty() && b9.size() < cur && b9.size() <= cap) {
                     memcpy(preprocess_data, b9.data(), b9.size());
                     preprocess_size = b9.size();
