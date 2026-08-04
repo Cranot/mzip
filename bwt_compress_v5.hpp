@@ -24,6 +24,10 @@
 
 // libsais - O(n) suffix array / BWT construction
 // Source: https://github.com/IlyaGrebnov/libsais
+#ifdef MZIP_PARALLEL
+#include <thread>   // must sit OUTSIDE the extern "C" below — libstdc++ headers are C++
+#endif
+
 extern "C" {
 #include "libsais.h"
 }
@@ -1537,8 +1541,18 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t n, size_t cap =
     };
 
     // Variant 1: dict on raw input ('BR')
-    try_dict_variant(data, n, 'R', candidates);
+    // ---------------------------------------------------------------------------
+    // The five dict-variant blocks are INDEPENDENT: each computes its own cf_encode /
+    // wd_build and reads only (data, n, cap). Defining them as lambdas that write to
+    // their own vectors lets the same bodies run either sequentially or concurrently,
+    // with no second copy to drift. They are appended below in the original order
+    // (R, W, S, V, U), so `candidates` is bit-identical either way -- which matters
+    // because the sort that follows is not stable and resolves ties by position.
+    // ---------------------------------------------------------------------------
+    std::vector<std::vector<uint8_t>> cand_R, cand_W, cand_S, cand_V, cand_U;
 
+    auto do_BR = [&]() { try_dict_variant(data, n, 'R', cand_R); };
+    auto do_BW = [&]() {
     // Variant 5: capfold + dict + LZP-AFTER-DICT ('BW'). Synergy: LZP on the
     // dict-encoded stream catches long repeats that emerged from word substitution.
     // Trial multiple LZP min_match values per block — dict-encoded patterns are
@@ -1568,12 +1582,13 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t n, size_t cap =
                     full.push_back((uint8_t)mm);
                     wd_serialize(dict_w, full);
                     full.insert(full.end(), payload.begin() + 2, payload.end());
-                    candidates.push_back(std::move(full));
+                    cand_W.push_back(std::move(full));
                 }
             }
         }
     }
-
+    };
+    auto do_BS = [&]() {
     // Variant 2: capital-fold then dict ('BS'). Try multiple dict sizes per block —
     // smaller dict has less header overhead, larger dict has more compression.
     // The optimum varies with block size and content type, so trial and pick smallest.
@@ -1597,11 +1612,12 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t n, size_t cap =
                 full.push_back('S');
                 wd_serialize(dict_cf, full);
                 full.insert(full.end(), payload.begin() + 2, payload.end());
-                candidates.push_back(std::move(full));
+                cand_S.push_back(std::move(full));
             }
         }
     }
-
+    };
+    auto do_BV = [&]() {
     // Variant 4: capfold + dict + BIGRAM second pass ('BV'). After single-word dict
     // encoding, common (ESC X SPACE ESC Y) sequences are 5 bytes. A second-pass
     // bigram dict collapses them to 2 bytes. The new BG_ESC=0xFD byte clusters
@@ -1625,13 +1641,14 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t n, size_t cap =
                         wd_serialize(dict_cf3, full);
                         bg_serialize(bg_dict, full);
                         full.insert(full.end(), payload.begin() + 2, payload.end());
-                        candidates.push_back(std::move(full));
+                        cand_V.push_back(std::move(full));
                     }
                 }
             }
         }
     }
-
+    };
+    auto do_BU = [&]() {
     // Variant 3: XML entity collapse + capfold + dict ('BU'). Wikipedia-targeted.
     // `&amp;` (5B) → 0x01, `&quot;` (6B) → 0x02, etc. Each entity occurrence saves 3-5
     // raw bytes; the substituted control byte clusters tightly post-BWT. Only fires when
@@ -1653,12 +1670,35 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t n, size_t cap =
                         full.push_back('U');
                         wd_serialize(dict_xe, full);
                         full.insert(full.end(), payload.begin() + 2, payload.end());
-                        candidates.push_back(std::move(full));
+                        cand_U.push_back(std::move(full));
                     }
                 }
             }
         }
     }
+    };
+
+#ifdef MZIP_PARALLEL
+    // Five threads, one per block. The critical path is BW (six candidates), so the
+    // ceiling here is roughly 16/6 on the dict portion, not 5x. Within-block
+    // parallelism would go further and is deliberately left for a separate,
+    // separately-gated change.
+    {
+        std::thread tW(do_BW), tS(do_BS), tV(do_BV), tU(do_BU);
+        do_BR();                       // run one inline rather than spawn a fifth thread
+        tW.join(); tS.join(); tV.join(); tU.join();
+    }
+#else
+    do_BR(); do_BW(); do_BS(); do_BV(); do_BU();
+#endif
+
+    // Original order. Do not reorder: the sort below is not stable.
+    for (auto& c : cand_R) candidates.push_back(std::move(c));
+    for (auto& c : cand_W) candidates.push_back(std::move(c));
+    for (auto& c : cand_S) candidates.push_back(std::move(c));
+    for (auto& c : cand_V) candidates.push_back(std::move(c));
+    for (auto& c : cand_U) candidates.push_back(std::move(c));
+
 
     // Roundtrip-verify each candidate before letting it win the trial. Some of
     // the per-block variants (BR/BS/BU/BV/BW with specific dict + LZP + capfold
