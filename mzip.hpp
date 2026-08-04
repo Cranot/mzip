@@ -4251,6 +4251,27 @@ inline std::vector<uint8_t> encode_phrase_partition(const PhrasePartitionParams&
     size_t idx_size = ZSTD_compress(idx_compressed.data(), idx_compressed.size(),
                                      params.indices.data(), params.indices.size(), zstd_level);
 
+    // DATA-LOSS BUG, FIXED 2026-08-04. Two defects on these four lines.
+    //
+    // (1) The size field is 2 BYTES but idx_size is unbounded. decode_phrase_partition
+    //     reads it back as ((size_t)data[pos] << 8) | data[pos+1], so anything above
+    //     65,535 was truncated mod 65536 and the decoder desynced. REPRODUCED on the
+    //     shipped binary with a 2,097,122 B input: zstd(indices) = 142,470 B, stored as
+    //     11,398; compress printed "2097122 -> 143206 (14.6441x)" and exited 0, then
+    //     decompress failed with "PHRASE_PARTITION decompression failed" and produced no
+    //     output. The archive was unrecoverable and nothing said so at compress time.
+    //     The block cap (2,097,152 B) is ~4x more than needed to overflow: indices are
+    //     one byte per matched phrase covering >99% of the block.
+    // (2) ZSTD_isError(idx_size) was never checked. On a zstd error idx_size is a huge
+    //     sentinel, so `idx_compressed.begin() + idx_size` below was out-of-bounds
+    //     iterator arithmetic — undefined behaviour, not merely a desync.
+    //
+    // Fix is to DECLINE rather than widen the field: a 4-byte or varint length would
+    // change the on-disk format and make new archives unreadable by existing decoders.
+    // Returning {} costs only this one encoder on blocks it cannot represent, and the
+    // caller already treats an empty result as "not used".
+    if (ZSTD_isError(idx_size) || idx_size > 0xFFFF) return {};
+
     // Store compressed indices size (2 bytes) + data
     raw.push_back((idx_size >> 8) & 0xFF);
     raw.push_back(idx_size & 0xFF);
@@ -11758,7 +11779,17 @@ inline bool detect_code_stream(const uint8_t* data, size_t n, CodeStreamParams& 
         if (in.empty()) return {};
         // Try BWT compression
         auto bwt_out = bwt9::compress(in.data(), in.size());
-        if (bwt_out.size() >= in.size()) {
+        // `bwt_out.empty()` matters and the size test alone cannot see it (2026-08-04).
+        // bwt9::compress returns {} when both its arms decline, and `0 >= in.size()` is
+        // FALSE for every non-empty stream — so an empty result used to fall through to
+        // the BWT branch below and emit a lone flag byte with no payload, which reads as
+        // a spectacular compression win. That degenerate stream then shrinks
+        // total_encoded and makes the CODE_STREAM acceptance gate PASS more easily, so
+        // the broken encoding is more likely to be selected, and this call site has no
+        // roundtrip verify (unlike TEMPLATE and CSV_COLUMNAR). Same shape as the bwt9
+        // header-before-payload hazard fixed in bwt_compress_v9.hpp; its sibling
+        // compress_stream above does check ZSTD_isError, this one checked nothing.
+        if (bwt_out.empty() || bwt_out.size() >= in.size()) {
             // Store uncompressed (prepend 0 flag)
             std::vector<uint8_t> result(1 + in.size());
             result[0] = 0;
@@ -14522,7 +14553,17 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             // Phrase partition: data exactly partitioned by repeated delimiter-separated phrases
             // Key insight: 5 phrases repeated 4900x = store phrases once + compressed indices
             auto encoded = MZ_TIMED("encode_phrase_partition", encode_phrase_partition(analysis.phrase_partition, block_data, this_block, zstd_level));
-            if (encoded.empty()) {
+            // Roundtrip-verify before adopting, matching what TEMPLATE and CSV_COLUMNAR
+            // already do. Added 2026-08-04 as defence in depth after a 2-byte length
+            // field in encode_phrase_partition was found to produce archives that
+            // compress cleanly and then fail to decode. The encoder bug is fixed at
+            // source, but this path shipped for a long time with an `encoded.empty()`
+            // guard as its ONLY check, and an empty guard cannot detect a well-formed
+            // stream that simply decodes to the wrong thing.
+            std::vector<uint8_t> pp_rt;
+            if (!encoded.empty()) pp_rt = decode_phrase_partition(encoded.data(), encoded.size(), this_block);
+            if (encoded.empty() || pp_rt.size() != this_block ||
+                std::memcmp(pp_rt.data(), block_data, this_block) != 0) {
                 analysis.type = BlockType::TEXT;
                 memcpy(preprocess_data, block_data, this_block);
                 res.blocks_text++;
