@@ -520,7 +520,16 @@ inline std::vector<uint16_t> zrle_encode(const uint8_t* data, size_t n) {
     return output;
 }
 
-inline std::vector<uint8_t> zrle_decode(const uint16_t* data, size_t n) {
+// `max_output` (2026-08-04): a DoS guard, default SIZE_MAX to preserve every existing
+// caller. The run length is accumulated as `run += (data[i]+1)*power; power *= 2;` over a
+// prefix of symbols <= 1, so 64 crafted low symbols drive `run` toward 2^64 and the
+// push_back loop below into an unbounded hang plus OOM. Reachable from a hostile archive:
+// an attacker who controls the archive controls the Huffman/RC stream that decodes into
+// these symbols. The legitimate output equals get_safe_padded_size(rle1_size), i.e. the
+// block's decoded size plus at most ~3 bytes of libsais padding, so the sole caller passes
+// rle1_size + a generous margin. Anything larger is corrupt; we bail with {} and the
+// downstream size checks reject the block cleanly.
+inline std::vector<uint8_t> zrle_decode(const uint16_t* data, size_t n, size_t max_output = SIZE_MAX) {
     std::vector<uint8_t> output;
     size_t i = 0;
     while (i < n) {
@@ -531,11 +540,15 @@ inline std::vector<uint8_t> zrle_decode(const uint16_t* data, size_t n) {
                 run += (data[i] + 1) * power;
                 power *= 2;
                 i++;
+                // Bail as soon as the run exceeds the bound — within ~log2(max_output)
+                // iterations, long before `power` (2^k) could overflow at k~63.
+                if (run > max_output || output.size() + run > max_output) return {};
             }
             for (size_t j = 0; j < run; j++) output.push_back(0);
         } else {
             output.push_back(data[i] - 1);
             i++;
+            if (output.size() > max_output) return {};
         }
     }
     return output;
@@ -1805,7 +1818,10 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t n, bool debug
 
         // ZRLE decode
         if (debug) { printf("Starting ZRLE decode...\n"); fflush(stdout); }
-        auto mtf_data = zrle_decode(rle.data(), rle.size());
+        // Bound run-length expansion at the block's decoded size + a generous margin for
+        // libsais padding (<= 3 bytes). rle1_size is in scope on both header paths; a crafted
+        // run-bomb blows past this, zrle_decode returns {}, and the size checks reject it.
+        auto mtf_data = zrle_decode(rle.data(), rle.size(), (size_t)rle1_size + 1024);
         if (debug) { printf("ZRLE decoded: %zu bytes\n", mtf_data.size()); fflush(stdout); }
 
         // MTF decode
@@ -1862,7 +1878,10 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t n, bool debug
 
         if (rle.size() != rle_count) return {};
 
-        auto mtf_data = zrle_decode(rle.data(), rle.size());
+        // Bound run-length expansion at the block's decoded size + a generous margin for
+        // libsais padding (<= 3 bytes). rle1_size is in scope on both header paths; a crafted
+        // run-bomb blows past this, zrle_decode returns {}, and the size checks reject it.
+        auto mtf_data = zrle_decode(rle.data(), rle.size(), (size_t)rle1_size + 1024);
         auto bwt_data = mtf_decode(mtf_data.data(), mtf_data.size());
         auto rle1_data = bwt_decode(bwt_data.data(), bwt_data.size(), primary_idx);
         auto output = pre_rle_decode(rle1_data.data(), rle1_data.size());
