@@ -10169,6 +10169,10 @@ inline std::vector<uint8_t> encode_num_extract(const uint8_t* data, size_t n) {
     std::vector<uint8_t> nums_out(nums_bound);
     size_t nums_size = ZSTD_compress(nums_out.data(), nums_out.size(),
                                       varint_buf.data(), varint_buf.size(), 19);
+    // ZSTD errors are (size_t)-1-code, i.e. near SIZE_MAX. Unchecked, that garbage went
+    // into the 4-byte length field AND drove the copy loop below ~2^64 bytes off the end
+    // of nums_out. Decline instead (2026-08-04); the caller treats {} as "not used".
+    if (ZSTD_isError(nums_size)) return {};
 
     // Store compressed numbers: size (4) + data
     result.push_back(nums_size & 0xFF);
@@ -10184,6 +10188,7 @@ inline std::vector<uint8_t> encode_num_extract(const uint8_t* data, size_t n) {
     std::vector<uint8_t> templ_out(templ_bound);
     size_t templ_size = ZSTD_compress(templ_out.data(), templ_out.size(),
                                        templ.data(), templ.size(), 19);
+    if (ZSTD_isError(templ_size)) return {};  // same guard as nums_size above
 
     // Store compressed template: size (4) + original_size (4) + data
     result.push_back(templ_size & 0xFF);
@@ -14203,12 +14208,22 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                 preprocess_size = cc_compressed.size();
                 use_generator = true;  // Already compressed internally
                 res.blocks_numeric++;
-            } else {
+            } else if (!bwt_compressed.empty()) {
                 // BWT wins — fall back to BWT_TEXT
                 memcpy(preprocess_data, bwt_compressed.data(), bwt_compressed.size());
                 preprocess_size = bwt_compressed.size();
                 analysis.type = BlockType::BWT_TEXT;
                 use_generator = true;
+                res.blocks_text++;
+            } else {
+                // Both encoders declined — bwt_compressed was the unguarded divisor in the
+                // comparison above (cc.size() < 0 is false, so control reached here), and
+                // adopting it would emit a zero-length payload. Only possible in MZIP_NO_CM
+                // when bwt5 fully fails. Store the raw block as TEXT (default preprocess_size
+                // = this_block, gets zstd'd downstream). Added 2026-08-04.
+                analysis.type = BlockType::TEXT;
+                memcpy(preprocess_data, block_data, this_block);
+                preprocess_size = this_block;
                 res.blocks_text++;
             }
         } else if (analysis.type == BlockType::BWT_TEXT) {
@@ -14289,25 +14304,55 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
 #ifndef MZIP_NO_CM
                 cm_compressed = cm_block();   // memoised; bwt9_block() above computed this same stream
 #endif
-                if (!cm_compressed.empty() && cm_compressed.size() < compressed.size()) {
+                // `compressed` is the bwt9 result and can be {} (MZIP_NO_CM + total bwt5
+                // failure). Prefer whichever of cm/bwt9 is non-empty and smaller; if BOTH
+                // are empty, store the raw block rather than adopt a zero-length payload.
+                // Added 2026-08-04. In the shipped CM build cmbk always produces output, so
+                // this only bites the MZIP_NO_CM A/B build.
+                bool cm_ok = !cm_compressed.empty();
+                bool b9_ok = !compressed.empty();
+                if (cm_ok && (!b9_ok || cm_compressed.size() < compressed.size())) {
                     memcpy(preprocess_data, cm_compressed.data(), cm_compressed.size());
                     preprocess_size = cm_compressed.size();
                     analysis.type = BlockType::CM_TEXT;
-                } else {
+                    use_generator = true;  // complete compression, skip zstd
+                    res.blocks_text++;
+                } else if (b9_ok) {
                     memcpy(preprocess_data, compressed.data(), compressed.size());
                     preprocess_size = compressed.size();
+                    use_generator = true;  // complete compression, skip zstd
+                    res.blocks_text++;
+                } else {
+                    analysis.type = BlockType::TEXT;
+                    memcpy(preprocess_data, block_data, this_block);
+                    preprocess_size = this_block;
+                    res.blocks_text++;
                 }
-                use_generator = true;  // complete compression, skip zstd
-                res.blocks_text++;
             }
         } else if (analysis.type == BlockType::HTML_STREAM) {
             // HTML tag/content separation - beats brotli by 3.3% at 256KB+
             // This is a complete encoder - output is already fully compressed
             auto compressed = MZ_TIMED("encode_html_stream", encode_html_stream(block_data, this_block));
-            memcpy(preprocess_data, compressed.data(), compressed.size());
-            preprocess_size = compressed.size();
-            use_generator = true;  // Already fully compressed, don't re-compress with zstd
-            res.blocks_text++;
+            // ROUNDTRIP VERIFY — 2026-08-04. encode_html_stream is NOT lossless: re-interleaving
+            // the tag and 0x00-delimited content streams does not preserve inter-tag whitespace
+            // and comment boundaries. Confirmed on train_corpus/xml/tomcat_build.xml: decode
+            // returns the right LENGTH (209,615) but 196,493 bytes differ. This site adopted the
+            // output with NO verify and set use_generator, so a HTML_STREAM-winning input would
+            // ship silently corrupt; today it is masked only because ZSTD_DICT is smaller. Fall
+            // back to TEXT if it does not roundtrip.
+            std::vector<uint8_t> html_rt;
+            if (!compressed.empty()) html_rt = decode_html_stream(compressed.data(), compressed.size(), this_block);
+            if (compressed.empty() || html_rt.size() != this_block ||
+                std::memcmp(html_rt.data(), block_data, this_block) != 0) {
+                analysis.type = BlockType::TEXT;
+                memcpy(preprocess_data, block_data, this_block);
+                res.blocks_text++;
+            } else {
+                memcpy(preprocess_data, compressed.data(), compressed.size());
+                preprocess_size = compressed.size();
+                use_generator = true;  // Already fully compressed, don't re-compress with zstd
+                res.blocks_text++;
+            }
         } else if (analysis.type == BlockType::URL_STREAM) {
             // URL component separation - beats mzip by 6.2% on URL lists
             // Protocols compress to 0.1%, domains to 2.9%
@@ -14471,11 +14516,33 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                 res.blocks_text++;
             } else {
                 auto encoded = MZ_TIMED("encode_columnar", encode_columnar(analysis.columnar));
+                // ROUNDTRIP VERIFY — 2026-08-04. encode_columnar is NOT lossless: it drops
+                // the HTTP version at encode (paths stores only METHOD+path) and hard-codes
+                // `" HTTP/1.1\" "` and `" - - ["` at decode, so any access log whose requests
+                // are not exactly HTTP/1.1 (or whose ident/authuser are not "-") reconstructs
+                // wrong. Confirmed on real_bench/apache_log_sample.log: decode returns
+                // 2,370,606 of 2,370,789 bytes, 252,097 differ. This branch adopted `encoded`
+                // with NO verify; corruption shipped only if columnar also won the trial, and
+                // it was masked here because the universal backstop's bwt9 is usually smaller.
+                // Matching what CSV_COLUMNAR below already does: fall back to TEXT if it fails.
+                std::vector<uint8_t> col_rt;
+                if (!encoded.empty()) col_rt = decode_columnar(encoded.data(), encoded.size(), this_block);
+                bool col_ok = (!encoded.empty() && col_rt.size() == this_block &&
+                               std::memcmp(col_rt.data(), block_data, this_block) == 0);
+                if (!col_ok) {
+                    analysis.type = BlockType::TEXT;
+                    memcpy(preprocess_data, block_data, this_block);
+                    res.blocks_text++;
+                } else
                 // Trial: at small sizes (<64KB), COLUMNAR overhead can exceed gains.
                 // Try BWT_TEXT on raw data and pick the smaller result.
                 if (analysis.columnar.columns.size() == 9 && this_block <= 32768) {
                     auto bwt_trial = MZ_TIMED("bwt9 L14377", bwt9_block());
-                    if (bwt_trial.size() < encoded.size()) {
+                    // `!bwt_trial.empty()` (2026-08-04): bwt9 can return {} (MZIP_NO_CM +
+                    // total bwt5 failure), and `0 < encoded.size()` is always true, so an
+                    // empty result would win and be adopted as a zero-length BWT_TEXT block.
+                    // Falling through to the else keeps the roundtrip-verified columnar output.
+                    if (!bwt_trial.empty() && bwt_trial.size() < encoded.size()) {
                         // BWT_TEXT wins — fall back
                         memcpy(preprocess_data, bwt_trial.data(), bwt_trial.size());
                         preprocess_size = bwt_trial.size();
