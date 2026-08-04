@@ -1372,7 +1372,18 @@ enum class Strategy {
     BLOCK_COLUMNAR, // Fixed-width record columnar encoding (+52-78% on logs/records/HTML)
     NARROW16,       // 16-bit values with range ≤255: pack to 8-bit (sensor data around mean)
     // Future: TEMPLATE, BWT, etc.
+    //
+    // ⚠ 5-BIT CEILING (2026-08-04). mzip's compact single-block header packs Strategy into a
+    // 5-bit field: `((strategy & 0x1F) << 2)` on encode and `(flags >> 2) & 0x1F` on decode
+    // (mzip.hpp). Values 0..31 fit; a 33rd strategy (index 32) would SILENTLY wrap to NONE on
+    // that path — no error, wrong-but-right-sized output. Keep new strategies before the
+    // sentinel; the static_assert below is the tripwire.
+    _STRATEGY_COUNT
 };
+// If this fires, the compact header (mzip.hpp, `& 0x1F`) can no longer distinguish all
+// strategies. Widen that field (a format change: both encode and decode) before adding more.
+static_assert(static_cast<unsigned>(Strategy::_STRATEGY_COUNT) <= 32,
+              "Strategy no longer fits mzip's 5-bit compact-header field");
 
 // Delta encode: out[i] = in[i] - in[i-1]
 inline void delta_encode(uint8_t* out, const uint8_t* in, size_t n) {

@@ -14704,10 +14704,27 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             // Repeating multi-line sections with {N} variable (Markdown, JavaScript!)
             // Works on any block - each block stores its own template + LINEAR_GEN params
             auto encoded = MZ_TIMED("encode_section_template", encode_section_template(analysis.section_template, zstd_level));
-            memcpy(preprocess_data, encoded.data(), encoded.size());
-            preprocess_size = encoded.size();
-            use_generator = true;  // Don't re-compress
-            res.blocks_text++;
+            // ROUNDTRIP VERIFY — 2026-08-04. This site adopted the encoder output with no
+            // verify, and decode_section_template ends with `while (output.size() >
+            // original_size) output.pop_back();` -- so an over-producing (wrong) reconstruction
+            // is silently trimmed to the expected LENGTH and then passes the block loop's only
+            // integrity check, which compares out_pos to original_size and never the content.
+            // A length check is not an integrity check. Verify content here and fall back to
+            // TEXT on mismatch, matching TEMPLATE / CSV_COLUMNAR / COLUMNAR / HTML_STREAM.
+            std::vector<uint8_t> st_rt;
+            if (!encoded.empty()) st_rt = decode_section_template(encoded.data(), encoded.size(), this_block);
+            if (encoded.empty() || st_rt.size() != this_block ||
+                std::memcmp(st_rt.data(), block_data, this_block) != 0) {
+                analysis.type = BlockType::TEXT;
+                memcpy(preprocess_data, block_data, this_block);
+                preprocess_size = this_block;
+                res.blocks_text++;
+            } else {
+                memcpy(preprocess_data, encoded.data(), encoded.size());
+                preprocess_size = encoded.size();
+                use_generator = true;  // Don't re-compress
+                res.blocks_text++;
+            }
         } else if (analysis.type == BlockType::WORD_TEMPLATE) {
             // Repeating sections with word variable (2.4x over zstd on API docs!)
             // Each section has same structure but differs by one word that appears multiple times
