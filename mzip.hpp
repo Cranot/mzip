@@ -13742,16 +13742,91 @@ struct DecompressResult {
 // Main Compression API
 // ============================================================================
 
+// ============================================================================
+// SoA structural transforms (2026-08-05) — the "formula-replication as layout
+// recovery" win. A good context-mixer already inverts single-stream generators
+// (delta, linear recurrence, even sinusoids), but it sees ONE interleaved byte
+// stream and misses LAYOUT structure. Reshaping bytes so the model sees each
+// lane/column contiguously wins where the CM can't reach:
+//   tid 0 = byte-shuffle-W    (the blosc/HDF5 SHUFFLE filter: byte j of every
+//           W-byte element made contiguous; smooth floats -> constant exponent
+//           lane). Measured -17.3% on a quantized f4 series.
+//   tid 1 = element-de-interleave-(W,cols) (struct-of-arrays: split interleaved
+//           W-byte records into per-column runs). Measured -23.5% on real 3-axis
+//           f8 gyro data.
+// Both are LOSSLESS permutations of the SAME bytes. The non-divisible remainder
+// (e.g. 524288 elements is not a multiple of 3) is carried through untouched at
+// the tail — dropping it is silently lossy (learned the hard way).
+// Applied at the TOP level behind trial-and-keep + a roundtrip verify, so the
+// 'MS' variant only ships when it is BOTH smaller AND provably invertible.
+// ============================================================================
+inline std::vector<uint8_t> soa_apply(const uint8_t* data, size_t size,
+                                      uint8_t tid, uint8_t W, uint8_t cols) {
+    std::vector<uint8_t> out(size);
+    if (tid == 0) {                       // byte-shuffle-W
+        size_t n = size / W;              // full elements
+        for (size_t j = 0; j < W; ++j)
+            for (size_t i = 0; i < n; ++i)
+                out[j * n + i] = data[i * (size_t)W + j];
+        // remainder bytes (size % W) copied verbatim at the tail
+        for (size_t k = n * (size_t)W; k < size; ++k) out[k] = data[k];
+    } else {                              // element-de-interleave (W-byte elems, `cols` interleaved)
+        size_t nelem = size / W;
+        size_t nrec  = nelem / cols;
+        size_t off = 0;
+        for (uint8_t c = 0; c < cols; ++c)
+            for (size_t r = 0; r < nrec; ++r) {
+                const uint8_t* src = data + ((size_t)(r * cols + c)) * W;
+                memcpy(&out[off], src, W); off += W;
+            }
+        // leftover elements (nelem % cols) then leftover bytes (size % W), verbatim
+        for (size_t e = nrec * (size_t)cols; e < nelem; ++e) {
+            memcpy(&out[off], data + e * (size_t)W, W); off += W;
+        }
+        for (size_t k = nelem * (size_t)W; k < size; ++k) out[off++] = data[k];
+    }
+    return out;
+}
+inline std::vector<uint8_t> soa_invert(const uint8_t* t, size_t size,
+                                       uint8_t tid, uint8_t W, uint8_t cols) {
+    std::vector<uint8_t> out(size);
+    if (tid == 0) {
+        size_t n = size / W;
+        for (size_t j = 0; j < W; ++j)
+            for (size_t i = 0; i < n; ++i)
+                out[i * (size_t)W + j] = t[j * n + i];
+        for (size_t k = n * (size_t)W; k < size; ++k) out[k] = t[k];
+    } else {
+        size_t nelem = size / W;
+        size_t nrec  = nelem / cols;
+        size_t off = 0;
+        for (uint8_t c = 0; c < cols; ++c)
+            for (size_t r = 0; r < nrec; ++r) {
+                memcpy(&out[((size_t)(r * cols + c)) * W], &t[off], W); off += W;
+            }
+        for (size_t e = nrec * (size_t)cols; e < nelem; ++e) {
+            memcpy(&out[e * (size_t)W], &t[off], W); off += W;
+        }
+        for (size_t k = nelem * (size_t)W; k < size; ++k) out[k] = t[off++];
+    }
+    return out;
+}
+
 // Compress data in memory
 // Returns compressed data, or empty vector on failure
 // mode: SMALL = best ratio (slow decompression OK)
 //       BALANCED = default tradeoff
 //       FAST = fast decompression (skip slow generators for large blocks)
+// forward decl so the SoA path can roundtrip-verify its candidate before shipping it
+inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size, DecompressResult* result);
+// try_soa: set false in the recursive SoA call so the 'MS' variant is tried once,
+//          not infinitely. Defaults true, so existing callers are unaffected.
 inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                                       int zstd_level = 3,
                                       size_t block_size = DEFAULT_BLOCK_SIZE,
                                       CompressResult* result = nullptr,
-                                      CompressionMode mode = CompressionMode::BALANCED) {
+                                      CompressionMode mode = CompressionMode::BALANCED,
+                                      bool try_soa = true) {
     CompressResult res;
     res.success = false;
     res.original_size = size;
@@ -15351,9 +15426,53 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         }
     }
 
+    // ============================================================================
+    // MS (SoA structural transform) — reshape bytes so the model sees layout
+    // structure it misses on the interleaved stream, then compress recursively.
+    // Proxy-pruned (zstd-1), kept only if smaller AND roundtrip-verified.
+    // ============================================================================
+    std::vector<uint8_t> ms_format;
+    if (try_soa && mode != CompressionMode::FAST && size >= 4096 && !is_text_like(data, size)) {
+        struct SoaCand { uint8_t tid, W, cols; };
+        static const SoaCand CANDS[] = {
+            {0,2,0},{0,4,0},{0,8,0},
+            {1,4,2},{1,4,3},{1,4,4},{1,8,2},{1,8,3},{1,8,4},{1,8,6},
+        };
+        std::vector<uint8_t> pbuf(ZSTD_compressBound(size));
+        size_t raw_proxy = ZSTD_compress(pbuf.data(), pbuf.size(), data, size, 1);
+        size_t best_proxy = ZSTD_isError(raw_proxy) ? SIZE_MAX : raw_proxy;
+        int best_ci = -1;
+        for (int ci = 0; ci < (int)(sizeof(CANDS)/sizeof(CANDS[0])); ++ci) {
+            const SoaCand& c = CANDS[ci];
+            if (c.tid == 1 && (size / c.W) < c.cols) continue;
+            auto t = soa_apply(data, size, c.tid, c.W, c.cols);
+            size_t p = ZSTD_compress(pbuf.data(), pbuf.size(), t.data(), t.size(), 1);
+            if (!ZSTD_isError(p) && p < best_proxy) { best_proxy = p; best_ci = ci; }
+        }
+        // pay for a full recursive compress only if the proxy says a transform helps by >2%
+        if (best_ci >= 0 && !ZSTD_isError(raw_proxy) && best_proxy < (raw_proxy * 98) / 100) {
+            const SoaCand& c = CANDS[best_ci];
+            auto t = soa_apply(data, size, c.tid, c.W, c.cols);
+            auto inner = compress(t.data(), size, zstd_level, block_size, nullptr, mode, /*try_soa=*/false);
+            if (!inner.empty()) {
+                std::vector<uint8_t> ms;
+                ms.reserve(inner.size() + 16);
+                ms.push_back('M'); ms.push_back('S');
+                ms.push_back(c.tid); ms.push_back(c.W); ms.push_back(c.cols);
+                uint8_t vbuf[16]; size_t vn = write_uvarint_buf(vbuf, size);
+                ms.insert(ms.end(), vbuf, vbuf + vn);
+                ms.insert(ms.end(), inner.begin(), inner.end());
+                // safe-by-construction: only adopt if the 'MS' stream reconstructs exactly
+                auto back = decompress(ms.data(), ms.size(), nullptr);
+                if (back.size() == size && std::memcmp(back.data(), data, size) == 0)
+                    ms_format = std::move(ms);
+            }
+        }
+    }
+
     // Find the smallest output format
     size_t best_size = out_pos;  // mzip format
-    int best_format = 0;  // 0=mzip, 1=zstd, 2=µRAW, 3=MC, 4=CL, 6=BG
+    int best_format = 0;  // 0=mzip, 1=zstd, 2=µRAW, 3=MC, 4=CL, 6=BG, 7=MS
 
     if (!ZSTD_isError(zstd_size) && zstd_size < best_size) {
         best_size = zstd_size;
@@ -15383,6 +15502,10 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
     if (!bg_format.empty() && bg_format.size() < best_size) {
         best_size = bg_format.size();
         best_format = 6;  // BG (BWT-Big single-block) format
+    }
+    if (!ms_format.empty() && ms_format.size() < best_size) {
+        best_size = ms_format.size();
+        best_format = 7;  // MS (SoA structural transform) format
     }
 
     if (best_format == 1) {
@@ -15463,6 +15586,15 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         if (result) *result = res;
         return bg_format;
     }
+    if (best_format == 7) {
+        // MS (SoA structural transform) format is smallest (interleaved/float binary)
+        res.success = true;
+        res.compressed_size = ms_format.size();
+        res.block_count = 1;
+        res.used_lite_format = true;  // 'MS' is magic-dispatched at decompress entry
+        if (result) *result = res;
+        return ms_format;
+    }
 
     res.success = true;
     res.compressed_size = out_pos;
@@ -15485,6 +15617,25 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
     DecompressResult res;
     res.success = false;
     res.decompressed_size = 0;
+
+    // MS (SoA structural transform): 'M','S', tid, W, cols, varint(orig_size), inner-stream.
+    // Decompress the inner recursively, then invert the byte permutation. (2026-08-05)
+    if (size >= 6 && data[0] == 'M' && data[1] == 'S') {
+        uint8_t tid = data[2], W = data[3], cols = data[4];
+        const uint8_t* p = data + 5; const uint8_t* end = data + size;
+        uint64_t orig = read_uvarint(p, end);
+        auto inner = decompress(p, (size_t)(end - p), nullptr);
+        if (inner.size() != orig) {
+            res.error = "MS: inner size mismatch";
+            if (result) *result = res;
+            return {};
+        }
+        auto out = soa_invert(inner.data(), (size_t)orig, tid, W, cols);
+        res.success = true;
+        res.decompressed_size = out.size();
+        if (result) *result = res;
+        return out;
+    }
 
     if (size < 4) {
         res.error = "Input too small for header";
