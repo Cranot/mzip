@@ -14158,6 +14158,31 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             strategy = analysis.numeric_strategy;
             preprocess_size = apply_strategy(preprocess_data, block_data, this_block, strategy);
 
+            // DECODE-VERIFY the numeric strategy is lossless on THIS block (2026-08-06).
+            // ALP_FLOAT (nominally lossless) is in fact LOSSY on some float distributions,
+            // and this NUMERIC path shipped its output with NO decode-verify -> SILENT
+            // data corruption. Reproduced at HEAD, exit 0, no error: nat_prices_hiprec.bin
+            // (natural hi-precision prices) decodes 148/65536 bytes wrong; a de-interleaved
+            // float stream decodes 8983/65536 wrong. The 'MS' SoA path was safe only because
+            // it self-verifies; this direct path did not. Decode-and-compare, and on mismatch
+            // fall back to raw (Strategy::NONE) so a lossless encoder handles the block --
+            // the same guard pattern as COLUMNAR / SECTION_TEMPLATE / the 2026-08-04 fixes.
+            bool numeric_lossy = false;
+            {
+                std::vector<uint8_t> vchk(this_block);
+                size_t dsz = reverse_strategy(vchk.data(), preprocess_data, preprocess_size,
+                                              this_block, strategy);
+                if (dsz != this_block || std::memcmp(vchk.data(), block_data, this_block) != 0)
+                    numeric_lossy = true;
+            }
+            if (numeric_lossy) {
+                strategy = tieredcompress::Strategy::NONE;
+                memcpy(preprocess_data, block_data, this_block);
+                preprocess_size = this_block;
+                analysis.type = BlockType::RAW;
+                res.blocks_raw++;
+            } else {
+
             // Sparse delta: if preprocessing makes >90% zeros, encode as sparse
             // positions instead of sending to zstd. Saves zstd frame overhead (~7-13 bytes)
             // on already-tiny outputs. Example: image gradient delta = 5 non-zero bytes.
@@ -14238,6 +14263,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             } else {
                 res.blocks_numeric++;
             }
+            }  // end else: numeric strategy passed decode-verify (else it fell back to raw above)
         } else if (analysis.type == BlockType::BINARY_X86) {
             // Apply E8/E9 filtering for x86 executables
             memcpy(preprocess_data, block_data, this_block);
