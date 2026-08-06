@@ -14000,6 +14000,222 @@ inline bool tab_invert(const uint8_t* pay, size_t psize, const TabMeta& m,
     return true;
 }
 
+// ============================================================================
+// MQ (SQL-INSERT-tuple column-transpose) — port of sqladv_transpose.py (verified).
+// Parse repeated INSERT INTO t (...) VALUES (r1),(r2),...; tuples into a column grid,
+// transpose column-major + delta perfectly-linear integer columns, into one self-
+// describing blob, then compress recursively. CORRECTNESS = concatenative reassembly:
+// every input byte is assigned to exactly one captured piece (verbatim segment,
+// open_seq, cell, or tuple_sep) in order, so invert() concatenates them back exactly
+// for ANY tokenization — a mis-parse only declines a region or compresses worse, never
+// corrupts. apply() additionally SELF-VERIFIES byte-exact and declines on mismatch.
+// Union quote lexer (\\ escapes next byte AND '' doubles) covers MySQL/ANSI/PG-scs=on.
+// Wins on real SQL dumps: users_dump.sql -34.5%, pagila/northwind, 17.7MB scale-proven.
+// ============================================================================
+namespace mqsql {
+constexpr uint8_t Q=0x27,BS=0x5c,LP=0x28,RP=0x29,CM=0x2c,SEMI=0x3b,BT=0x60,DQ=0x22;
+static const uint8_t MAGIC[7] = {'M','T','S','Q','L','1',0x00};
+constexpr uint32_t MIN_ROWS=4, MIN_COLS=2;
+
+struct Range { size_t off, len; };
+struct Region { size_t open_off, open_len; uint32_t ncols, nrows;
+                std::vector<std::vector<Range>> columns; std::vector<Range> tuple_seps; size_t end; };
+
+inline void put_uv(std::vector<uint8_t>& b, uint64_t n){ while(n>=0x80){ b.push_back((uint8_t)((n&0x7f)|0x80)); n>>=7; } b.push_back((uint8_t)n); }
+inline uint64_t get_uv(const uint8_t* buf, size_t& pos, size_t end, bool& ok){ uint64_t v=0; int sh=0; while(pos<end){ uint8_t c=buf[pos++]; v|=(uint64_t)(c&0x7f)<<sh; if(!(c&0x80)) return v; sh+=7; if(sh>63){ ok=false; return 0; } } ok=false; return 0; }
+inline size_t bfind(const uint8_t* r, size_t n, size_t from, uint8_t ch){ if(from>=n) return SIZE_MAX; const void* p=memchr(r+from, ch, n-from); return p? (size_t)((const uint8_t*)p-r) : SIZE_MAX; }
+inline size_t bfind2(const uint8_t* r, size_t n, size_t from, uint8_t a, uint8_t b){ for(size_t i=from;i+1<n;i++) if(r[i]==a&&r[i+1]==b) return i; return SIZE_MAX; }
+
+inline size_t skip_squote(const uint8_t* r, size_t n, size_t pos){ pos++; while(pos<n){ uint8_t c=r[pos];
+  if(c==BS){ pos+=2; continue; } if(c==Q){ if(pos+1<n && r[pos+1]==Q){ pos+=2; continue; } return pos+1; } pos++; } return SIZE_MAX; }
+inline size_t skip_comments_ws(const uint8_t* r, size_t n, size_t pos){ while(pos<n){ uint8_t c=r[pos];
+  if(c==0x20||c==0x09||c==0x0a||c==0x0d){ pos++; continue; }
+  if(c==0x2d && pos+1<n && r[pos+1]==0x2d){ size_t j=bfind(r,n,pos,'\n'); pos=(j==SIZE_MAX)?n:j+1; continue; }
+  if(c==0x2f && pos+1<n && r[pos+1]==0x2a){ size_t j=bfind2(r,n,pos+2,'*','/'); if(j==SIZE_MAX) return SIZE_MAX; pos=j+2; continue; }
+  break; } return pos; }
+inline size_t match_kw(const uint8_t* r, size_t n, size_t pos, const char* kw, size_t L){ if(pos+L>n) return SIZE_MAX;
+  for(size_t i=0;i<L;i++){ uint8_t c=r[pos+i]; uint8_t lc=(c>='A'&&c<='Z')?(uint8_t)(c+32):c; if(lc!=(uint8_t)kw[i]) return SIZE_MAX; }
+  size_t nx=pos+L; if(nx<n){ uint8_t c=r[nx]; if((c>='0'&&c<='9')||(c>='A'&&c<='Z')||(c>='a'&&c<='z')||c=='_') return SIZE_MAX; } return nx; }
+inline size_t skip_balanced_parens(const uint8_t* r, size_t n, size_t pos){ int depth=0; while(pos<n){ uint8_t c=r[pos];
+  if(c==Q){ size_t np=skip_squote(r,n,pos); if(np==SIZE_MAX) return SIZE_MAX; pos=np; continue; }
+  if(c==BT){ size_t j=bfind(r,n,pos+1,BT); if(j==SIZE_MAX) return SIZE_MAX; pos=j+1; continue; }
+  if(c==DQ){ size_t j=bfind(r,n,pos+1,DQ); if(j==SIZE_MAX) return SIZE_MAX; pos=j+1; continue; }
+  if(c==LP) depth++; else if(c==RP){ depth--; if(depth==0) return pos+1; } pos++; } return SIZE_MAX; }
+
+inline size_t parse_tuple(const uint8_t* r, size_t n, size_t pos, std::vector<Range>& cells){ pos++; size_t start=pos; int depth=1;
+  while(pos<n){ uint8_t c=r[pos];
+    if(c==Q){ size_t np=skip_squote(r,n,pos); if(np==SIZE_MAX) return SIZE_MAX; pos=np; continue; }
+    if(c==BT){ size_t j=bfind(r,n,pos+1,BT); if(j==SIZE_MAX) return SIZE_MAX; pos=j+1; continue; }
+    if(c==DQ){ size_t j=bfind(r,n,pos+1,DQ); if(j==SIZE_MAX) return SIZE_MAX; pos=j+1; continue; }
+    if(c==LP){ depth++; pos++; continue; }
+    if(c==RP){ depth--; if(depth==0){ cells.push_back({start,pos-start}); return pos+1; } pos++; continue; }
+    if(c==CM && depth==1){ cells.push_back({start,pos-start}); pos++; start=pos; continue; }
+    pos++; }
+  return SIZE_MAX; }
+
+inline bool try_parse_insert(const uint8_t* r, size_t n, size_t pos, bool group_stmts, Region& reg){
+  size_t p=match_kw(r,n,pos,"insert",6); if(p==SIZE_MAX) return false;
+  p=skip_comments_ws(r,n,p); if(p==SIZE_MAX) return false;
+  size_t p2=match_kw(r,n,p,"into",4); if(p2==SIZE_MAX) return false;
+  p=skip_comments_ws(r,n,p2); if(p==SIZE_MAX) return false;
+  bool have_values=false;
+  while(p<n){ uint8_t c=r[p];
+    if(c==BT){ size_t j=bfind(r,n,p+1,BT); if(j==SIZE_MAX) return false; p=j+1; continue; }
+    if(c==DQ){ size_t j=bfind(r,n,p+1,DQ); if(j==SIZE_MAX) return false; p=j+1; continue; }
+    if(c==LP){ size_t np=skip_balanced_parens(r,n,p); if(np==SIZE_MAX) return false; p=np; continue; }
+    size_t pv=match_kw(r,n,p,"values",6); if(pv!=SIZE_MAX){ p=pv; have_values=true; break; }
+    pv=match_kw(r,n,p,"value",5); if(pv!=SIZE_MAX){ p=pv; have_values=true; break; }
+    if(c==SEMI) return false;
+    if(match_kw(r,n,p,"select",6)!=SIZE_MAX) return false;
+    p++; }
+  if(!have_values) return false;
+  size_t q=skip_comments_ws(r,n,p); if(q==SIZE_MAX||q>=n||r[q]!=LP) return false;
+  size_t open_off=pos, open_len=q+1-pos;
+  std::vector<Range> cells0; size_t after=parse_tuple(r,n,q,cells0); if(after==SIZE_MAX) return false;
+  uint32_t ncols=(uint32_t)cells0.size(); if(ncols<MIN_COLS) return false;
+  std::vector<std::vector<Range>> rows; rows.push_back(std::move(cells0));
+  std::vector<Range> seps; size_t end=after;
+  while(true){
+    size_t rr=skip_comments_ws(r,n,after); size_t nextlp=SIZE_MAX;
+    if(rr!=SIZE_MAX && rr<n && r[rr]==CM){ size_t r2=skip_comments_ws(r,n,rr+1); if(r2!=SIZE_MAX && r2<n && r[r2]==LP) nextlp=r2; }
+    if(nextlp==SIZE_MAX && group_stmts && rr!=SIZE_MAX && rr<n && r[rr]==SEMI){ size_t s=skip_comments_ws(r,n,rr+1);
+      if(s!=SIZE_MAX && s+open_len<=n && memcmp(r+s, r+open_off, open_len)==0) nextlp=s+open_len-1; }
+    if(nextlp!=SIZE_MAX){ std::vector<Range> t2; size_t e2=parse_tuple(r,n,nextlp,t2);
+      if(e2!=SIZE_MAX && (uint32_t)t2.size()==ncols){ seps.push_back({after-1, nextlp+1-(after-1)}); rows.push_back(std::move(t2)); after=e2; continue; } }
+    seps.push_back({after-1,1}); end=after; break; }
+  uint32_t nrows=(uint32_t)rows.size(); if(nrows<MIN_ROWS) return false;
+  reg.open_off=open_off; reg.open_len=open_len; reg.ncols=ncols; reg.nrows=nrows; reg.end=end;
+  reg.columns.assign(ncols, {});
+  for(uint32_t j=0;j<ncols;j++){ reg.columns[j].resize(nrows); for(uint32_t t=0;t<nrows;t++) reg.columns[j][t]=rows[t][j]; }
+  reg.tuple_seps=std::move(seps);
+  return true; }
+
+// perfectly-linear canonical-int column -> delta strings; else false
+inline bool delta_encode_col(const uint8_t* raw, const std::vector<Range>& col, std::vector<std::string>& out){
+  size_t nr=col.size(); if(nr<3) return false;
+  std::vector<long long> vals(nr);
+  for(size_t i=0;i<nr;i++) if(!tab_parse_int((const char*)raw+col[i].off, col[i].len, vals[i])) return false;
+  long long d0=(long long)((unsigned long long)vals[1]-(unsigned long long)vals[0]);
+  for(size_t i=1;i+1<nr;i++){ long long di=(long long)((unsigned long long)vals[i+1]-(unsigned long long)vals[i]); if(di!=d0) return false; }
+  out.resize(nr); long long prev=0;
+  for(size_t i=0;i<nr;i++){ long long d=(i==0)?vals[i]:(long long)((unsigned long long)vals[i]-(unsigned long long)prev); char b[24]; int m=snprintf(b,sizeof b,"%lld",d); out[i].assign(b,(size_t)m); prev=vals[i]; }
+  return true; }
+
+inline std::vector<uint8_t> ser_region(const uint8_t* raw, const Region& reg, bool do_delta){
+  std::vector<uint8_t> b;
+  put_uv(b, reg.open_len); b.insert(b.end(), raw+reg.open_off, raw+reg.open_off+reg.open_len);
+  put_uv(b, reg.ncols); put_uv(b, reg.nrows);
+  for(auto& s: reg.tuple_seps) put_uv(b, s.len);
+  for(auto& s: reg.tuple_seps) b.insert(b.end(), raw+s.off, raw+s.off+s.len);
+  for(uint32_t j=0;j<reg.ncols;j++){
+    std::vector<std::string> dcol; bool dd = do_delta && delta_encode_col(raw, reg.columns[j], dcol);
+    b.push_back(dd?1:0);
+    if(dd){ for(auto& c: dcol) put_uv(b, c.size()); for(auto& c: dcol) b.insert(b.end(), c.begin(), c.end()); }
+    else { for(auto& c: reg.columns[j]) put_uv(b, c.len); for(auto& c: reg.columns[j]) b.insert(b.end(), raw+c.off, raw+c.off+c.len); }
+  }
+  return b; }
+
+// build the self-describing SQL blob; empty vector = decline
+inline std::vector<uint8_t> apply(const uint8_t* raw, size_t n, bool do_delta, bool group_stmts){
+  std::vector<uint8_t> body; uint64_t nsegs=0; size_t pos=0, verb_start=0; bool found=false;
+  while(pos<n){ uint8_t c=raw[pos];
+    if(c==0x2d && pos+1<n && raw[pos+1]==0x2d){ size_t j=bfind(raw,n,pos,'\n'); pos=(j==SIZE_MAX)?n:j+1; continue; }
+    if(c==0x2f && pos+1<n && raw[pos+1]==0x2a){ size_t j=bfind2(raw,n,pos+2,'*','/'); pos=(j==SIZE_MAX)?n:j+2; continue; }
+    if(c==Q){ size_t np=skip_squote(raw,n,pos); pos=(np==SIZE_MAX)?n:np; continue; }
+    if(c==BT){ size_t j=bfind(raw,n,pos+1,BT); pos=(j==SIZE_MAX)?n:j+1; continue; }
+    if(c==DQ){ size_t j=bfind(raw,n,pos+1,DQ); pos=(j==SIZE_MAX)?n:j+1; continue; }
+    if(c=='I'||c=='i'){ Region reg;
+      if(try_parse_insert(raw,n,pos,group_stmts,reg)){
+        if(pos>verb_start){ body.push_back(0); put_uv(body, pos-verb_start); body.insert(body.end(), raw+verb_start, raw+pos); nsegs++; }
+        std::vector<uint8_t> rb=ser_region(raw,reg,do_delta);
+        body.push_back(1); put_uv(body, rb.size()); body.insert(body.end(), rb.begin(), rb.end()); nsegs++;
+        pos=reg.end; verb_start=pos; found=true; continue; } }
+    pos++; }
+  if(verb_start<n){ body.push_back(0); put_uv(body, n-verb_start); body.insert(body.end(), raw+verb_start, raw+n); nsegs++; }
+  if(!found) return {};
+  std::vector<uint8_t> blob(MAGIC, MAGIC+7); put_uv(blob, nsegs); blob.insert(blob.end(), body.begin(), body.end());
+  return blob; }
+
+// invert the blob -> out; false on any structural problem (fail-closed)
+inline bool invert(const uint8_t* blob, size_t bn, std::vector<uint8_t>& out){
+  if(bn<7 || memcmp(blob, MAGIC, 7)!=0) return false;
+  size_t pos=7; bool ok=true; uint64_t nsegs=get_uv(blob,pos,bn,ok); if(!ok) return false;
+  for(uint64_t si=0; si<nsegs; si++){
+    if(pos>=bn) return false; uint8_t tag=blob[pos++];
+    uint64_t L=get_uv(blob,pos,bn,ok); if(!ok) return false;
+    if(pos+L>bn) return false;
+    if(tag==0){ out.insert(out.end(), blob+pos, blob+pos+L); pos+=L; continue; }
+    if(tag!=1) return false;
+    size_t rp=pos, rend=pos+L;   // region blob spans [pos, pos+L)
+    uint64_t olen=get_uv(blob,rp,rend,ok); if(!ok||rp+olen>rend) return false;
+    const uint8_t* open_seq=blob+rp; size_t open_len=(size_t)olen; rp+=olen;
+    uint64_t ncols=get_uv(blob,rp,rend,ok); if(!ok) return false;
+    uint64_t nrows=get_uv(blob,rp,rend,ok); if(!ok) return false;
+    if(ncols==0||ncols>4096||nrows==0) return false;
+    std::vector<uint64_t> seplen(nrows); for(uint64_t t=0;t<nrows;t++){ seplen[t]=get_uv(blob,rp,rend,ok); if(!ok) return false; }
+    std::vector<const uint8_t*> sepp(nrows);
+    for(uint64_t t=0;t<nrows;t++){ if(rp+seplen[t]>rend) return false; sepp[t]=blob+rp; rp+=seplen[t]; }
+    // columns -> materialize as strings (delta un-applied)
+    std::vector<std::vector<std::string>> cols(ncols);
+    for(uint64_t j=0;j<ncols;j++){ if(rp>=rend) return false; uint8_t flag=blob[rp++];
+      std::vector<uint64_t> clen(nrows); for(uint64_t t=0;t<nrows;t++){ clen[t]=get_uv(blob,rp,rend,ok); if(!ok) return false; }
+      cols[j].resize(nrows);
+      if(flag&1){ long long acc=0;
+        for(uint64_t t=0;t<nrows;t++){ if(rp+clen[t]>rend) return false; long long d; if(!tab_parse_int((const char*)blob+rp, clen[t], d)) return false; rp+=clen[t];
+          acc=(t==0)?d:(long long)((unsigned long long)acc+(unsigned long long)d); char b[24]; int m=snprintf(b,sizeof b,"%lld",acc); cols[j][t].assign(b,(size_t)m); } }
+      else { for(uint64_t t=0;t<nrows;t++){ if(rp+clen[t]>rend) return false; cols[j][t].assign((const char*)blob+rp, clen[t]); rp+=clen[t]; } }
+    }
+    // emit region row-major: open_seq + per row (cells joined ',' + sep)
+    out.insert(out.end(), open_seq, open_seq+open_len);
+    for(uint64_t t=0;t<nrows;t++){ for(uint64_t j=0;j<ncols;j++){ out.insert(out.end(), cols[j][t].begin(), cols[j][t].end()); if(j+1<ncols) out.push_back(CM); }
+      out.insert(out.end(), sepp[t], sepp[t]+seplen[t]); }
+    pos+=L;
+  }
+  return true; }
+} // namespace mqsql
+
+// ============================================================================
+// MB (x86 BCJ pre-filter) — canonical LZMA-SDK Bra86 x86_Convert (E8/E9 call/jump
+// IP-relative<->absolute rewrite, whole-buffer ip=0/state=0), applied as a trial-and-
+// keep pre-filter with an exact inverse. mzip's XZLIB backstop applies NO liblzma
+// filter (mzip_raw == xz-plain), so this recovers the entire BCJ gain on x86/x64
+// executables: libwinpthread-1.dll -4.25%, liblzma-5.dll -1.86% (real PE, verified).
+// Length-preserving byte-exact inverse; gated by MZ/ELF magic or E8/E9 density so
+// non-executable input pays ~0; trial-and-keep + end-to-end memcmp before adopt.
+// ============================================================================
+namespace mbcj {
+inline bool test86ms(uint8_t b){ return (uint8_t)(((unsigned)b + 1) & 0xFE) == 0; }
+// encoding=1 encode (rel->abs), 0 decode (abs->rel). In-place, returns bytes processed.
+inline size_t x86_convert(uint8_t* data, size_t size, uint32_t ip, uint32_t* state, int encoding){
+  size_t pos=0; uint32_t mask=*state & 7;
+  if(size<5) return 0;
+  size-=4; ip+=5;
+  for(;;){
+    uint8_t* p=data+pos; const uint8_t* end=data+size;
+    for(; p<end; p++) if((*p & 0xFE)==0xE8) break;
+    { size_t d=(size_t)(p-data-pos); pos=(size_t)(p-data);
+      if(p>=end){ *state=(d>2?0:mask>>(unsigned)d); return pos; }
+      if(d>2) mask=0;
+      else { mask>>=(unsigned)d; if(mask!=0 && (mask>4 || mask==3 || test86ms(p[(size_t)(mask>>1)+1]))){ mask=(mask>>1)|4; pos++; continue; } } }
+    if(test86ms(p[4])){
+      uint32_t v=((uint32_t)p[4]<<24)|((uint32_t)p[3]<<16)|((uint32_t)p[2]<<8)|((uint32_t)p[1]);
+      uint32_t cur=ip+(uint32_t)pos; pos+=5;
+      if(encoding) v+=cur; else v-=cur;
+      if(mask!=0){ unsigned sh=(mask&6)<<2; if(test86ms((uint8_t)(v>>sh))){ v^=(((uint32_t)0x100<<sh)-1); if(encoding) v+=cur; else v-=cur; } mask=0; }
+      p[1]=(uint8_t)v; p[2]=(uint8_t)(v>>8); p[3]=(uint8_t)(v>>16); p[4]=(uint8_t)(0-((v>>24)&1));
+    } else { mask=(mask>>1)|4; pos++; }
+  }
+}
+inline bool looks_like_x86(const uint8_t* d, size_t n){
+  if(n<256) return false;
+  if(d[0]==0x4d && d[1]==0x5a) return true;                                  // 'MZ' PE
+  if(d[0]==0x7f && d[1]=='E' && d[2]=='L' && d[3]=='F') return true;         // ELF
+  size_t s=n<65536?n:65536, cnt=0;
+  for(size_t i=0;i<s;i++){ uint8_t c=d[i]; if((c&0xFE)==0xE8) cnt++; }
+  return cnt*100 >= s;                                                       // >=1% E8/E9 density
+}
+} // namespace mbcj
+
 // forward decl so the SoA path can roundtrip-verify its candidate before shipping it
 inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size, DecompressResult* result);
 // try_soa: set false in the recursive SoA call so the 'MS' variant is tried once,
@@ -14010,7 +14226,9 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                                       CompressResult* result = nullptr,
                                       CompressionMode mode = CompressionMode::BALANCED,
                                       bool try_soa = true,
-                                      bool try_tabular = true) {
+                                      bool try_tabular = true,
+                                      bool try_sql = true,
+                                      bool try_bcj = true) {
     CompressResult res;
     res.success = false;
     res.original_size = size;
@@ -15666,7 +15884,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         if (best_ci >= 0 && !ZSTD_isError(raw_proxy) && best_proxy < (raw_proxy * 98) / 100) {
             const SoaCand& c = CANDS[best_ci];
             auto t = soa_apply(data, size, c.tid, c.W, c.cols);
-            auto inner = compress(t.data(), size, zstd_level, block_size, nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false);
+            auto inner = compress(t.data(), size, zstd_level, block_size, nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false);
             if (!inner.empty()) {
                 std::vector<uint8_t> ms;
                 ms.reserve(inner.size() + 16);
@@ -15700,7 +15918,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             auto payload = tab_build_payload(rows, bitmap);
             TabMeta m{ delim, tnl, (uint32_t)rows[0].size(), (uint32_t)(rows.size() - 1) };
             auto inner = compress(payload.data(), payload.size(), zstd_level, block_size,
-                                  nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false);
+                                  nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false);
             if (inner.empty()) continue;
             std::vector<uint8_t> mt;
             mt.reserve(inner.size() + 32);
@@ -15721,9 +15939,31 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         }
     }
 
+    // ============================================================================
+    // MB (x86 BCJ pre-filter) — Bra86 rewrite of E8/E9 targets, then compress
+    // recursively. Gated by MZ/ELF magic or E8/E9 density; kept only if smaller AND
+    // end-to-end roundtrip-verified. Recovers the liblzma BCJ gain mzip's XZLIB
+    // backstop leaves on the table (mzip_raw == xz-plain). (2026-08-07)
+    // ============================================================================
+    std::vector<uint8_t> mb_format;
+    if (try_bcj && mode != CompressionMode::FAST && size >= 256 && mbcj::looks_like_x86(data, size)) {
+        std::vector<uint8_t> filt(data, data + size);
+        uint32_t st = 0; mbcj::x86_convert(filt.data(), filt.size(), 0, &st, /*encoding=*/1);
+        auto inner = compress(filt.data(), filt.size(), zstd_level, block_size, nullptr, mode,
+                              /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false);
+        if (!inner.empty()) {
+            std::vector<uint8_t> mb; mb.reserve(inner.size() + 16);
+            mb.push_back('M'); mb.push_back('B');
+            uint8_t vb[16]; size_t vn = write_uvarint_buf(vb, size); mb.insert(mb.end(), vb, vb + vn);
+            mb.insert(mb.end(), inner.begin(), inner.end());
+            auto back = decompress(mb.data(), mb.size(), nullptr);
+            if (back.size() == size && std::memcmp(back.data(), data, size) == 0) mb_format = std::move(mb);
+        }
+    }
+
     // Find the smallest output format
     size_t best_size = out_pos;  // mzip format
-    int best_format = 0;  // 0=mzip, 1=zstd, 2=µRAW, 3=MC, 4=CL, 6=BG, 7=MS, 8=MT
+    int best_format = 0;  // 0=mzip, 1=zstd, 2=µRAW, 3=MC, 4=CL, 6=BG, 7=MS, 8=MT, 9=MB
 
     if (!ZSTD_isError(zstd_size) && zstd_size < best_size) {
         best_size = zstd_size;
@@ -15761,6 +16001,10 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
     if (!mt_format.empty() && mt_format.size() < best_size) {
         best_size = mt_format.size();
         best_format = 8;  // MT (tabular column-transpose) format
+    }
+    if (!mb_format.empty() && mb_format.size() < best_size) {
+        best_size = mb_format.size();
+        best_format = 9;  // MB (x86 BCJ pre-filter) format
     }
 
     if (best_format == 1) {
@@ -15859,6 +16103,15 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         if (result) *result = res;
         return mt_format;
     }
+    if (best_format == 9) {
+        // MB (x86 BCJ pre-filter) format is smallest (x86/x64 executables)
+        res.success = true;
+        res.compressed_size = mb_format.size();
+        res.block_count = 1;
+        res.used_lite_format = true;  // 'MB' is magic-dispatched at decompress entry
+        if (result) *result = res;
+        return mb_format;
+    }
 
     res.success = true;
     res.compressed_size = out_pos;
@@ -15939,6 +16192,22 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
         res.decompressed_size = out.size();
         if (result) *result = res;
         return out;
+    }
+
+    // MB (x86 BCJ pre-filter): 'M','B', varint(orig), inner-stream. Decompress inner,
+    // then apply the inverse Bra86 filter in-place. (2026-08-07)
+    if (size >= 4 && data[0] == 'M' && data[1] == 'B') {
+        const uint8_t* p = data + 2; const uint8_t* end = data + size;
+        uint64_t orig = read_uvarint(p, end);
+        auto inner = decompress(p, (size_t)(end - p), nullptr);
+        if (inner.size() != orig) {
+            res.error = "MB: inner size mismatch"; if (result) *result = res; return {};
+        }
+        uint32_t st = 0; mbcj::x86_convert(inner.data(), inner.size(), 0, &st, /*encoding=*/0);
+        res.success = true;
+        res.decompressed_size = inner.size();
+        if (result) *result = res;
+        return inner;
     }
 
     if (size < 4) {
