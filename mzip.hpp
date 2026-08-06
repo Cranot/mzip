@@ -14216,6 +14216,101 @@ inline bool looks_like_x86(const uint8_t* d, size_t n){
 }
 } // namespace mbcj
 
+// ============================================================================
+// ML (line-templated log timestamp-delta) — port of lt_clf.py (verified). For CLF/
+// Apache-combined logs ('[10/Oct/2000:13:55:36 -0700]'): parse the datetime to a
+// naive int64 epoch (tz kept in-line), order-1 delta vs the previous conforming line,
+// ZIGZAG so the signed delta is pure digits (no '-' colliding with date separators),
+// and substitute IN PLACE (every other field keeps row context so the same backstop
+// fires). Decode un-zigzags, cumulative-sums, and REFORMATS byte-exact. LOSSLESS is a
+// CODE-PATH property: a line transforms ONLY if reformat(parse(ts))==ts byte-for-byte
+// (fail-closed per-line gate -> else verbatim exception channel), plus a whole-blob
+// self-verify. Calendar is Hinnant integer civil<->days (no libc, platform-exact).
+// Measured: nginx_access.log -14.6%, apache_log_sample -3.5% (real, verified).
+// ============================================================================
+namespace mltsd {
+static const char MON[12][4] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
+inline int d2(const uint8_t* p){ if(p[0]<'0'||p[0]>'9'||p[1]<'0'||p[1]>'9') return -1; return (p[0]-'0')*10+(p[1]-'0'); }
+inline int d4(const uint8_t* p){ for(int i=0;i<4;i++) if(p[i]<'0'||p[i]>'9') return -1; return (p[0]-'0')*1000+(p[1]-'0')*100+(p[2]-'0')*10+(p[3]-'0'); }
+inline int mon_idx(const uint8_t* p){ for(int i=0;i<12;i++) if(p[0]==(uint8_t)MON[i][0]&&p[1]==(uint8_t)MON[i][1]&&p[2]==(uint8_t)MON[i][2]) return i+1; return 0; }
+inline int64_t days_from_civil(int64_t y,int64_t m,int64_t d){ y-=(m<=2); int64_t era=(y>=0?y:y-399)/400; int64_t yoe=y-era*400; int64_t doy=(153*(m+(m>2?-3:9))+2)/5+d-1; int64_t doe=yoe*365+yoe/4-yoe/100+doy; return era*146097+doe-719468; }
+inline void civil_from_days(int64_t z,int64_t&Y,int64_t&M,int64_t&D){ z+=719468; int64_t era=(z>=0?z:z-146096)/146097; int64_t doe=z-era*146097; int64_t yoe=(doe-doe/1460+doe/36524-doe/146096)/365; int64_t y=yoe+era*400; int64_t doy=doe-(365*yoe+yoe/4-yoe/100); int64_t mp=(5*doy+2)/153; int64_t d=doy-(153*mp+2)/5+1; int64_t m=mp+(mp<10?3:-9); Y=y+(m<=2); M=m; D=d; }
+inline uint64_t zz(int64_t n){ return (uint64_t)((n<<1)^(n>>63)); }
+inline int64_t unzz(uint64_t u){ return (int64_t)((u>>1)^(uint64_t)(0-(int64_t)(u&1))); }
+inline int fmt_dt(int64_t e, char* buf){                          // -> "DD/Mon/YYYY:HH:MM:SS", len or -1
+  int64_t days=e/86400, rem=e%86400; if(rem<0){ days--; rem+=86400; }
+  int64_t H=rem/3600, M=(rem%3600)/60, S=rem%60, Y,Mo,D; civil_from_days(days,Y,Mo,D);
+  if(Mo<1||Mo>12) return -1;
+  return snprintf(buf,32,"%02lld/%s/%04lld:%02lld:%02lld:%02lld",(long long)D,MON[(size_t)Mo-1],(long long)Y,(long long)H,(long long)M,(long long)S);
+}
+// parse a CLF datetime token at '[' bpos; on structural match set epoch (span is 20 bytes at bpos+1)
+inline bool parse_clf(const uint8_t* ln, size_t le, size_t bpos, int64_t& epoch){
+  if(bpos+28>le) return false; const uint8_t* p=ln+bpos;
+  if(p[0]!='[') return false;
+  int D=d2(p+1); if(D<0||p[3]!='/') return false;
+  int Mo=mon_idx(p+4); if(Mo==0||p[7]!='/') return false;
+  int Y=d4(p+8); if(Y<0||p[12]!=':') return false;
+  int H=d2(p+13); if(H<0||p[15]!=':') return false;
+  int M=d2(p+16); if(M<0||p[18]!=':') return false;
+  int S=d2(p+19); if(S<0||p[21]!=' ') return false;
+  if((p[22]!='+'&&p[22]!='-')||d4(p+23)<0||p[27]!=']') return false;
+  epoch=days_from_civil(Y,Mo,D)*86400+H*3600+M*60+S; return true;
+}
+inline bool pdec(const uint8_t* p, size_t len, int64_t& v){ if(len==0) return false; size_t i=0; bool neg=false; if(p[0]=='-'){neg=true;i=1;if(len==1)return false;} int64_t x=0; for(;i<len;i++){ if(p[i]<'0'||p[i]>'9') return false; x=x*10+(p[i]-'0'); } v=neg?-x:x; return true; }
+
+// build blob (LTCLF1 text header + body); empty = decline. NOT self-verified (caller does).
+inline std::vector<uint8_t> apply(const uint8_t* raw, size_t n){
+  std::vector<std::pair<size_t,size_t>> lines;
+  { size_t s=0; while(s<n){ const void* nl=memchr(raw+s,'\n',n-s); size_t e=nl?(size_t)((const uint8_t*)nl-raw)+1:n; lines.push_back({s,e-s}); s=e; } }
+  std::vector<uint8_t> body; std::vector<uint32_t> exc; int64_t base_epoch=0,prev=0; bool have=false;
+  for(size_t i=0;i<lines.size();i++){
+    const uint8_t* ln=raw+lines[i].first; size_t le=lines[i].second;
+    int64_t epoch=0; size_t bpos=SIZE_MAX;
+    for(size_t j=0;j+1<le;j++){ if(ln[j]=='['){ int64_t ep; if(parse_clf(ln,le,j,ep)){ char buf[32]; int fl=fmt_dt(ep,buf); if(fl==20&&memcmp(buf,ln+j+1,20)==0){ epoch=ep; bpos=j; break; } } } }
+    if(bpos==SIZE_MAX){ exc.push_back((uint32_t)i); body.insert(body.end(),ln,ln+le); continue; }
+    if(!have){ base_epoch=epoch; prev=epoch; have=true; }
+    int64_t delta=epoch-prev; prev=epoch;
+    char tok[24]; int tl=snprintf(tok,sizeof tok,"%llu",(unsigned long long)zz(delta));
+    body.insert(body.end(),ln,ln+bpos+1); body.insert(body.end(),tok,tok+tl); body.insert(body.end(),ln+bpos+21,ln+le);
+  }
+  if(!have) return {};
+  std::vector<uint8_t> blob; const char* mg="LTCLF1\n"; blob.insert(blob.end(),mg,mg+7);
+  char h[32]; int hl=snprintf(h,sizeof h,"%lld\n",(long long)base_epoch); blob.insert(blob.end(),h,h+hl);
+  hl=snprintf(h,sizeof h,"%zu\n",exc.size()); blob.insert(blob.end(),h,h+hl);
+  for(size_t k=0;k<exc.size();k++){ if(k) blob.push_back(' '); char e[16]; int el=snprintf(e,sizeof e,"%u",exc[k]); blob.insert(blob.end(),e,e+el); }
+  blob.push_back('\n'); blob.insert(blob.end(),body.begin(),body.end());
+  return blob;
+}
+inline bool invert(const uint8_t* blob, size_t bn, std::vector<uint8_t>& out){
+  size_t pos=0; auto line=[&](size_t& ls,size_t& ll)->bool{ if(pos>=bn) return false; const void* nl=memchr(blob+pos,'\n',bn-pos); if(!nl) return false; ls=pos; ll=(size_t)((const uint8_t*)nl-blob)-pos; pos=(size_t)((const uint8_t*)nl-blob)+1; return true; };
+  size_t ls,ll; int64_t base_epoch=0,nexc=0;
+  if(!line(ls,ll)||ll!=6||memcmp(blob+ls,"LTCLF1",6)!=0) return false;
+  if(!line(ls,ll)||!pdec(blob+ls,ll,base_epoch)) return false;
+  if(!line(ls,ll)||!pdec(blob+ls,ll,nexc)||nexc<0) return false;
+  if(!line(ls,ll)) return false;                                  // exception-index line
+  std::vector<uint32_t> exc;
+  { size_t s=ls,e=ls+ll; while(s<e){ while(s<e&&blob[s]==' ') s++; size_t t=s; while(t<e&&blob[t]!=' ') t++; if(t>s){ int64_t v; if(!pdec(blob+s,t-s,v)||v<0) return false; exc.push_back((uint32_t)v); } s=t; } }
+  if((int64_t)exc.size()!=nexc) return false;
+  const uint8_t* body=blob+pos; size_t bl=bn-pos;
+  std::vector<std::pair<size_t,size_t>> lines;
+  { size_t s=0; while(s<bl){ const void* nl=memchr(body+s,'\n',bl-s); size_t e=nl?(size_t)((const uint8_t*)nl-body)+1:bl; lines.push_back({s,e-s}); s=e; } }
+  int64_t prev=base_epoch; size_t ep=0;
+  for(size_t i=0;i<lines.size();i++){
+    const uint8_t* ln=body+lines[i].first; size_t le=lines[i].second;
+    if(ep<exc.size()&&exc[ep]==(uint32_t)i){ out.insert(out.end(),ln,ln+le); ep++; continue; }
+    // find delta token '[' digits ' ' [+-]dddd ']'
+    size_t bpos=SIZE_MAX,dend=0;
+    for(size_t j=0;j+1<le;j++){ if(ln[j]=='['){ size_t q=j+1; while(q<le&&ln[q]>='0'&&ln[q]<='9') q++; if(q==j+1) continue; if(q+6>le) continue; if(ln[q]!=' '||(ln[q+1]!='+'&&ln[q+1]!='-')||d4(ln+q+2)<0||ln[q+6]!=']') continue; bpos=j; dend=q; break; } }
+    if(bpos==SIZE_MAX) return false;                             // malformed non-exception line
+    int64_t u; if(!pdec(ln+bpos+1,dend-(bpos+1),u)||u<0) return false;
+    int64_t epoch=prev+unzz((uint64_t)u); prev=epoch;
+    char buf[32]; int fl=fmt_dt(epoch,buf); if(fl!=20) return false;
+    out.insert(out.end(),ln,ln+bpos+1); out.insert(out.end(),buf,buf+20); out.insert(out.end(),ln+dend,ln+le);
+  }
+  return true;
+}
+} // namespace mltsd
+
 // forward decl so the SoA path can roundtrip-verify its candidate before shipping it
 inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size, DecompressResult* result);
 // try_soa: set false in the recursive SoA call so the 'MS' variant is tried once,
@@ -14228,7 +14323,8 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                                       bool try_soa = true,
                                       bool try_tabular = true,
                                       bool try_sql = true,
-                                      bool try_bcj = true) {
+                                      bool try_bcj = true,
+                                      bool try_log = true) {
     CompressResult res;
     res.success = false;
     res.original_size = size;
@@ -15884,7 +15980,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         if (best_ci >= 0 && !ZSTD_isError(raw_proxy) && best_proxy < (raw_proxy * 98) / 100) {
             const SoaCand& c = CANDS[best_ci];
             auto t = soa_apply(data, size, c.tid, c.W, c.cols);
-            auto inner = compress(t.data(), size, zstd_level, block_size, nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false);
+            auto inner = compress(t.data(), size, zstd_level, block_size, nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false);
             if (!inner.empty()) {
                 std::vector<uint8_t> ms;
                 ms.reserve(inner.size() + 16);
@@ -15918,7 +16014,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             auto payload = tab_build_payload(rows, bitmap);
             TabMeta m{ delim, tnl, (uint32_t)rows[0].size(), (uint32_t)(rows.size() - 1) };
             auto inner = compress(payload.data(), payload.size(), zstd_level, block_size,
-                                  nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false);
+                                  nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false);
             if (inner.empty()) continue;
             std::vector<uint8_t> mt;
             mt.reserve(inner.size() + 32);
@@ -15950,7 +16046,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         std::vector<uint8_t> filt(data, data + size);
         uint32_t st = 0; mbcj::x86_convert(filt.data(), filt.size(), 0, &st, /*encoding=*/1);
         auto inner = compress(filt.data(), filt.size(), zstd_level, block_size, nullptr, mode,
-                              /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false);
+                              /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false);
         if (!inner.empty()) {
             std::vector<uint8_t> mb; mb.reserve(inner.size() + 16);
             mb.push_back('M'); mb.push_back('B');
@@ -15976,7 +16072,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             if (mqsql::invert(blob.data(), blob.size(), chk) && chk.size() == size &&
                 std::memcmp(chk.data(), data, size) == 0) {
                 auto inner = compress(blob.data(), blob.size(), zstd_level, block_size, nullptr, mode,
-                                      /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false);
+                                      /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false);
                 if (!inner.empty()) {
                     std::vector<uint8_t> mq; mq.reserve(inner.size() + 16);
                     mq.push_back('M'); mq.push_back('Q');
@@ -15989,9 +16085,36 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         }
     }
 
+    // ============================================================================
+    // ML (line-templated log timestamp-delta) — in-place delta+zigzag of CLF/Apache
+    // bracket timestamps, then compress recursively. apply() self-declines on non-log
+    // text; blob self-verify prunes before the recursive compress; end-to-end memcmp
+    // + trial-and-keep before adopt. Wins nginx -14.6% / apache -3.5%. (2026-08-07)
+    // ============================================================================
+    std::vector<uint8_t> ml_format;
+    if (try_log && mode != CompressionMode::FAST && size >= 256 && is_text_like(data, size)) {
+        auto blob = mltsd::apply(data, size);
+        if (!blob.empty()) {
+            std::vector<uint8_t> chk;
+            if (mltsd::invert(blob.data(), blob.size(), chk) && chk.size() == size &&
+                std::memcmp(chk.data(), data, size) == 0) {
+                auto inner = compress(blob.data(), blob.size(), zstd_level, block_size, nullptr, mode,
+                                      /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false);
+                if (!inner.empty()) {
+                    std::vector<uint8_t> ml; ml.reserve(inner.size() + 16);
+                    ml.push_back('M'); ml.push_back('L');
+                    uint8_t vb[16]; size_t vn = write_uvarint_buf(vb, size); ml.insert(ml.end(), vb, vb + vn);
+                    ml.insert(ml.end(), inner.begin(), inner.end());
+                    auto back = decompress(ml.data(), ml.size(), nullptr);
+                    if (back.size() == size && std::memcmp(back.data(), data, size) == 0) ml_format = std::move(ml);
+                }
+            }
+        }
+    }
+
     // Find the smallest output format
     size_t best_size = out_pos;  // mzip format
-    int best_format = 0;  // 0=mzip, 1=zstd, 2=µRAW, 3=MC, 4=CL, 6=BG, 7=MS, 8=MT, 9=MB, 10=MQ
+    int best_format = 0;  // 0=mzip, 1=zstd, 2=µRAW, 3=MC, 4=CL, 6=BG, 7=MS, 8=MT, 9=MB, 10=MQ, 11=ML
 
     if (!ZSTD_isError(zstd_size) && zstd_size < best_size) {
         best_size = zstd_size;
@@ -16037,6 +16160,10 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
     if (!mq_format.empty() && mq_format.size() < best_size) {
         best_size = mq_format.size();
         best_format = 10;  // MQ (SQL-INSERT-tuple transpose) format
+    }
+    if (!ml_format.empty() && ml_format.size() < best_size) {
+        best_size = ml_format.size();
+        best_format = 11;  // ML (log timestamp-delta) format
     }
 
     if (best_format == 1) {
@@ -16153,6 +16280,15 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         if (result) *result = res;
         return mq_format;
     }
+    if (best_format == 11) {
+        // ML (log timestamp-delta) format is smallest (CLF/Apache logs)
+        res.success = true;
+        res.compressed_size = ml_format.size();
+        res.block_count = 1;
+        res.used_lite_format = true;  // 'ML' is magic-dispatched at decompress entry
+        if (result) *result = res;
+        return ml_format;
+    }
 
     res.success = true;
     res.compressed_size = out_pos;
@@ -16260,6 +16396,21 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
         std::vector<uint8_t> out;
         if (!mqsql::invert(inner.data(), inner.size(), out) || out.size() != orig) {
             res.error = "MQ: invert failed"; if (result) *result = res; return {};
+        }
+        res.success = true;
+        res.decompressed_size = out.size();
+        if (result) *result = res;
+        return out;
+    }
+
+    // ML (log timestamp-delta): 'M','L', varint(orig), inner-stream. (2026-08-07)
+    if (size >= 4 && data[0] == 'M' && data[1] == 'L') {
+        const uint8_t* p = data + 2; const uint8_t* end = data + size;
+        uint64_t orig = read_uvarint(p, end);
+        auto inner = decompress(p, (size_t)(end - p), nullptr);
+        std::vector<uint8_t> out;
+        if (!mltsd::invert(inner.data(), inner.size(), out) || out.size() != orig) {
+            res.error = "ML: invert failed"; if (result) *result = res; return {};
         }
         res.success = true;
         res.decompressed_size = out.size();
