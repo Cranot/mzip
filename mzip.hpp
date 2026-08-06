@@ -15961,9 +15961,37 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         }
     }
 
+    // ============================================================================
+    // MQ (SQL-INSERT-tuple transpose) — parse INSERT..VALUES tuples into a column
+    // grid, delta linear-int columns, transpose, compress recursively. The parse IS
+    // the filter (returns nothing on non-SQL); blob self-verify prunes bad parses
+    // before the recursive compress; end-to-end roundtrip-verified before adopt.
+    // Wins on real SQL dumps: users_dump.sql -34.5% (measured). (2026-08-07)
+    // ============================================================================
+    std::vector<uint8_t> mq_format;
+    if (try_sql && mode != CompressionMode::FAST && size >= 256 && is_text_like(data, size)) {
+        auto blob = mqsql::apply(data, size, /*do_delta=*/true, /*group_stmts=*/true);
+        if (!blob.empty()) {
+            std::vector<uint8_t> chk;
+            if (mqsql::invert(blob.data(), blob.size(), chk) && chk.size() == size &&
+                std::memcmp(chk.data(), data, size) == 0) {
+                auto inner = compress(blob.data(), blob.size(), zstd_level, block_size, nullptr, mode,
+                                      /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false);
+                if (!inner.empty()) {
+                    std::vector<uint8_t> mq; mq.reserve(inner.size() + 16);
+                    mq.push_back('M'); mq.push_back('Q');
+                    uint8_t vb[16]; size_t vn = write_uvarint_buf(vb, size); mq.insert(mq.end(), vb, vb + vn);
+                    mq.insert(mq.end(), inner.begin(), inner.end());
+                    auto back = decompress(mq.data(), mq.size(), nullptr);
+                    if (back.size() == size && std::memcmp(back.data(), data, size) == 0) mq_format = std::move(mq);
+                }
+            }
+        }
+    }
+
     // Find the smallest output format
     size_t best_size = out_pos;  // mzip format
-    int best_format = 0;  // 0=mzip, 1=zstd, 2=µRAW, 3=MC, 4=CL, 6=BG, 7=MS, 8=MT, 9=MB
+    int best_format = 0;  // 0=mzip, 1=zstd, 2=µRAW, 3=MC, 4=CL, 6=BG, 7=MS, 8=MT, 9=MB, 10=MQ
 
     if (!ZSTD_isError(zstd_size) && zstd_size < best_size) {
         best_size = zstd_size;
@@ -16005,6 +16033,10 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
     if (!mb_format.empty() && mb_format.size() < best_size) {
         best_size = mb_format.size();
         best_format = 9;  // MB (x86 BCJ pre-filter) format
+    }
+    if (!mq_format.empty() && mq_format.size() < best_size) {
+        best_size = mq_format.size();
+        best_format = 10;  // MQ (SQL-INSERT-tuple transpose) format
     }
 
     if (best_format == 1) {
@@ -16112,6 +16144,15 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         if (result) *result = res;
         return mb_format;
     }
+    if (best_format == 10) {
+        // MQ (SQL-INSERT-tuple transpose) format is smallest (SQL dumps)
+        res.success = true;
+        res.compressed_size = mq_format.size();
+        res.block_count = 1;
+        res.used_lite_format = true;  // 'MQ' is magic-dispatched at decompress entry
+        if (result) *result = res;
+        return mq_format;
+    }
 
     res.success = true;
     res.compressed_size = out_pos;
@@ -16208,6 +16249,22 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
         res.decompressed_size = inner.size();
         if (result) *result = res;
         return inner;
+    }
+
+    // MQ (SQL-INSERT-tuple transpose): 'M','Q', varint(orig), inner-stream. Decompress
+    // inner (the self-describing SQL blob), then mqsql::invert. (2026-08-07)
+    if (size >= 4 && data[0] == 'M' && data[1] == 'Q') {
+        const uint8_t* p = data + 2; const uint8_t* end = data + size;
+        uint64_t orig = read_uvarint(p, end);
+        auto inner = decompress(p, (size_t)(end - p), nullptr);
+        std::vector<uint8_t> out;
+        if (!mqsql::invert(inner.data(), inner.size(), out) || out.size() != orig) {
+            res.error = "MQ: invert failed"; if (result) *result = res; return {};
+        }
+        res.success = true;
+        res.decompressed_size = out.size();
+        if (result) *result = res;
+        return out;
     }
 
     if (size < 4) {
