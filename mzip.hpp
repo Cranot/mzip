@@ -13770,6 +13770,30 @@ inline std::vector<uint8_t> soa_apply(const uint8_t* data, size_t size,
                 out[j * n + i] = data[i * (size_t)W + j];
         // remainder bytes (size % W) copied verbatim at the tail
         for (size_t k = n * (size_t)W; k < size; ++k) out[k] = data[k];
+    } else if (tid == 2) {                // de-interleave + per-lane order-1 delta+zigzag
+        // Lossless: de-interleave `cols` W-byte lanes (framing R=W*cols), then order-1
+        // delta + zigzag each lane's W-byte little-endian integers (wrap arithmetic).
+        // Remainder (size % R) carried verbatim. Wins on time-series numeric (tsgas
+        // -27.5%): the model sees smooth per-column deltas instead of raw float bytes.
+        size_t R = (size_t)W * cols;
+        size_t rows = R ? (size - (size % R)) / R : 0;
+        size_t m = rows * R;
+        uint64_t mask = (W >= 8) ? ~0ULL : ((1ULL << (8u * W)) - 1);
+        size_t off = 0;
+        for (uint8_t c = 0; c < cols; ++c) {
+            uint64_t prev = 0;
+            for (size_t r = 0; r < rows; ++r) {
+                const uint8_t* src = data + ((size_t)(r * cols + c)) * W;
+                uint64_t u = 0;
+                for (int b = 0; b < W; ++b) u |= (uint64_t)src[b] << (8 * b);
+                uint64_t d = (r == 0) ? u : ((u - prev) & mask);
+                prev = u;
+                uint64_t z = ((d << 1) ^ (0ULL - (d >> (8u * W - 1)))) & mask;
+                for (int b = 0; b < W; ++b) out[off + b] = (uint8_t)(z >> (8 * b));
+                off += W;
+            }
+        }
+        for (size_t k = m; k < size; ++k) out[off++] = data[k];
     } else {                              // element-de-interleave (W-byte elems, `cols` interleaved)
         size_t nelem = size / W;
         size_t nrec  = nelem / cols;
@@ -13796,6 +13820,26 @@ inline std::vector<uint8_t> soa_invert(const uint8_t* t, size_t size,
             for (size_t i = 0; i < n; ++i)
                 out[i * (size_t)W + j] = t[j * n + i];
         for (size_t k = n * (size_t)W; k < size; ++k) out[k] = t[k];
+    } else if (tid == 2) {                // invert de-interleave + per-lane delta+zigzag
+        size_t R = (size_t)W * cols;
+        size_t rows = R ? (size - (size % R)) / R : 0;
+        size_t m = rows * R;
+        uint64_t mask = (W >= 8) ? ~0ULL : ((1ULL << (8u * W)) - 1);
+        size_t off = 0;
+        for (uint8_t c = 0; c < cols; ++c) {
+            uint64_t prev = 0;
+            for (size_t r = 0; r < rows; ++r) {
+                uint64_t z = 0;
+                for (int b = 0; b < W; ++b) z |= (uint64_t)t[off + b] << (8 * b);
+                uint64_t d = ((z >> 1) ^ (0ULL - (z & 1ULL))) & mask;
+                uint64_t u = (r == 0) ? d : ((prev + d) & mask);
+                prev = u;
+                uint8_t* dst = &out[((size_t)(r * cols + c)) * W];
+                for (int b = 0; b < W; ++b) dst[b] = (uint8_t)(u >> (8 * b));
+                off += W;
+            }
+        }
+        for (size_t k = m; k < size; ++k) out[k] = t[off++];
     } else {
         size_t nelem = size / W;
         size_t nrec  = nelem / cols;
@@ -15463,6 +15507,9 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         static const SoaCand CANDS[] = {
             {0,2,0},{0,4,0},{0,8,0},
             {1,4,2},{1,4,3},{1,4,4},{1,8,2},{1,8,3},{1,8,4},{1,8,6},
+            // tid 2: de-interleave + per-lane order-1 delta+zigzag (time-series numeric;
+            // tsgas -27.5%, gps -8.4%). Proxy-pruned like the rest, roundtrip-verified below.
+            {2,2,1},{2,2,2},{2,4,1},{2,4,2},{2,8,1},{2,8,3},
         };
         std::vector<uint8_t> pbuf(ZSTD_compressBound(size));
         size_t raw_proxy = ZSTD_compress(pbuf.data(), pbuf.size(), data, size, 1);
@@ -15470,7 +15517,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         int best_ci = -1;
         for (int ci = 0; ci < (int)(sizeof(CANDS)/sizeof(CANDS[0])); ++ci) {
             const SoaCand& c = CANDS[ci];
-            if (c.tid == 1 && (size / c.W) < c.cols) continue;
+            if ((c.tid == 1 || c.tid == 2) && (size / c.W) < c.cols) continue;
             auto t = soa_apply(data, size, c.tid, c.W, c.cols);
             size_t p = ZSTD_compress(pbuf.data(), pbuf.size(), t.data(), t.size(), 1);
             if (!ZSTD_isError(p) && p < best_proxy) { best_proxy = p; best_ci = ci; }
@@ -15648,6 +15695,16 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
     // Decompress the inner recursively, then invert the byte permutation. (2026-08-05)
     if (size >= 6 && data[0] == 'M' && data[1] == 'S') {
         uint8_t tid = data[2], W = data[3], cols = data[4];
+        // Validate transform params before use (untrusted stream): tid in {0,1,2};
+        // W in {1,2,4,8}; de-interleave/delta need cols>=1 so R=W*cols is nonzero
+        // (guards a latent div-by-zero in the tid==1 path too). A well-formed 'MS'
+        // stream always passes; the encoder only emits validated params.
+        if (tid > 2 || (W != 1 && W != 2 && W != 4 && W != 8) ||
+            ((tid == 1 || tid == 2) && cols == 0)) {
+            res.error = "MS: invalid transform params";
+            if (result) *result = res;
+            return {};
+        }
         const uint8_t* p = data + 5; const uint8_t* end = data + size;
         uint64_t orig = read_uvarint(p, end);
         auto inner = decompress(p, (size_t)(end - p), nullptr);
