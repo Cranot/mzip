@@ -14143,27 +14143,29 @@ inline bool invert(const uint8_t* blob, size_t bn, std::vector<uint8_t>& out){
   for(uint64_t si=0; si<nsegs; si++){
     if(pos>=bn) return false; uint8_t tag=blob[pos++];
     uint64_t L=get_uv(blob,pos,bn,ok); if(!ok) return false;
-    if(pos+L>bn) return false;
+    if(L > (uint64_t)(bn - pos)) return false;                 // no-overflow bound (crafted varint)
     if(tag==0){ out.insert(out.end(), blob+pos, blob+pos+L); pos+=L; continue; }
     if(tag!=1) return false;
     size_t rp=pos, rend=pos+L;   // region blob spans [pos, pos+L)
-    uint64_t olen=get_uv(blob,rp,rend,ok); if(!ok||rp+olen>rend) return false;
+    uint64_t olen=get_uv(blob,rp,rend,ok); if(!ok || olen > (uint64_t)(rend-rp)) return false;
     const uint8_t* open_seq=blob+rp; size_t open_len=(size_t)olen; rp+=olen;
     uint64_t ncols=get_uv(blob,rp,rend,ok); if(!ok) return false;
     uint64_t nrows=get_uv(blob,rp,rend,ok); if(!ok) return false;
-    if(ncols==0||ncols>4096||nrows==0) return false;
+    // bound nrows/ncols vs the remaining region so a crafted count can't over-allocate (DoS):
+    // every row needs >=1 sep-len byte, so nrows <= remaining bytes.
+    if(ncols==0||ncols>4096||nrows==0||nrows > (uint64_t)(rend-rp)) return false;
     std::vector<uint64_t> seplen(nrows); for(uint64_t t=0;t<nrows;t++){ seplen[t]=get_uv(blob,rp,rend,ok); if(!ok) return false; }
     std::vector<const uint8_t*> sepp(nrows);
-    for(uint64_t t=0;t<nrows;t++){ if(rp+seplen[t]>rend) return false; sepp[t]=blob+rp; rp+=seplen[t]; }
+    for(uint64_t t=0;t<nrows;t++){ if(seplen[t] > (uint64_t)(rend-rp)) return false; sepp[t]=blob+rp; rp+=seplen[t]; }
     // columns -> materialize as strings (delta un-applied)
     std::vector<std::vector<std::string>> cols(ncols);
     for(uint64_t j=0;j<ncols;j++){ if(rp>=rend) return false; uint8_t flag=blob[rp++];
       std::vector<uint64_t> clen(nrows); for(uint64_t t=0;t<nrows;t++){ clen[t]=get_uv(blob,rp,rend,ok); if(!ok) return false; }
       cols[j].resize(nrows);
       if(flag&1){ long long acc=0;
-        for(uint64_t t=0;t<nrows;t++){ if(rp+clen[t]>rend) return false; long long d; if(!tab_parse_int((const char*)blob+rp, clen[t], d)) return false; rp+=clen[t];
+        for(uint64_t t=0;t<nrows;t++){ if(clen[t] > (uint64_t)(rend-rp)) return false; long long d; if(!tab_parse_int((const char*)blob+rp, clen[t], d)) return false; rp+=clen[t];
           acc=(t==0)?d:(long long)((unsigned long long)acc+(unsigned long long)d); char b[24]; int m=snprintf(b,sizeof b,"%lld",acc); cols[j][t].assign(b,(size_t)m); } }
-      else { for(uint64_t t=0;t<nrows;t++){ if(rp+clen[t]>rend) return false; cols[j][t].assign((const char*)blob+rp, clen[t]); rp+=clen[t]; } }
+      else { for(uint64_t t=0;t<nrows;t++){ if(clen[t] > (uint64_t)(rend-rp)) return false; cols[j][t].assign((const char*)blob+rp, clen[t]); rp+=clen[t]; } }
     }
     // emit region row-major: open_seq + per row (cells joined ',' + sep)
     out.insert(out.end(), open_seq, open_seq+open_len);
@@ -14256,7 +14258,14 @@ inline bool parse_clf(const uint8_t* ln, size_t le, size_t bpos, int64_t& epoch)
   if((p[22]!='+'&&p[22]!='-')||d4(p+23)<0||p[27]!=']') return false;
   epoch=days_from_civil(Y,Mo,D)*86400+H*3600+M*60+S; return true;
 }
-inline bool pdec(const uint8_t* p, size_t len, int64_t& v){ if(len==0) return false; size_t i=0; bool neg=false; if(p[0]=='-'){neg=true;i=1;if(len==1)return false;} int64_t x=0; for(;i<len;i++){ if(p[i]<'0'||p[i]>'9') return false; x=x*10+(p[i]-'0'); } v=neg?-x:x; return true; }
+inline bool pdec(const uint8_t* p, size_t len, int64_t& v){        // bounded signed-decimal parse (no overflow UB)
+  if(len==0) return false; size_t i=0; bool neg=false; if(p[0]=='-'){neg=true;i=1;}
+  size_t digits=len-i; if(digits==0||digits>19) return false;     // >=1, <=19 digits => fits uint64 accumulate
+  unsigned long long x=0;
+  for(;i<len;i++){ if(p[i]<'0'||p[i]>'9') return false; x=x*10ULL+(unsigned long long)(p[i]-'0'); }
+  if(neg){ if(x>9223372036854775808ULL) return false; v=(x==9223372036854775808ULL)?INT64_MIN:-(int64_t)x; }
+  else   { if(x>9223372036854775807ULL) return false; v=(int64_t)x; }
+  return true; }
 
 // build blob (LTCLF1 text header + body); empty = decline. NOT self-verified (caller does).
 inline std::vector<uint8_t> apply(const uint8_t* raw, size_t n){
@@ -14300,7 +14309,7 @@ inline bool invert(const uint8_t* blob, size_t bn, std::vector<uint8_t>& out){
     if(ep<exc.size()&&exc[ep]==(uint32_t)i){ out.insert(out.end(),ln,ln+le); ep++; continue; }
     // find delta token '[' digits ' ' [+-]dddd ']'
     size_t bpos=SIZE_MAX,dend=0;
-    for(size_t j=0;j+1<le;j++){ if(ln[j]=='['){ size_t q=j+1; while(q<le&&ln[q]>='0'&&ln[q]<='9') q++; if(q==j+1) continue; if(q+6>le) continue; if(ln[q]!=' '||(ln[q+1]!='+'&&ln[q+1]!='-')||d4(ln+q+2)<0||ln[q+6]!=']') continue; bpos=j; dend=q; break; } }
+    for(size_t j=0;j+1<le;j++){ if(ln[j]=='['){ size_t q=j+1; while(q<le&&ln[q]>='0'&&ln[q]<='9') q++; if(q==j+1) continue; if(q+7>le) continue; if(ln[q]!=' '||(ln[q+1]!='+'&&ln[q+1]!='-')||d4(ln+q+2)<0||ln[q+6]!=']') continue; bpos=j; dend=q; break; } }
     if(bpos==SIZE_MAX) return false;                             // malformed non-exception line
     int64_t u; if(!pdec(ln+bpos+1,dend-(bpos+1),u)||u<0) return false;
     int64_t epoch=prev+unzz((uint64_t)u); prev=epoch;
@@ -16311,6 +16320,14 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
     DecompressResult res;
     res.success = false;
     res.decompressed_size = 0;
+
+    // Bound recursion depth: the magic-dispatch formats (MS/MT/MB/MQ/ML) recurse into
+    // decompress() on their inner stream. A crafted file of nested 2-byte magic prefixes
+    // (e.g. repeated "MQ\x00") would otherwise drive unbounded recursion -> stack-overflow
+    // DoS. Legitimate nesting is <=3 (outer format -> inner block/CM/bwt). (2026-08-07)
+    static thread_local int mz_decomp_depth = 0;
+    struct DepthGuard { int& d; DepthGuard(int& r):d(r){++d;} ~DepthGuard(){--d;} } _dg(mz_decomp_depth);
+    if (mz_decomp_depth > 32) { res.error = "decompress: max recursion depth exceeded"; if (result) *result = res; return {}; }
 
     // MS (SoA structural transform): 'M','S', tid, W, cols, varint(orig_size), inner-stream.
     // Decompress the inner recursively, then invert the byte permutation. (2026-08-05)
