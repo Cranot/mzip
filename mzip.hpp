@@ -17154,9 +17154,14 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
         return output;
     }
 
-    // Standard format requires at least 17 bytes
-    if (size < 17) {
-        res.error = "Input too small for standard header";
+    // Dispatch needs only magic(4)+version(1). The compact format is ~12-14 bytes for a single
+    // block; only the legacy/standard header needs 17. Rejecting EVERYTHING < 17 dropped VALID
+    // compact streams: a 16-byte constant input (0x82 x16) compressed to a 14-byte compact stream
+    // that decode returned EMPTY for -> losslessness failure (found by fuzz_mzip_nv; also
+    // backstopped by compress()'s top-level verify). Gate the 17-byte minimum on the LEGACY
+    // version only; compact reads are varint/end-bounded below. (2026-08-07)
+    if (size < 5) {
+        res.error = "Input too small for header";
         if (result) *result = res;
         return {};
     }
@@ -17170,6 +17175,11 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
     uint8_t version = data[pos++];
     if (version != VERSION && version != VERSION_COMPACT) {
         res.error = "Unsupported version: " + std::to_string(version);
+        if (result) *result = res;
+        return {};
+    }
+    if (version == VERSION && size < 17) {
+        res.error = "Input too small for standard header";
         if (result) *result = res;
         return {};
     }
