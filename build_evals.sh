@@ -26,6 +26,13 @@ echo "mzip_ut.exe...";    g++ -O3 -std=c++17 -march=native -D_USE_MATH_DEFINES -
 echo "repro_dec.exe...";  g++ -O2 -std=c++17 -o repro_dec.exe repro_dec.cpp libsais.c -I $INC $LIB $BRO
 # crash-corpus regression: every stream in fuzz_corpus/ must decompress without crashing (SIGSEGV/abort)
 if [ -f test_crashers.sh ] && [ -d fuzz_corpus ]; then echo "crash-corpus regression..."; bash test_crashers.sh || echo "WARNING: crash-corpus regression FAILED"; fi
+# amalgamated single-header: regenerate, then verify it compiles standalone (stb pattern) + roundtrips.
+# Catches the header going stale vs the source (it had drifted months behind, missing every fix).
+if [ -f amalgamate.py ] && [ -f amalg_test.cpp ]; then
+  echo "mzip_amalgamated.hpp (regen + check)..."; python3 amalgamate.py > mzip_amalgamated.hpp 2>/dev/null
+  g++ -O2 -std=c++17 -march=native amalg_test.cpp -I $INC $LIB $BRO -o amalg_test.exe 2>/dev/null \
+    && ./amalg_test.exe $(ls real_bench/* 2>/dev/null | head -3) || echo "WARNING: amalgamated build/roundtrip FAILED"
+fi
 # prep extra real corpora for benchmark_types.py v2 (numeric time-series truncated to 4MB + repo shell scripts)
 if [ -d benchmark_data ] && [ ! -f corpus_extra/citytemp_float.bin ]; then
   mkdir -p corpus_extra/shell
