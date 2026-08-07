@@ -125,3 +125,9 @@ dclm_*.csv
 p1.base
 r.100
 i.100
+
+# Decode-fuzz regression corpus + runner (intentionally tracked — override *.bin/test*/repro_*)
+!fuzz_corpus/
+!fuzz_corpus/*.bin
+!test_crashers.sh
+!repro_dec.cpp
