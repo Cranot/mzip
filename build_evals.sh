@@ -23,6 +23,9 @@ echo "mzip_base.exe...";  g++ -O3 -std=c++17 -march=native -DMZIP_NO_CM -o mzip_
 echo "cmtest.exe...";     g++ -O3 -std=c++17 -DCM_BACKEND_TEST -DCM_BACKEND_USE_BWT -x c++ cm_backend.hpp -x none libsais.o -o cmtest.exe
 echo "bwt9_probe.exe..."; g++ -O3 -std=c++17 bwt9_probe.cpp libsais.o -o bwt9_probe.exe
 echo "mzip_ut.exe...";    g++ -O3 -std=c++17 -march=native -D_USE_MATH_DEFINES -o mzip_ut.exe mzip_unit_tests.cpp libsais.c -I $INC $LIB $BRO
+echo "repro_dec.exe...";  g++ -O2 -std=c++17 -o repro_dec.exe repro_dec.cpp libsais.c -I $INC $LIB $BRO
+# crash-corpus regression: every stream in fuzz_corpus/ must decompress without crashing (SIGSEGV/abort)
+if [ -f test_crashers.sh ] && [ -d fuzz_corpus ]; then echo "crash-corpus regression..."; bash test_crashers.sh || echo "WARNING: crash-corpus regression FAILED"; fi
 # prep extra real corpora for benchmark_types.py v2 (numeric time-series truncated to 4MB + repo shell scripts)
 if [ -d benchmark_data ] && [ ! -f corpus_extra/citytemp_float.bin ]; then
   mkdir -p corpus_extra/shell
