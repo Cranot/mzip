@@ -407,6 +407,83 @@ TEST(all_0xff_roundtrip) {
 }
 
 // ============================================================================
+// Structural encoders (MT/MQ/ML) — fire + roundtrip
+// ============================================================================
+
+TEST(mt_tabular_fires_and_roundtrips) {
+    std::string s = "id,name,val\n";
+    for (int i = 0; i < 400; i++) { char b[64]; snprintf(b, sizeof b, "%d,item%d,%d\n", 1000 + i, i % 7, (i * 13) % 1000); s += b; }
+    std::vector<uint8_t> orig(s.begin(), s.end());
+    auto c = mzip::compress(orig.data(), orig.size(), 19, mzip::DEFAULT_BLOCK_SIZE, nullptr, mzip::CompressionMode::SMALL);
+    ASSERT(c.size() >= 2 && c[0] == 'M' && c[1] == 'T');           // MT fired
+    auto d = mzip::decompress(c.data(), c.size());
+    ASSERT_EQ(d.size(), orig.size());
+    ASSERT(memcmp(d.data(), orig.data(), orig.size()) == 0);
+}
+
+TEST(mq_sql_fires_and_roundtrips) {
+    std::string s = "-- dump\nINSERT INTO users (id,name,email) VALUES ";
+    for (int i = 0; i < 200; i++) { char b[96]; snprintf(b, sizeof b, "%s(%d,'user%d','u%d@x.com')", i ? "," : "", 1 + i, i, i); s += b; }
+    s += ";\n";
+    std::vector<uint8_t> orig(s.begin(), s.end());
+    auto c = mzip::compress(orig.data(), orig.size(), 19, mzip::DEFAULT_BLOCK_SIZE, nullptr, mzip::CompressionMode::SMALL);
+    ASSERT(c.size() >= 2 && c[0] == 'M' && c[1] == 'Q');           // MQ fired
+    auto d = mzip::decompress(c.data(), c.size());
+    ASSERT_EQ(d.size(), orig.size());
+    ASSERT(memcmp(d.data(), orig.data(), orig.size()) == 0);
+}
+
+TEST(ml_log_fires_and_roundtrips) {
+    std::string s;
+    for (int i = 0; i < 400; i++) { char b[160]; snprintf(b, sizeof b,
+        "10.0.0.1 - - [10/Oct/2000:13:%02d:%02d -0700] \"GET /p/%d HTTP/1.1\" 200 %d\n", (i / 60) % 60, i % 60, i % 50, 100 + i); s += b; }
+    std::vector<uint8_t> orig(s.begin(), s.end());
+    auto c = mzip::compress(orig.data(), orig.size(), 19, mzip::DEFAULT_BLOCK_SIZE, nullptr, mzip::CompressionMode::SMALL);
+    ASSERT(c.size() >= 2 && c[0] == 'M' && c[1] == 'L');           // ML fired
+    auto d = mzip::decompress(c.data(), c.size());
+    ASSERT_EQ(d.size(), orig.size());
+    ASSERT(memcmp(d.data(), orig.data(), orig.size()) == 0);
+}
+
+// ============================================================================
+// Malformed / untrusted-stream safety (locks in the 011a155 decode hardening)
+// ============================================================================
+
+TEST(mqsql_invert_rejects_oversized_varint) {
+    // MTSQL1 + nsegs=1 + tag=0 (verbatim) + ~10-byte varint length near 2^64 -> must reject, no OOB read
+    std::vector<uint8_t> blob = {'M','T','S','Q','L','1',0x00, 0x01, 0x00};
+    for (int i = 0; i < 9; i++) blob.push_back(0xFF); blob.push_back(0x01);
+    std::vector<uint8_t> out;
+    ASSERT(!mzip::mqsql::invert(blob.data(), blob.size(), out));
+}
+
+TEST(mqsql_invert_rejects_huge_nrows) {
+    // region blob: open_len=0, ncols=2, nrows=~2^64 -> must reject, no exabyte allocation
+    std::vector<uint8_t> region = {0x00, 0x02};
+    for (int i = 0; i < 9; i++) region.push_back(0xFF); region.push_back(0x01);
+    std::vector<uint8_t> blob = {'M','T','S','Q','L','1',0x00, 0x01, 0x01, (uint8_t)region.size()};
+    blob.insert(blob.end(), region.begin(), region.end());
+    std::vector<uint8_t> out;
+    ASSERT(!mzip::mqsql::invert(blob.data(), blob.size(), out));
+}
+
+TEST(mltsd_invert_rejects_overflow_number) {
+    // LTCLF1 header with a 25-digit base_epoch -> pdec must reject (>19 digits), no signed-overflow UB
+    std::string h = "LTCLF1\n1234567890123456789012345\n0\n\n";
+    std::vector<uint8_t> blob(h.begin(), h.end());
+    std::vector<uint8_t> out;
+    ASSERT(!mzip::mltsd::invert(blob.data(), blob.size(), out));
+}
+
+TEST(decompress_nested_magic_no_stack_overflow) {
+    // ~300 KB of repeated "MQ\x00" would recurse unboundedly without the depth guard -> must return, not crash
+    std::vector<uint8_t> bomb;
+    for (int i = 0; i < 100000; i++) { bomb.push_back('M'); bomb.push_back('Q'); bomb.push_back(0x00); }
+    auto d = mzip::decompress(bomb.data(), bomb.size());
+    ASSERT(d.empty());
+}
+
+// ============================================================================
 // Comprehensive Roundtrip (all generators)
 // ============================================================================
 
@@ -470,6 +547,17 @@ int main() {
     RUN_TEST(random_data_roundtrip);
     RUN_TEST(all_zeros_roundtrip);
     RUN_TEST(all_0xff_roundtrip);
+
+    printf("\nSTRUCTURAL ENCODERS (MT/MQ/ML):\n");
+    RUN_TEST(mt_tabular_fires_and_roundtrips);
+    RUN_TEST(mq_sql_fires_and_roundtrips);
+    RUN_TEST(ml_log_fires_and_roundtrips);
+
+    printf("\nMALFORMED-STREAM SAFETY:\n");
+    RUN_TEST(mqsql_invert_rejects_oversized_varint);
+    RUN_TEST(mqsql_invert_rejects_huge_nrows);
+    RUN_TEST(mltsd_invert_rejects_overflow_number);
+    RUN_TEST(decompress_nested_magic_no_stack_overflow);
 
     printf("\nCOMPREHENSIVE:\n");
     RUN_TEST(all_generators_roundtrip_64kb);
