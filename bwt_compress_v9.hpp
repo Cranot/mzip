@@ -48,6 +48,7 @@ inline Mode choose_mode(size_t original_size) {
 // `cap` (2026-08-04): the incumbent size the caller will compare this result against.
 // Forwarded to bwt5 purely so it can skip candidates that provably cannot come in
 // under it (see the bound argued in bwt_compress_v5.hpp). SIZE_MAX = no pruning.
+inline std::vector<uint8_t> decompress(const uint8_t* data, size_t n);  // fwd: compress() verifies its arms
 inline std::vector<uint8_t> compress(const uint8_t* data, size_t n,
                                      const std::vector<uint8_t>* cm_pre = nullptr,
                                      size_t cap = SIZE_MAX) {
@@ -79,6 +80,16 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t n,
         }
     }
 
+    // ROUNDTRIP-VERIFY the legacy arm before it competes (2026-08-07). bwt5's per-variant self-verify
+    // has proven FALLIBLE and bwt8 has NO self-verify: a 353-byte natural-text input produced a bwt5
+    // (mode 0) stream that bwt9::decompress turned into 292 != 353 bytes -> the block decoded EMPTY
+    // (found by fuzz_mzip_nv). bwt9 shipped it because it never checked. Verify here so a lossy legacy
+    // arm is DISCARDED (CM then wins) instead of shipped. Inert when the arm round-trips (common case).
+    if (have_legacy) {
+        auto chk = decompress(output.data(), output.size());
+        if (chk.size() != n || std::memcmp(chk.data(), data, n) != 0) { output.clear(); have_legacy = false; }
+    }
+
     // mode 2: BWT + context-mixing (bzip3-class) — trial vs v5/v8, keep if smaller. Covers EVERY bwt9 call-site.
 #ifndef MZIP_NO_CM
     std::vector<uint8_t> cm_local;
@@ -87,9 +98,14 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t n,
     // `!have_legacy` matters now: with no legacy arm output is EMPTY, so the old
     // size comparison alone would reject a perfectly good CM stream.
     if (!cm.empty() && (!have_legacy || cm.size() + 3 < output.size())) {
-        output.clear();
-        output.push_back('B'); output.push_back('9'); output.push_back(2);
-        output.insert(output.end(), cm.begin(), cm.end());
+        std::vector<uint8_t> cmout;
+        cmout.push_back('B'); cmout.push_back('9'); cmout.push_back(2);
+        cmout.insert(cmout.end(), cm.begin(), cm.end());
+        // verify the CM arm too before adopting (defense over cmbk); on failure keep any valid legacy
+        // arm, else give up so the caller falls back (mzip's trial-and-keep / top-level verify).
+        auto chk = decompress(cmout.data(), cmout.size());
+        if (chk.size() == n && std::memcmp(chk.data(), data, n) == 0) output = std::move(cmout);
+        else if (!have_legacy) output.clear();
     }
 #endif
 
