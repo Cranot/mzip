@@ -81,7 +81,8 @@ int main(int argc,char**argv){
       d = mzip::decompress(c.data(), c.size());
     } catch(const std::exception& e){
       printf("EXCEPTION iter=%llu seed=0x%llx insize=%zu: %s\n",(unsigned long long)i,(unsigned long long)seed,in.size(),e.what());
-      exc++; continue;
+      { FILE* ef=fopen("fuzz_exc.bin","wb"); if(ef){ fwrite(in.data(),1,in.size(),ef); fclose(ef);} }  // capture (overwrite) the last throwing input
+      exc++; continue;  // keep hunting: LOSSY (silent corruption) is the real target, not caught exceptions
     }
     if(d.size()!=in.size() || (in.size() && memcmp(d.data(),in.data(),in.size())!=0)){
       printf("*** LOSSY iter=%llu seed=0x%llx insize=%zu outsize=%zu magic=%02x%02x lvl=%d mode=%d ***\n",
