@@ -49,10 +49,18 @@ int main(int argc,char**argv){
     uint32_t kind=rr(5);
     if(kind<=1){ auto in=base_input(); stream=mzip::compress(in.data(),in.size(),(rnd()&1)?3:19,mzip::DEFAULT_BLOCK_SIZE,nullptr,(rnd()&1)?mzip::CompressionMode::BALANCED:mzip::CompressionMode::SMALL); if(kind==1) mutate(stream); }
     else if(kind==2){ size_t n=rr(2048); stream.resize(n); for(size_t k=0;k<n;k++) stream[k]=(uint8_t)rnd(); }             // pure random
-    else { // magic-prefixed random (stress the format dispatchers)
+    else if(rr(3)==0){ // 4-byte uZIP magic (B5 49 5A 50) + version -> exercises the compact/legacy
+      // decode path, incl. the TINY (5-16B) streams the 2026-08-07 size-gate fix now admits.
+      stream.push_back(0xB5); stream.push_back(0x49); stream.push_back(0x5A); stream.push_back(0x50);
+      stream.push_back((uint8_t)((rnd()&1)?0x02:0x01)); // VERSION_COMPACT / legacy
+      size_t n = (rr(2)? rr(24) : rr(2048));            // bias small to hit the newly-opened floor
+      for(size_t k=0;k<n;k++) stream.push_back((uint8_t)rnd());
+    }
+    else { // 2-byte magic-prefixed random (stress the format dispatchers)
       static const char* M[]={"MT","MQ","ML","MB","MS","MU","MC","BT","CL","BG","MZ"};
       const char* mg=M[rr(11)]; stream.push_back(mg[0]); stream.push_back(mg[1]);
-      size_t n=rr(2048); for(size_t k=0;k<n;k++) stream.push_back((uint8_t)rnd());
+      size_t n = (rr(4)==0? rr(24) : rr(2048));         // occasionally tiny
+      for(size_t k=0;k<n;k++) stream.push_back((uint8_t)rnd());
     }
     { FILE* cf=fopen("fuzzd_cur.bin","wb"); if(cf){ fwrite(stream.data(),1,stream.size(),cf); fclose(cf);}
       FILE* mf=fopen("fuzzd_cur.txt","w"); if(mf){ fprintf(mf,"iter=%llu base=0x%llx kind=%u size=%zu\n",(unsigned long long)i,(unsigned long long)base,kind,stream.size()); fclose(mf);} }
