@@ -14869,6 +14869,35 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                         prev_pos = pos;
                     }
 
+                    // DECODE-VERIFY the sparse encoding end-to-end (2026-08-07). The strategy
+                    // decode-verify above covers reverse_strategy(preprocess_data)==block_data, but
+                    // the sparse re-encoding of preprocess_data is a SEPARATE transform that shipped
+                    // UNVERIFIED -> silent data corruption (found by fuzz_mzip on 511-float data:
+                    // compressed to MU/NUMERIC, decoded to all-zeros). Replay the EXACT MU sparse
+                    // decoder (mzip.hpp ~16760) and require it reconstructs preprocess_data byte-for-
+                    // byte; since reverse_strategy(preprocess_data)==block_data is already proven,
+                    // this makes the full roundtrip lossless. On mismatch, skip sparse and let zstd
+                    // handle the (verified-lossless) preprocess_data. Inert on valid: a correct
+                    // sparse encoding reconstructs preprocess_data exactly.
+                    bool sparse_lossy = false;
+                    {
+                        std::vector<uint8_t> vpre(this_block, 0);
+                        size_t vp = 2;  // skip strategy(1) + 0xFF(1)
+                        uint32_t vcount = 0; int vsh = 0;
+                        while (vp < sparse_enc.size() && (sparse_enc[vp] & 0x80)) { vcount |= (uint32_t)(sparse_enc[vp++] & 0x7F) << vsh; vsh += 7; }
+                        if (vp < sparse_enc.size()) vcount |= (uint32_t)sparse_enc[vp++] << vsh;
+                        size_t vspos = 0;
+                        for (uint32_t vi = 0; vi < vcount && vp + 1 < sparse_enc.size(); vi++) {
+                            uint32_t vdp = 0; vsh = 0;
+                            while (vp < sparse_enc.size() && (sparse_enc[vp] & 0x80)) { vdp |= (uint32_t)(sparse_enc[vp++] & 0x7F) << vsh; vsh += 7; }
+                            if (vp < sparse_enc.size()) vdp |= (uint32_t)sparse_enc[vp++] << vsh;
+                            vspos += vdp;
+                            if (vspos < vpre.size() && vp < sparse_enc.size()) vpre[vspos] = sparse_enc[vp++];
+                        }
+                        if (vpre.size() != preprocess_size || std::memcmp(vpre.data(), preprocess_data, preprocess_size) != 0)
+                            sparse_lossy = true;
+                    }
+
                     // Only use sparse if it beats what zstd would produce
                     // Estimate: zstd on this data ≈ sparse_enc.size() + zstd_frame_overhead
                     // MU format: 5 bytes header + sparse_enc
@@ -14878,7 +14907,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                     size_t zstd_est = ZSTD_compress(zstd_trial.data(), zstd_trial.size(),
                         preprocess_data, preprocess_size, 19);
 
-                    if (!ZSTD_isError(zstd_est) && sparse_total < zstd_est) {
+                    if (!sparse_lossy && !ZSTD_isError(zstd_est) && sparse_total < zstd_est) {
                         // Sparse wins — store directly, skip zstd
                         memcpy(preprocess_data, sparse_enc.data(), sparse_enc.size());
                         preprocess_size = sparse_enc.size();
@@ -15867,10 +15896,17 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                            block_type == static_cast<uint8_t>(BlockType::XZLIB) ||
                            block_type == static_cast<uint8_t>(BlockType::CM_TEXT));
 
-            // Also allow NUMERIC blocks with sparse encoding (0xFF marker)
+            // Also allow NUMERIC blocks with sparse encoding (0xFF marker). MUST match the sparse
+            // discriminator the decoder uses: bd[0]==strategy AND bd[1]==0xFF. Checking bd[1]==0xFF
+            // alone wrongly MU-wrapped NON-sparse numeric blocks whose preprocessed data merely
+            // starts with 0xFF at [1]; the MU decoder then reads strategy from bd[0] (the wrong
+            // value) and decodes garbage (all-zeros) -> SILENT CORRUPTION found by fuzz_mzip
+            // (strategy=11, bd=0x03 0xFF ..., 511 floats). The legacy/compact decode already
+            // requires BOTH conditions and handles this block correctly; MU now matches, so the
+            // block falls back to compact/legacy framing instead of a mis-decodable MU wrap. (2026-08-07)
             if (!use_mu && block_type == static_cast<uint8_t>(BlockType::NUMERIC) && comp_size >= 2) {
                 const uint8_t* bd = &output[LEGACY_HEADER + LEGACY_BLOCK_HEADER];
-                if (bd[1] == 0xFF) use_mu = true;
+                if (bd[0] == (uint8_t)strategy && bd[1] == 0xFF) use_mu = true;
             }
 
             if (use_mu) {
