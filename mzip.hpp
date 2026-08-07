@@ -9324,8 +9324,14 @@ inline std::vector<uint8_t> decode_csv_columnar(const uint8_t* encoded, size_t e
             // RAW: decompress (flag 0=raw, 1=zstd, 2=bwt)
             if (ptr >= end) break;
             uint8_t compress_flag = *ptr++;
+            if ((size_t)(end - ptr) < 4) break;                 // need 4 bytes for the length field
             uint32_t len = ptr[0] | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24);
             ptr += 4;
+            // Bound the declared payload against the remaining buffer -- a garbage/oversized len (e.g. from
+            // trying CSV_COLUMNAR on non-CSV bytes) otherwise reads OOB. flags 1/2/3 prepend a 4-byte
+            // orig_len before the len-byte payload; flag 0 is len raw bytes. Found by fuzz_mzip. (2026-08-07)
+            { size_t need = (compress_flag >= 1 && compress_flag <= 3) ? (size_t)4 + len : (size_t)len;
+              if (need > (size_t)(end - ptr)) break; }
 
             std::string joined;
             if (compress_flag == 3) {

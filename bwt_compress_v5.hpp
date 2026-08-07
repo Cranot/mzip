@@ -444,7 +444,12 @@ inline std::vector<uint8_t> bwt_decode(const uint8_t* bwt, size_t n, uint32_t pr
     // Note: Using malloc for A to avoid heap corruption issues with std::vector on MinGW
     // Note: Caller must ensure n is a safe size (use is_libsais_problematic_size to check)
     std::vector<uint8_t> output(n);
-    int32_t* A = (int32_t*)malloc(n * sizeof(int32_t));
+    // libsais_unbwt REQUIRES the temporary array A of size n+1 (libsais.h:283, "must be n + 1 size").
+    // Allocating only n left libsais writing A[n] one element past the buffer -> heap-metadata
+    // corruption -> crash on free(A), heap-layout-dependent (only some inputs hit it). Found by
+    // fuzz_mzip on a CSV+SQL concat at n=5213. This is the real bug the (n%4==2) "problematic size"
+    // heuristic was mis-diagnosing. (2026-08-07)
+    int32_t* A = (int32_t*)malloc((n + 1) * sizeof(int32_t));
     if (!A) {
         if (debug) printf("ERROR: malloc failed for A array\n");
         return {};
