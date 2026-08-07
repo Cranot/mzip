@@ -16527,15 +16527,29 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                                      bool try_sql = true,
                                      bool try_bcj = true,
                                      bool try_log = true) {
-    std::vector<uint8_t> out = compress_impl(data, size, zstd_level, block_size, result, mode,
-                                             try_soa, try_tabular, try_sql, try_bcj, try_log);
-#ifndef MZIP_NO_TOPLEVEL_VERIFY
-    if (size == 0 || out.empty()) return out;
-    {
-        std::vector<uint8_t> rt = decompress(out.data(), out.size(), nullptr);
-        if (rt.size() == size && std::memcmp(rt.data(), data, size) == 0) return out;  // verified lossless
+#ifdef MZIP_NO_TOPLEVEL_VERIFY
+    return compress_impl(data, size, zstd_level, block_size, result, mode,
+                         try_soa, try_tabular, try_sql, try_bcj, try_log);
+#else
+    std::vector<uint8_t> out;
+    bool ok = false;
+    try {
+        out = compress_impl(data, size, zstd_level, block_size, result, mode,
+                            try_soa, try_tabular, try_sql, try_bcj, try_log);
+        if (size == 0) return out;  // empty input: trust compress_impl's (tiny) result
+        if (!out.empty()) {
+            std::vector<uint8_t> rt = decompress(out.data(), out.size(), nullptr);
+            if (rt.size() == size && std::memcmp(rt.data(), data, size) == 0) ok = true;  // verified lossless
+        }
+    } catch (...) {
+        // compress_impl threw (e.g. std::bad_alloc: an encoder over-allocated on a pathological input;
+        // fuzz_mzip saw this on a 4356-byte input). Fall through to the guaranteed-lossless µRAW store,
+        // which allocates only ~size (the input already resides in memory) so it cannot itself OOM.
+        // Result: compress() NEVER terminates, on any input. (2026-08-07)
+        out.clear();
     }
-    // The chosen output does NOT round-trip -> emit the guaranteed-lossless µRAW store instead.
+    if (ok) return out;
+    // chosen output does not round-trip, OR compress_impl threw -> guaranteed-lossless µRAW store.
     std::vector<uint8_t> uraw;
     uraw.reserve(size + 16);
     uraw.push_back(0xB5);  // µ
@@ -16553,8 +16567,6 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         result->error.clear();
     }
     return uraw;
-#else
-    return out;
 #endif
 }
 
