@@ -14465,7 +14465,8 @@ inline bool invert(const uint8_t* blob, size_t bn, std::vector<uint8_t>& out){
 } // namespace mltsd
 
 // forward decl so the SoA path can roundtrip-verify its candidate before shipping it
-inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size, DecompressResult* result);
+inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size, DecompressResult* result = nullptr);
+inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size, DecompressResult* result = nullptr);
 // try_soa: set false in the recursive SoA call so the 'MS' variant is tried once,
 //          not infinitely. Defaults true, so existing callers are unaffected.
 // compress_impl: the full trial-and-keep encoder. The public compress() below wraps this with a
@@ -16558,8 +16559,8 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
 }
 
 // Decompress data in memory
-inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
-                                        DecompressResult* result = nullptr) {
+inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
+                                        DecompressResult* result) {
     DecompressResult res;
     res.success = false;
     res.decompressed_size = 0;
@@ -17725,6 +17726,28 @@ inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size,
     if (result) *result = res;
 
     return output;
+}
+
+// ============================================================================
+// Public decompress(): decompress_impl() guarded so a hostile/oversized .mz can never crash the
+// process. The decode paths carry OOB/length guards, but an untrusted stream can still declare a
+// huge original_size (mzip.hpp: `std::vector<uint8_t> output(original_size)`) or otherwise drive a
+// std::bad_alloc / std::length_error, which would propagate out as an uncaught exception and
+// terminate(). Catch everything here and return {} (with an error on the result) instead -- the same
+// "return empty on failure" contract the decode paths already use. INERT on valid streams (no
+// exception thrown -> zero-cost). Completes the untrusted-stream robustness story alongside the OOB
+// fixes. (2026-08-07, motivated by fuzz_compact: uZIP-magic tiny streams demanding multi-GB allocs.)
+// ============================================================================
+inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size, DecompressResult* result) {
+    try {
+        return decompress_impl(data, size, result);
+    } catch (const std::exception& e) {
+        if (result) { result->success = false; result->decompressed_size = 0; result->error = std::string("decompress: exception (hostile/oversized stream): ") + e.what(); }
+        return {};
+    } catch (...) {
+        if (result) { result->success = false; result->decompressed_size = 0; result->error = "decompress: unknown exception (hostile/oversized stream)"; }
+        return {};
+    }
 }
 
 // ============================================================================
