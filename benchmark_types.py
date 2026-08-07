@@ -78,6 +78,7 @@ TYPES = {
  "Shell":(sorted(glob.glob(EX+"shell/*")),1),
  "Numeric-temp":([EX+"citytemp_float.bin"],1), "Numeric-gyro":([EX+"phonegyro_sensor.bin"],1),
  "Numeric-gas":([EX+"tsgas_series.bin"],1), "Numeric-taxi":([EX+"nyctaxi_cols.bin"],1),
+ "Binary-x86":(sorted(glob.glob(EX+"bin/*")),1),  # real x86-64 PE binaries -> 'MB' BCJ filter (in product scope 2026-08-07)
  "TOML(synth)":([SM+"toml_config.toml"],0), "INI(synth)":([SM+"ini_config.ini"],0),
  "GraphQL(synth)":([SM+"graphql.graphql"],0), "Email(synth)":([SM+"email_headers.txt"],0),
  "Protobuf(synth)":([SM+"protobuf_like.bin"],0), "Base64(synth)":([SM+"base64.txt"],0),
