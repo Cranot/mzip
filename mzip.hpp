@@ -14468,7 +14468,11 @@ inline bool invert(const uint8_t* blob, size_t bn, std::vector<uint8_t>& out){
 inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size, DecompressResult* result);
 // try_soa: set false in the recursive SoA call so the 'MS' variant is tried once,
 //          not infinitely. Defaults true, so existing callers are unaffected.
-inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
+// compress_impl: the full trial-and-keep encoder. The public compress() below wraps this with a
+// top-level end-to-end losslessness verify + guaranteed µRAW fallback (2026-08-07). Recursive
+// sub-block compression calls compress_impl directly (the single top-level verify covers the whole
+// assembled stream, so nested re-verification would only add cost).
+inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
                                       int zstd_level = 3,
                                       size_t block_size = DEFAULT_BLOCK_SIZE,
                                       CompressResult* result = nullptr,
@@ -16169,7 +16173,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
         if (best_ci >= 0 && !ZSTD_isError(raw_proxy) && best_proxy < (raw_proxy * 98) / 100) {
             const SoaCand& c = CANDS[best_ci];
             auto t = soa_apply(data, size, c.tid, c.W, c.cols);
-            auto inner = compress(t.data(), size, zstd_level, block_size, nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false);
+            auto inner = compress_impl(t.data(), size, zstd_level, block_size, nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false);
             if (!inner.empty()) {
                 std::vector<uint8_t> ms;
                 ms.reserve(inner.size() + 16);
@@ -16202,7 +16206,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             std::vector<uint8_t> bitmap;
             auto payload = tab_build_payload(rows, bitmap);
             TabMeta m{ delim, tnl, (uint32_t)rows[0].size(), (uint32_t)(rows.size() - 1) };
-            auto inner = compress(payload.data(), payload.size(), zstd_level, block_size,
+            auto inner = compress_impl(payload.data(), payload.size(), zstd_level, block_size,
                                   nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false);
             if (inner.empty()) continue;
             std::vector<uint8_t> mt;
@@ -16234,7 +16238,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
     if (try_bcj && mode != CompressionMode::FAST && size >= 256 && mbcj::looks_like_x86(data, size)) {
         std::vector<uint8_t> filt(data, data + size);
         uint32_t st = 0; mbcj::x86_convert(filt.data(), filt.size(), 0, &st, /*encoding=*/1);
-        auto inner = compress(filt.data(), filt.size(), zstd_level, block_size, nullptr, mode,
+        auto inner = compress_impl(filt.data(), filt.size(), zstd_level, block_size, nullptr, mode,
                               /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false);
         if (!inner.empty()) {
             std::vector<uint8_t> mb; mb.reserve(inner.size() + 16);
@@ -16260,7 +16264,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             std::vector<uint8_t> chk;
             if (mqsql::invert(blob.data(), blob.size(), chk) && chk.size() == size &&
                 std::memcmp(chk.data(), data, size) == 0) {
-                auto inner = compress(blob.data(), blob.size(), zstd_level, block_size, nullptr, mode,
+                auto inner = compress_impl(blob.data(), blob.size(), zstd_level, block_size, nullptr, mode,
                                       /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false);
                 if (!inner.empty()) {
                     std::vector<uint8_t> mq; mq.reserve(inner.size() + 16);
@@ -16287,7 +16291,7 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
             std::vector<uint8_t> chk;
             if (mltsd::invert(blob.data(), blob.size(), chk) && chk.size() == size &&
                 std::memcmp(chk.data(), data, size) == 0) {
-                auto inner = compress(blob.data(), blob.size(), zstd_level, block_size, nullptr, mode,
+                auto inner = compress_impl(blob.data(), blob.size(), zstd_level, block_size, nullptr, mode,
                                       /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false);
                 if (!inner.empty()) {
                     std::vector<uint8_t> ml; ml.reserve(inner.size() + 16);
@@ -16492,6 +16496,65 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
     }
 
     return output;
+}
+
+// ============================================================================
+// Public compress(): compress_impl() + a TOP-LEVEL END-TO-END LOSSLESSNESS GUARANTEE.
+// ----------------------------------------------------------------------------
+// mzip is a large trial-and-keep ensemble; individual encoders and the format-selection/framing
+// stage have repeatedly shipped subtle losslessness bugs (e.g. the MU/NUMERIC sparse-marker
+// collision that fuzz_mzip caught: a valid float file compressed and decompressed to all-zeros).
+// This wrapper decompresses the chosen output and requires it reproduces the input byte-for-byte;
+// on ANY mismatch it falls back to the guaranteed-lossless µRAW store (0xB5 0x52 + varint(size) +
+// raw bytes), so the product can NEVER emit a stream that fails to round-trip -- regardless of
+// which encoder or framing path produced it, present or future. This is the definitive backstop
+// behind the per-encoder self-verifies.
+//   - INERT on correct output (the overwhelming common case): returns compress_impl's bytes
+//     unchanged -> byte-identical, ratio-neutral. Only provably-lossy output is ever replaced.
+//   - COST: one decompress per top-level compress. Recursive/sub-block compression uses
+//     compress_impl directly, so this single check covers the whole assembled stream once.
+//   - Revert with -DMZIP_NO_TOPLEVEL_VERIFY (restores the raw compress_impl behaviour).
+// (2026-08-07, found+motivated by the fuzz_mzip / fuzz_decode campaign.)
+// ============================================================================
+inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
+                                     int zstd_level = 3,
+                                     size_t block_size = DEFAULT_BLOCK_SIZE,
+                                     CompressResult* result = nullptr,
+                                     CompressionMode mode = CompressionMode::BALANCED,
+                                     bool try_soa = true,
+                                     bool try_tabular = true,
+                                     bool try_sql = true,
+                                     bool try_bcj = true,
+                                     bool try_log = true) {
+    std::vector<uint8_t> out = compress_impl(data, size, zstd_level, block_size, result, mode,
+                                             try_soa, try_tabular, try_sql, try_bcj, try_log);
+#ifndef MZIP_NO_TOPLEVEL_VERIFY
+    if (size == 0 || out.empty()) return out;
+    {
+        std::vector<uint8_t> rt = decompress(out.data(), out.size(), nullptr);
+        if (rt.size() == size && std::memcmp(rt.data(), data, size) == 0) return out;  // verified lossless
+    }
+    // The chosen output does NOT round-trip -> emit the guaranteed-lossless µRAW store instead.
+    std::vector<uint8_t> uraw;
+    uraw.reserve(size + 16);
+    uraw.push_back(0xB5);  // µ
+    uraw.push_back(0x52);  // R
+    uint64_t v = (uint64_t)size;
+    while (v >= 128) { uraw.push_back((uint8_t)((v & 0x7F) | 0x80)); v >>= 7; }
+    uraw.push_back((uint8_t)v);
+    uraw.insert(uraw.end(), data, data + size);
+    if (result) {
+        result->success = true;
+        result->compressed_size = uraw.size();
+        result->block_count = 1;
+        result->used_lite_format = true;
+        result->original_size = size;
+        result->error.clear();
+    }
+    return uraw;
+#else
+    return out;
+#endif
 }
 
 // Decompress data in memory
