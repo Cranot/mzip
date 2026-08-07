@@ -14267,8 +14267,8 @@ inline bool pdec(const uint8_t* p, size_t len, int64_t& v){        // bounded si
   else   { if(x>9223372036854775807ULL) return false; v=(int64_t)x; }
   return true; }
 
-// build blob (LTCLF1 text header + body); empty = decline. NOT self-verified (caller does).
-inline std::vector<uint8_t> apply(const uint8_t* raw, size_t n){
+// build CLF blob (LTCLF1 text header + body); empty = decline. NOT self-verified (caller does).
+inline std::vector<uint8_t> apply_clf(const uint8_t* raw, size_t n){
   std::vector<std::pair<size_t,size_t>> lines;
   { size_t s=0; while(s<n){ const void* nl=memchr(raw+s,'\n',n-s); size_t e=nl?(size_t)((const uint8_t*)nl-raw)+1:n; lines.push_back({s,e-s}); s=e; } }
   std::vector<uint8_t> body; std::vector<uint32_t> exc; int64_t base_epoch=0,prev=0; bool have=false;
@@ -14290,7 +14290,7 @@ inline std::vector<uint8_t> apply(const uint8_t* raw, size_t n){
   blob.push_back('\n'); blob.insert(blob.end(),body.begin(),body.end());
   return blob;
 }
-inline bool invert(const uint8_t* blob, size_t bn, std::vector<uint8_t>& out){
+inline bool invert_clf(const uint8_t* blob, size_t bn, std::vector<uint8_t>& out){
   size_t pos=0; auto line=[&](size_t& ls,size_t& ll)->bool{ if(pos>=bn) return false; const void* nl=memchr(blob+pos,'\n',bn-pos); if(!nl) return false; ls=pos; ll=(size_t)((const uint8_t*)nl-blob)-pos; pos=(size_t)((const uint8_t*)nl-blob)+1; return true; };
   size_t ls,ll; int64_t base_epoch=0,nexc=0;
   if(!line(ls,ll)||ll!=6||memcmp(blob+ls,"LTCLF1",6)!=0) return false;
@@ -14318,6 +14318,108 @@ inline bool invert(const uint8_t* blob, size_t bn, std::vector<uint8_t>& out){
   }
   return true;
 }
+
+// ---- ISO-8601 / app-log family: YYYY-MM-DD<sep>HH:MM:SS[<fsep>frac][zone], anchored at line start ----
+// Descriptor {sep in {'T',' '}, fsep in {'.',','}, fwidth, zone literal} fixed per block; value =
+// epoch-secs * 10^fwidth + frac so fractional seconds fold into the delta; zone kept literal (never
+// applied). Same fail-closed model: a line transforms only if reformat(parse(ts))==ts byte-exact.
+inline bool parse_iso(const uint8_t* ln, size_t le, int64_t& tick, uint8_t& sep, uint8_t& fsep,
+                      int& fwidth, const uint8_t*& zone, size_t& zone_len, size_t& ts_len){
+  if(le<19) return false; const uint8_t* p=ln;
+  int Y=d4(p); if(Y<0||p[4]!='-') return false;
+  int Mo=d2(p+5); if(Mo<0||p[7]!='-') return false;
+  int D=d2(p+8); if(D<0) return false;
+  uint8_t s=p[10]; if(s!='T'&&s!=' ') return false; sep=s;
+  int H=d2(p+11); if(H<0||p[13]!=':') return false;
+  int Mi=d2(p+14); if(Mi<0||p[16]!=':') return false;
+  int S=d2(p+17); if(S<0) return false;
+  size_t q=19; int64_t fr=0; int w=0; fsep=0;
+  if(q<le && (ln[q]=='.'||ln[q]==',')){ fsep=ln[q]; q++; size_t fs=q; while(q<le && ln[q]>='0'&&ln[q]<='9') q++; w=(int)(q-fs); if(w==0||w>9) return false; for(size_t k=fs;k<q;k++) fr=fr*10+(ln[k]-'0'); }
+  zone=ln+q; zone_len=0;
+  if(q<le){ if(ln[q]=='Z'){ zone_len=1; q++; }
+    else if(ln[q]=='+'||ln[q]=='-'){
+      if(q+3<=le && d2(ln+q+1)>=0){
+        if(q+6<=le && ln[q+3]==':' && d2(ln+q+4)>=0){ zone_len=6; q+=6; }
+        else if(q+5<=le && d2(ln+q+3)>=0){ zone_len=5; q+=5; } } } }
+  int64_t secs=days_from_civil(Y,Mo,D)*86400+H*3600+Mi*60+S;
+  int64_t scale=1; for(int k=0;k<w;k++) scale*=10;
+  if(secs<0 || secs > (INT64_MAX - fr)/scale) return false;   // overflow / pre-epoch guard
+  tick=secs*scale+fr; fwidth=w; ts_len=q; return true;
+}
+inline void reformat_iso(int64_t tick, uint8_t sep, uint8_t fsep, int w, const uint8_t* zone, size_t zl, std::vector<uint8_t>& out){
+  int64_t scale=1; for(int k=0;k<w;k++) scale*=10;
+  int64_t secs=tick/scale, fr=tick%scale, days=secs/86400, tod=secs%86400;
+  int64_t H=tod/3600, Mi=(tod%3600)/60, Sx=tod%60, Y,Mo,D; civil_from_days(days,Y,Mo,D);
+  char b[40]; int nn=snprintf(b,sizeof b,"%04lld-%02lld-%02lld%c%02lld:%02lld:%02lld",(long long)Y,(long long)Mo,(long long)D,(char)sep,(long long)H,(long long)Mi,(long long)Sx);
+  out.insert(out.end(),b,b+nn);
+  if(w){ out.push_back(fsep); char f[24]; int fn=snprintf(f,sizeof f,"%0*lld",w,(long long)fr); out.insert(out.end(),f,f+fn); }
+  out.insert(out.end(),zone,zone+zl);
+}
+struct IsoFmt { uint8_t sep, fsep; int fwidth; std::string zone; };
+inline bool iso_fmt_eq(const IsoFmt& a, uint8_t sep, uint8_t fsep, int fw, const uint8_t* z, size_t zl){
+  return a.sep==sep && a.fsep==fsep && a.fwidth==fw && a.zone.size()==zl && (zl==0 || memcmp(a.zone.data(),z,zl)==0); }
+
+inline std::vector<uint8_t> apply_iso(const uint8_t* raw, size_t n){
+  if(n<19) return {};
+  std::vector<std::pair<size_t,size_t>> segs;
+  { size_t s=0; while(true){ const void* nl=memchr(raw+s,'\n',n-s); if(!nl){ segs.push_back({s,n-s}); break; } size_t e=(size_t)((const uint8_t*)nl-raw); segs.push_back({s,e-s}); s=e+1; if(s==n){ segs.push_back({s,0}); break; } } }
+  IsoFmt d0; bool have_d0=false;
+  for(auto& sg: segs){ const uint8_t* ln=raw+sg.first; size_t le=sg.second;
+    int64_t tk; uint8_t sp,fp; int fw; const uint8_t* z; size_t zl,tl;
+    if(!parse_iso(ln,le,tk,sp,fp,fw,z,zl,tl)) continue;
+    std::vector<uint8_t> rf; reformat_iso(tk,sp,fp,fw,z,zl,rf);
+    if(rf.size()==tl && memcmp(rf.data(),ln,tl)==0){ d0={sp,fp,fw,std::string((const char*)z,zl)}; have_d0=true; break; } }
+  if(!have_d0) return {};
+  int64_t baseline=0,prev=0; bool have_base=false; std::vector<uint32_t> exc; std::vector<uint8_t> body; bool firstseg=true;
+  for(size_t i=0;i<segs.size();i++){ const uint8_t* ln=raw+segs[i].first; size_t le=segs[i].second;
+    if(!firstseg) body.push_back('\n'); firstseg=false;
+    int64_t tk; uint8_t sp,fp; int fw; const uint8_t* z; size_t zl,tl; bool ok=false;
+    if(parse_iso(ln,le,tk,sp,fp,fw,z,zl,tl) && iso_fmt_eq(d0,sp,fp,fw,z,zl)){
+      std::vector<uint8_t> rf; reformat_iso(tk,sp,fp,fw,z,zl,rf);
+      if(rf.size()==tl && memcmp(rf.data(),ln,tl)==0 && !(tl<le && ln[tl]>='0'&&ln[tl]<='9')) ok=true; }
+    if(ok){ if(!have_base){ baseline=tk; prev=tk; have_base=true; } int64_t delta=tk-prev; prev=tk;
+      char tok[24]; int tn=snprintf(tok,sizeof tok,"%llu",(unsigned long long)zz(delta)); body.insert(body.end(),tok,tok+tn);
+      body.insert(body.end(), ln+tl, ln+le); }
+    else { exc.push_back((uint32_t)i); body.insert(body.end(), ln, ln+le); } }
+  if(!have_base) return {};
+  std::vector<uint8_t> blob; const char* mg="LTISO1"; blob.insert(blob.end(),mg,mg+6);
+  blob.push_back(d0.sep); blob.push_back(d0.fsep); blob.push_back((uint8_t)d0.fwidth); blob.push_back((uint8_t)d0.zone.size());
+  blob.insert(blob.end(), d0.zone.begin(), d0.zone.end());
+  mqsql::put_uv(blob, zz(baseline)); mqsql::put_uv(blob, exc.size());
+  uint32_t last=0; for(uint32_t e: exc){ mqsql::put_uv(blob, (uint64_t)(e-last)); last=e; }
+  mqsql::put_uv(blob, body.size()); blob.insert(blob.end(), body.begin(), body.end());
+  return blob;
+}
+inline bool invert_iso(const uint8_t* blob, size_t bn, std::vector<uint8_t>& out){
+  if(bn<6 || memcmp(blob,"LTISO1",6)!=0) return false;
+  size_t i=6; if(i+4>bn) return false;
+  uint8_t sep=blob[i],fsep=blob[i+1]; int fw=blob[i+2]; size_t zl=blob[i+3]; i+=4;
+  if(fw<0||fw>9) return false; if(zl > bn-i) return false; const uint8_t* zone=blob+i; i+=zl;
+  bool ok=true; uint64_t zb=mqsql::get_uv(blob,i,bn,ok); if(!ok) return false; int64_t baseline=unzz(zb);
+  uint64_t nexc=mqsql::get_uv(blob,i,bn,ok); if(!ok||nexc>(uint64_t)(bn-i)) return false;
+  std::vector<uint32_t> exc; uint32_t last=0;
+  for(uint64_t k=0;k<nexc;k++){ uint64_t g=mqsql::get_uv(blob,i,bn,ok); if(!ok) return false; last+=(uint32_t)g; exc.push_back(last); }
+  uint64_t blen=mqsql::get_uv(blob,i,bn,ok); if(!ok||blen>(uint64_t)(bn-i)) return false;
+  const uint8_t* body=blob+i; size_t bl=(size_t)blen;
+  std::vector<std::pair<size_t,size_t>> segs;
+  { size_t s=0; while(true){ const void* nl=memchr(body+s,'\n',bl-s); if(!nl){ segs.push_back({s,bl-s}); break; } size_t e=(size_t)((const uint8_t*)nl-body); segs.push_back({s,e-s}); s=e+1; if(s==bl){ segs.push_back({s,0}); break; } } }
+  int64_t prev=baseline; size_t ep=0; bool firstseg=true;
+  for(size_t idx=0; idx<segs.size(); idx++){ const uint8_t* ln=body+segs[idx].first; size_t le=segs[idx].second;
+    if(!firstseg) out.push_back('\n'); firstseg=false;
+    if(ep<exc.size() && exc[ep]==(uint32_t)idx){ out.insert(out.end(), ln, ln+le); ep++; continue; }
+    size_t j=0; while(j<le && ln[j]>='0'&&ln[j]<='9') j++; if(j==0) return false;
+    int64_t u; if(!pdec(ln,j,u)||u<0) return false;
+    int64_t tick=prev+unzz((uint64_t)u); prev=tick;
+    reformat_iso(tick,sep,fsep,fw,zone,zl,out); out.insert(out.end(), ln+j, ln+le); }
+  return true;
+}
+
+// top-level: try CLF then ISO on encode; dispatch on blob magic on decode.
+inline std::vector<uint8_t> apply(const uint8_t* raw, size_t n){ auto b=apply_clf(raw,n); if(!b.empty()) return b; return apply_iso(raw,n); }
+inline bool invert(const uint8_t* blob, size_t bn, std::vector<uint8_t>& out){
+  if(bn>=6 && memcmp(blob,"LTCLF1",6)==0) return invert_clf(blob,bn,out);
+  if(bn>=6 && memcmp(blob,"LTISO1",6)==0) return invert_iso(blob,bn,out);
+  return false; }
 } // namespace mltsd
 
 // forward decl so the SoA path can roundtrip-verify its candidate before shipping it
