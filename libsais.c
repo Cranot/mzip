@@ -7987,6 +7987,23 @@ static sa_sint_t libsais_unbwt_core(const uint8_t * RESTRICT T, uint8_t * RESTRI
         libsais_unbwt_init_single(T, P, n, freq, I, bucket2, fastbits);
     }
 
+    /* HARDENING (mzip, 2026-08-07): libsais_unbwt is unsafe on a non-permutation BWT (a malformed
+       or attacker-supplied stream). The decode walks p0 = P[p0]; P is the bi-PSI array built by
+       libsais_unbwt_calculate_biPSI as P[...] = (sa_uint_t)i with i in [0, n], so on a genuine BWT
+       every value is <= n and, since P is allocated n+1 and fastbits covers index n>>shift, a walk
+       position p0 in [0, n] is always in-bounds. On garbage, an unwritten/inconsistent P slot can
+       hold a value > n; the walk's p0 then escapes [0, n] and fastbits[p0>>shift]/P[p0] read out of
+       bounds -> SIGSEGV. CLAMP the (impossible-on-valid-input) entries P[vi] > n into range so p0
+       can never escape. PROVABLY INERT on valid input: biPSI never writes a value > n, so this
+       branch cannot fire on a real stream -- the legitimate value n and every P[n] are left
+       untouched (an earlier >= n test wrongly clamped the legal value n and broke 4 roundtrips;
+       must be strictly > n over [0, n]). Gated byte-identical: mzip_ut 35/35. Found by fuzz_decode:
+       'ML'->MU->B9->bwt5->libsais_unbwt, n=7191. */
+    {
+        fast_sint_t vi;
+        for (vi = 0; vi <= (fast_sint_t)n; ++vi) { if ((fast_uint_t)P[vi] > (fast_uint_t)n) { P[vi] = 0; } }
+    }
+
     libsais_unbwt_decode_omp(T, U, P, n, r, I, bucket2, fastbits, threads);
     return 0;
 }

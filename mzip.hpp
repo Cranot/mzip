@@ -3947,16 +3947,25 @@ inline std::vector<uint8_t> decode_kv_config(const uint8_t* encoded, size_t enco
     if (compress_mode == 2) {
         // BWT compressed
         uint64_t comp_size = read_uvarint(ptr, end);
+        // Trust no length field: comp bytes must fit in the remaining stream (inert on valid).
+        if (comp_size > (uint64_t)(end - ptr)) return {};
         raw = bwt9::decompress(ptr, comp_size);
         if (raw.empty()) return {};
     } else if (compress_mode == 1) {
         // zstd compressed
         uint64_t comp_size = read_uvarint(ptr, end);
-        raw.resize(raw_size);
+        if (comp_size > (uint64_t)(end - ptr)) return {};
+        // Validate the declared raw_size against the actual zstd frame content size, so a hostile
+        // raw_size can't drive a huge resize (OOM) or mismatch. Inert on valid: they always agree.
+        unsigned long long fcs = ZSTD_getFrameContentSize(ptr, (size_t)comp_size);
+        if (fcs == ZSTD_CONTENTSIZE_ERROR || fcs == ZSTD_CONTENTSIZE_UNKNOWN || fcs != raw_size) return {};
+        raw.resize((size_t)raw_size);
         size_t decompressed = ZSTD_decompress(raw.data(), raw.size(), ptr, comp_size);
         if (ZSTD_isError(decompressed)) return {};
     } else {
-        // Raw (uncompressed)
+        // Raw (uncompressed): raw_size literal bytes must be present in the stream. This was the
+        // unchecked assign(ptr, ptr+raw_size) -> 16 GB copy -> SIGSEGV found by fuzz_decode.
+        if (raw_size > (uint64_t)(end - ptr)) return {};
         raw.assign(ptr, ptr + raw_size);
     }
 
@@ -8941,12 +8950,17 @@ inline std::vector<uint8_t> decode_columnar(const uint8_t* encoded, size_t encod
         std::vector<uint8_t> result;
         result.reserve(original_size);
 
+        // Trust no length field: guard every parallel-column access (columns 1..5 were unguarded,
+        // an OOB vector::operator[] on a malformed stream). Matches the standard-7col branch below.
+        auto col = [&](int c, size_t i) -> const std::string& {
+            static const std::string kEmpty;
+            return (i < columns[c].size()) ? columns[c][i] : kEmpty;
+        };
         for (size_t i = 0; i < row_count && i < columns[0].size(); i++) {
-            std::string line = columns[0][i] + " - - [" + columns[1][i] + "] \"" +
-                   columns[2][i] + " " + columns[3][i] + " HTTP/1.1\" " +
-                   columns[4][i] + " " + columns[5][i] + " \"" +
-                   (i < columns[6].size() ? columns[6][i] : "") + "\" \"" +
-                   (i < columns[7].size() ? columns[7][i] : "") + "\"";
+            std::string line = col(0,i) + " - - [" + col(1,i) + "] \"" +
+                   col(2,i) + " " + col(3,i) + " HTTP/1.1\" " +
+                   col(4,i) + " " + col(5,i) + " \"" +
+                   col(6,i) + "\" \"" + col(7,i) + "\"";
             if (i < columns[8].size() && !columns[8][i].empty()) {
                 line += " " + columns[8][i];
             }
@@ -8996,11 +9010,20 @@ inline std::vector<uint8_t> decode_columnar(const uint8_t* encoded, size_t encod
     std::vector<uint8_t> result;
     result.reserve(original_size);
 
+    // Trust no length field: columns 1..6 may hold fewer rows than column 0 on a malformed
+    // stream. Indexing columns[k][i] unguarded is vector::operator[] OOB -> reads a garbage
+    // std::string -> heap corruption / SIGSEGV. Guard each access like the 0xFF branch above.
+    // (Provably inert on valid CL streams: the encoder emits 7 equal-length columns.)
+    // Found by fuzz_decode on a 'CL'-magic random stream, first_byte=7 (2026-08-07).
+    auto col = [&](int c, size_t i) -> const std::string& {
+        static const std::string kEmpty;
+        return (i < columns[c].size()) ? columns[c][i] : kEmpty;
+    };
     for (size_t i = 0; i < row_count && i < columns[0].size(); i++) {
-        std::string line = columns[0][i] + " - - [" + columns[1][i] + "] \"" +
-                   columns[2][i] + " " + columns[3][i] + " HTTP/1.1\" " +
-                   columns[4][i] + " " + columns[5][i] + " \"-\" \"" +
-                   columns[6][i] + "\"";
+        std::string line = col(0,i) + " - - [" + col(1,i) + "] \"" +
+                   col(2,i) + " " + col(3,i) + " HTTP/1.1\" " +
+                   col(4,i) + " " + col(5,i) + " \"-\" \"" +
+                   col(6,i) + "\"";
         for (char c : line) result.push_back((uint8_t)c);
         result.push_back('\n');
     }
@@ -10230,10 +10253,17 @@ inline std::vector<uint8_t> decode_num_extract(const uint8_t* encoded, size_t en
     uint32_t nums_comp_size = ptr[0] | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24);
     ptr += 4;
 
-    // Decompress varint buffer
-    size_t varint_bound = num_count * 5;  // Max 5 bytes per varint
+    // Trust no length field (2026-08-07): num_count/nums_comp_size are attacker-controlled.
+    // num_count*5 can overflow uint32; nums_comp_size can exceed the buffer; and a FAILED
+    // ZSTD_decompress returns a huge error code that the varint loop below then walks off the
+    // end of varint_buf -> SIGSEGV (found by fuzz_mzip). Bound every size, reject ZSTD errors.
+    // Inert on valid streams: num_count <= original_size (>=1 output char per number).
+    if ((size_t)nums_comp_size > (size_t)(end - ptr)) return {};
+    if ((size_t)num_count > original_size) return {};
+    size_t varint_bound = (size_t)num_count * 5;  // Max 5 bytes per varint
     std::vector<uint8_t> varint_buf(varint_bound);
     size_t varint_size = ZSTD_decompress(varint_buf.data(), varint_buf.size(), ptr, nums_comp_size);
+    if (ZSTD_isError(varint_size)) return {};
     ptr += nums_comp_size;
 
     // Decode varints to numbers
@@ -10258,9 +10288,15 @@ inline std::vector<uint8_t> decode_num_extract(const uint8_t* encoded, size_t en
     uint32_t templ_orig_size = ptr[0] | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24);
     ptr += 4;
 
+    // Trust no length field: bound templ sizes and reject ZSTD errors (inert on valid streams:
+    // templ_orig_size <= original_size, templ_comp_size <= remaining).
+    if ((size_t)templ_comp_size > (size_t)(end - ptr)) return {};
+    if ((size_t)templ_orig_size > original_size) return {};
+
     // Decompress template
     std::vector<uint8_t> templ(templ_orig_size);
-    ZSTD_decompress(templ.data(), templ.size(), ptr, templ_comp_size);
+    size_t templ_dec = ZSTD_decompress(templ.data(), templ.size(), ptr, templ_comp_size);
+    if (ZSTD_isError(templ_dec)) return {};
 
     // Reconstruct: replace placeholders with numbers
     std::vector<uint8_t> result;

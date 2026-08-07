@@ -286,6 +286,15 @@ inline std::vector<uint8_t> bwt_encode(const uint8_t* data, size_t n, uint32_t& 
 
 inline std::vector<uint8_t> bwt_decode(const uint8_t* bwt, size_t n, uint32_t primary_idx) {
     if (n == 0) return {};
+    // GUARD (2026-08-07): transform[] is a permutation of [0,n) for ANY byte string
+    // (transform[i]=cumul[c]+occ[c] in [0,n-1]), so once idx<n the walk idx=transform[idx]
+    // stays in-bounds -- the ONLY way idx escapes [0,n) is a starting primary_idx>=n. bwt5
+    // guards this; bwt8 did not, so a malformed/inconsistent stream (or a mis-selected arm)
+    // read bwt[idx]/transform[idx] out of bounds -> SIGSEGV. Reject it (the caller's roundtrip
+    // verify then falls back). Provably inert on valid streams: they have primary_idx<n.
+    // Found by fuzz_mzip: an ISO-log input whose ML self-verify decoded a bwt8 arm with
+    // primary_idx=1756 >= n. Mirrors the bwt5 guard.
+    if (primary_idx >= n) return {};
     std::vector<uint32_t> count(256, 0);
     for (size_t i = 0; i < n; i++) count[bwt[i]]++;
     std::vector<uint32_t> cumul(256, 0);
