@@ -135,3 +135,25 @@
 ## Losses (real files where mzip loses by more than the 32 B framing margin)
 
 **None** — mzip matches or beats the best standard on every real file (remaining gaps are ≤32 B container framing).
+## Dict-vs-dict fairness (spot-measured 2026-08-09)
+
+The strongest fairness test: hand zstd-19 **mzip's own trained dictionary** (`train_corpus/code_dict.bin`,
+the exact one mzip's `ZSTD_DICT` encoder uses) and compare on the dict-relevant code/config regime.
+
+| File | mzip+CM | zstd-19+mzip-dict | zstd-19 (no dict) | mzip vs zstd+dict |
+|---|--:|--:|--:|--:|
+| handlers.ts | 1103 | 1289 | 1431 | −14.4% |
+| go_http.go | 30833 | 34408 | 37606 | −10.4% |
+| django_models.py | 15536 | 18731 | 19599 | −17.1% |
+| rust_lib.rs | 7287 | 8001 | 8611 | −8.9% |
+| vscode_main.ts | 4589 | 4952 | 5372 | −7.3% |
+| terraform_main.tf | 1673 | 1955 | 2058 | −14.4% |
+| webpack.config.js | 2958 | 3207 | 3437 | −7.8% |
+| Dockerfile | 1367 | 1483 | 1616 | −7.8% |
+| handlers.go | 807 | 824 | 935 | −2.1% |
+| **aggregate** | **66153** | **74850** | **80665** | **−11.6%** |
+
+**Even given mzip's exact dictionary, zstd-19 is 11.6% larger than mzip** (and plain zstd is 18.0% larger).
+mzip's edge is CM + structural transforms + xz/brotli backstops layered on top of the same dictionary.
+The full per-type `zstd-19+dict` column is wired into `benchmark_types.py` (run on a non-resource-constrained
+box to regenerate it across all 48 types).

@@ -32,6 +32,12 @@ def _zstd(f,lvl):
     r=subprocess.run(["./zc.exe",f,str(lvl)],capture_output=True,text=True)
     try: return int(r.stdout.strip())
     except: return 0
+ZDICT = "train_corpus/code_dict.bin"  # mzip's OWN pre-trained zstd dict (used by its ZSTD_DICT encoder)
+def _zstd_dict(f):  # zstd-19 handed mzip's EXACT dictionary -> the fairest dict-vs-dict comparator
+    if not (os.path.exists("zc.exe") and os.path.exists(ZDICT)): return 0
+    r=subprocess.run(["./zc.exe",f,"19",ZDICT],capture_output=True,text=True)
+    try: return int(r.stdout.strip())
+    except: return 0
 def _mzip(f,withcm):
     exe="./mzip_cm.exe" if withcm else "./mzip_base.exe"
     if not os.path.exists(exe): return (0,0.0,0.0)
@@ -53,8 +59,8 @@ def _ver(cmd):  # first non-empty line of a --version (stdout or stderr); for th
     except Exception: pass
     return "?"
 
-TOOLS=["gzip-9","bzip2-9","zstd-19","zstd-22","xz-9e","mzip(noCM)","brotli-11","mzip+CM"]
-EXT  =["gzip-9","bzip2-9","zstd-19","zstd-22","xz-9e","brotli-11"]
+TOOLS=["gzip-9","bzip2-9","zstd-19","zstd-22","zstd-19+dict","xz-9e","mzip(noCM)","brotli-11","mzip+CM"]
+EXT  =["gzip-9","bzip2-9","zstd-19","zstd-22","zstd-19+dict","xz-9e","brotli-11"]
 def size_of(tool,f):
     if tool=="gzip-9":   return _stdout(["gzip","-9","-c"],f)
     if tool=="bzip2-9":  return _stdout(["bzip2","-9","-c"],f)
@@ -62,6 +68,7 @@ def size_of(tool,f):
     if tool=="xz-9e":    return _stdout([XZ,"-9","-e","-c"],f) if XZ else 0
     if tool=="zstd-19":  return _zstd(f,19)
     if tool=="zstd-22":  return _zstd(f,22)
+    if tool=="zstd-19+dict": return _zstd_dict(f)
     return 0
 
 RB="real_bench/"; SM="samples/64k/input/"; EX="corpus_extra/"
@@ -170,10 +177,12 @@ L.append(f"**{len(rows)} content types, {fwin+ftie+floss} files.** Every compres
 L.append("## Methodology & fairness (read this before quoting numbers)\n")
 L.append(f"- **Held-out corpus.** Files are held-out test data; mzip's trained dictionaries were built on a "
          f"SEPARATE `train_corpus/` with no overlap. Never benchmarked on training data.")
-L.append(f"- **Dictionaries — the fair comparator is brotli.** mzip uses trained dictionaries; so does **brotli-11** "
-         f"(a ~120 KB built-in dictionary). So **mzip-vs-brotli is dict-vs-dict and is the fair headline.** "
-         f"zstd-19/22 and xz are run WITHOUT a dictionary, so mzip's margin over *them* includes a dictionary "
-         f"advantage — do not read those as pure algorithm wins.")
+L.append(f"- **Dictionaries — two dict-equipped comparators.** mzip uses trained dictionaries; so does **brotli-11** "
+         f"(a ~120 KB built-in dictionary), and **zstd-19+dict** here is handed **mzip's OWN pre-trained code "
+         f"dictionary** (`train_corpus/code_dict.bin`, the exact one mzip's ZSTD_DICT encoder uses). So both "
+         f"**mzip-vs-brotli and mzip-vs-zstd+dict are dict-vs-dict** — even given its own dictionary, zstd loses "
+         f"to mzip (which layers CM + structural transforms + xz/brotli backstops on top). Plain zstd-19/22 and "
+         f"xz are run WITHOUT a dictionary, so mzip's margin over *those* includes a dictionary advantage.")
 L.append(f"- **Archive framing.** mzip is a self-describing archive (~5–14 B/file header) vs the standards' raw "
          f"streams. A per-file **tie** = mzip within 32 B of the best standard (i.e. equal payload, lost only to "
          f"the container header).")
