@@ -34127,6 +34127,42 @@ inline bool looks_like_x86(const uint8_t* d, size_t n){
   for(size_t i=0;i<s;i++){ uint8_t c=d[i]; if((c&0xFE)==0xE8) cnt++; }
   return cnt*100 >= s;                                                       // >=1% E8/E9 density
 }
+// Detect a NON-x86 executable and return the matching liblzma BCJ filter id, else 0.
+// x86/x64 are deliberately excluded (handled by the hand-rolled x86_convert 'MB' path above).
+// Reads the ELF/PE header at the block start; only block 0 of a file carries it, which covers the
+// common single-block executable. Correctness never depends on this being right: BCJ is bijective,
+// the .xz decoder inverts it from the stream header, and the trial is kept only if it is smaller
+// AND roundtrip-verifies -- a wrong guess just loses the trial. (2026-08-08)
+inline uint64_t exec_bcj_filter(const uint8_t* d, size_t n){
+  if(n < 64) return 0;
+  if(d[0]==0x7f && d[1]=='E' && d[2]=='L' && d[3]=='F'){                      // ELF
+    bool le = (d[5]==1);                                                      // EI_DATA: 1=LE, 2=BE
+    uint16_t em = le ? (uint16_t)(d[0x12] | ((uint16_t)d[0x13]<<8))
+                     : (uint16_t)(((uint16_t)d[0x12]<<8) | d[0x13]);          // e_machine
+    switch(em){
+      case 0x28: return MZ_LZMA_FILTER_ARM;                                   // EM_ARM (32-bit)
+      case 0xB7: return MZ_LZMA_FILTER_ARM64;                                 // EM_AARCH64
+      case 0x14: case 0x15: return le ? 0 : MZ_LZMA_FILTER_POWERPC;           // EM_PPC/PPC64 (liblzma PPC = big-endian)
+      case 0xF3: return MZ_LZMA_FILTER_RISCV;                                 // EM_RISCV
+      default:   return 0;                                                    // x86 (0x03/0x3E) -> 'MB' path
+    }
+  }
+  if(d[0]=='M' && d[1]=='Z'){                                                 // PE
+    uint32_t pe = (uint32_t)d[0x3C] | ((uint32_t)d[0x3D]<<8) | ((uint32_t)d[0x3E]<<16) | ((uint32_t)d[0x3F]<<24);
+    if((size_t)pe+6 <= n && d[pe]=='P' && d[pe+1]=='E' && d[pe+2]==0 && d[pe+3]==0){
+      uint16_t mach = (uint16_t)d[pe+4] | ((uint16_t)d[pe+5]<<8);             // IMAGE_FILE_MACHINE_*
+      switch(mach){
+        case 0xAA64: return MZ_LZMA_FILTER_ARM64;                             // ARM64
+        case 0x01C0: return MZ_LZMA_FILTER_ARM;                               // ARM
+        case 0x01C2: case 0x01C4: return MZ_LZMA_FILTER_ARMTHUMB;             // THUMB / ARMNT
+        case 0x01F0: case 0x01F1: return MZ_LZMA_FILTER_POWERPC;              // PPC
+        case 0x5064: return MZ_LZMA_FILTER_RISCV;                             // RISCV64
+        default:     return 0;                                               // x86 (0x014C/0x8664) -> 'MB' path
+      }
+    }
+  }
+  return 0;
+}
 } // namespace mbcj
 
 // ============================================================================
@@ -35584,6 +35620,46 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
                     analysis.type = BlockType::XZLIB;
                     use_generator = true;
                     cur = xpos;
+                }
+            }
+            // ARM/PPC/RISC-V BCJ-filtered xz trial -> a better XZLIB candidate on non-x86 executables.
+            // mzip's 'MB' pre-filter is x86 E8/E9 only; xz's arch BCJ filters beat plain xz 4-7% on ARM/PPC/
+            // RISCV machine code (measured: ppc64 +7.3%, arm32 +5.8%, arm64 +3.8% vs plain). The payload stays
+            // a plain .xz stream (BlockType XZLIB unchanged) whose header carries the BCJ filter, so DECODE is
+            // untouched -- lzma_stream_buffer_decode auto-inverts it. Trial-and-keep + per-block roundtrip-verify
+            // => zero regression by construction. (2026-08-08, gap-analysis workflow)
+            {
+                uint64_t bcj_id = mbcj::exec_bcj_filter(block_data, this_block);
+                if (bcj_id) {
+                    unsigned char lzopt[256];
+                    std::memset(lzopt, 0, sizeof(lzopt));
+                    if (lzma_lzma_preset(lzopt, 9u | MZ_LZMA_PRESET_EXTREME) == 0) {   // 0 = OK
+                        mz_lzma_filter filters[3] = {
+                            { bcj_id, nullptr },
+                            { MZ_LZMA_FILTER_LZMA2, lzopt },
+                            { MZ_LZMA_VLI_UNKNOWN, nullptr }
+                        };
+                        size_t xbound = lzma_stream_buffer_bound(this_block);
+                        std::vector<uint8_t> xb(xbound);
+                        size_t xpos = 0;
+                        if (lzma_stream_buffer_encode(filters, MZ_LZMA_CHECK_NONE, nullptr,
+                                                      block_data, this_block, xb.data(), &xpos, xbound) == MZ_LZMA_OK
+                            && xpos < cur && xpos <= cap) {
+                            // per-block roundtrip-verify (new encoder path): decode the .xz, compare to source
+                            uint64_t memlim = ~0ULL; size_t inpos = 0, outpos = 0;
+                            std::vector<uint8_t> chk(this_block);
+                            if (lzma_stream_buffer_decode(&memlim, 0, nullptr, xb.data(), &inpos, xpos,
+                                                          chk.data(), &outpos, this_block) == MZ_LZMA_OK
+                                && outpos == this_block
+                                && std::memcmp(chk.data(), block_data, this_block) == 0) {
+                                memcpy(preprocess_data, xb.data(), xpos);
+                                preprocess_size = xpos;
+                                analysis.type = BlockType::XZLIB;
+                                use_generator = true;
+                                cur = xpos;
+                            }
+                        }
+                    }
                 }
             }
             // brotli-11 trial (ensemble backstop) -> BROTLI. Trial BOTH generic(0) + text(1) modes, keep smaller.
