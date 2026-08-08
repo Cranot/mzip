@@ -5543,12 +5543,30 @@ inline bool is_numeric_string(const std::string& s) {
     for (size_t i = start; i < s.size(); i++) {
         if (s[i] < '0' || s[i] > '9') return false;
     }
+    // Reject tokens that OVERFLOW int64 -- else parse_int64/std::stoll throws std::out_of_range which,
+    // uncaught inside an encoder trial, propagates to compress()'s guard and dumps the WHOLE FILE to the
+    // uRAW raw-store. Measured on incrementing MySQL BIGINT UNSIGNED keys (>=2^63): 65-139x bloat. Declining
+    // detection here routes the column/block to the lossless backstop ensemble, which compresses it well.
+    // Exact int64-range check (no false rejects of valid ids): skip leading zeros, then bound by digit count
+    // and, at 19 digits, a lexicographic compare vs the int64 limit. (2026-08-08, sweep-2 pathology hunt)
+    size_t d = start;
+    while (d + 1 < s.size() && s[d] == '0') d++;      // skip leading zeros, keep >=1 digit
+    size_t ndig = s.size() - d;
+    if (ndig > 19) return false;
+    if (ndig == 19) {
+        const char* bound = (start == 1 && s[0] == '-') ? "9223372036854775808"   // |INT64_MIN|
+                                                        : "9223372036854775807";  // INT64_MAX
+        if (std::memcmp(s.data() + d, bound, 19) > 0) return false;
+    }
     return true;
 }
 
-// Parse int64 from string
+// Parse int64 from string. NON-THROWING: an out-of-range/invalid token returns 0 rather than throwing
+// std::out_of_range (which would nuke the whole compress via the top-level guard -> uRAW bloat). Callers
+// gate with is_numeric_string (now overflow-exact); the try/catch is defense-in-depth, and any encoder that
+// consumes a wrong 0 is caught by its own roundtrip self-verify. (2026-08-08)
 inline int64_t parse_int64(const std::string& s) {
-    return std::stoll(s);
+    try { return std::stoll(s); } catch (...) { return 0; }
 }
 
 // Detect if lines have template structure
@@ -6241,7 +6259,7 @@ inline bool detect_char_template(const uint8_t* data, size_t n, CharTemplatePara
                 all_numeric = false;
                 break;
             }
-            nums.push_back(std::stoll(v));
+            nums.push_back(parse_int64(v));
         }
 
         if (all_numeric && nums.size() > 1) {
@@ -6798,8 +6816,8 @@ inline std::vector<uint8_t> encode_char_template(const CharTemplateParams& param
         }
         else if (col.encoding == ColumnType::COL_LINEAR_GEN) {
             // Store first value and delta
-            int64_t first = std::stoll(col.values[0]);
-            int64_t delta = std::stoll(col.values[1]) - first;
+            int64_t first = parse_int64(col.values[0]);
+            int64_t delta = parse_int64(col.values[1]) - first;
             uint8_t num_digits = (uint8_t)col.values[0].size();
             result.push_back(num_digits);
             for (int i = 0; i < 8; i++) result.push_back((first >> (i*8)) & 0xFF);
@@ -6825,7 +6843,7 @@ inline std::vector<uint8_t> encode_char_template(const CharTemplateParams& param
             // Store min value and byte offsets
             std::vector<int64_t> nums;
             for (const auto& v : col.values) {
-                nums.push_back(std::stoll(v));
+                nums.push_back(parse_int64(v));
             }
             int64_t min_val = *std::min_element(nums.begin(), nums.end());
             uint8_t num_digits = (uint8_t)col.values[0].size();
@@ -9088,7 +9106,7 @@ inline bool is_linear_column(const std::vector<std::string>& values,
     std::vector<int64_t> nums;
     for (size_t i = 0; i < std::min((size_t)3, values.size()); i++) {
         try {
-            nums.push_back(std::stoll(values[i]));
+            nums.push_back(parse_int64(values[i]));
         } catch (...) {
             return false;  // Not all integers
         }
@@ -9101,7 +9119,7 @@ inline bool is_linear_column(const std::vector<std::string>& values,
     for (size_t i = 0; i < values.size(); i++) {
         try {
             int64_t expected = start + step * (int64_t)i;
-            int64_t actual = std::stoll(values[i]);
+            int64_t actual = parse_int64(values[i]);
             if (actual != expected) return false;
         } catch (...) {
             return false;
@@ -9517,7 +9535,7 @@ inline bool try_build_section_template(const std::string& text,
             while (end < section.size() && isdigit((unsigned char)section[end])) end++;
 
             try {
-                section_nums.push_back(std::stoll(section.substr(dp.first, end - dp.first)));
+                section_nums.push_back(parse_int64(section.substr(dp.first, end - dp.first)));
             } catch (...) {
                 if (is_last) {
                     truncated_last_section = section;
