@@ -15275,24 +15275,59 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
                 res.blocks_text++;
             } else {
                 auto encoded = MZ_TIMED("encode_char_template", encode_char_template(analysis.char_template, zstd_level));
-                memcpy(preprocess_data, encoded.data(), encoded.size());
-                preprocess_size = encoded.size();
-                res.blocks_text++;
+                // ROUNDTRIP VERIFY (2026-08-08) -- encode_char_template is NOT guaranteed lossless.
+                // On real repetitive syslog (loghub OpenSSH_2k.log) it returned an 8 KB stream that
+                // decodes WRONG, and this branch adopted it with NO per-block verify -- the block then
+                // failed the top-level end-to-end verify and the WHOLE 225 KB file fell to the uRAW store
+                // (225 KB raw vs xz 9.7 KB = 22x blowup). Mirror COLUMNAR/CSV_COLUMNAR: verify here, else
+                // fall to TEXT so the block flows to the backstop ensemble (PPMD/XZLIB/BROTLI/bwt9).
+                std::vector<uint8_t> ct_rt;
+                if (!encoded.empty()) ct_rt = decode_char_template(encoded.data(), encoded.size());
+                if (!encoded.empty() && ct_rt.size() == this_block &&
+                    std::memcmp(ct_rt.data(), block_data, this_block) == 0) {
+                    memcpy(preprocess_data, encoded.data(), encoded.size());
+                    preprocess_size = encoded.size();
+                    res.blocks_text++;
+                } else {
+                    analysis.type = BlockType::TEXT;
+                    memcpy(preprocess_data, block_data, this_block);
+                    res.blocks_text++;
+                }
             }
         } else if (analysis.type == BlockType::ML_TEMPLATE) {
             // Multi-line template (JavaScript-like repeated blocks)
             // Works per-block - detection finds complete patterns within each block
             auto encoded = MZ_TIMED("encode_ml_template", encode_ml_template(analysis.ml_template));
-            memcpy(preprocess_data, encoded.data(), encoded.size());
-            preprocess_size = encoded.size();
-            res.blocks_text++;
+            // ROUNDTRIP VERIFY (2026-08-08) -- same adopt-without-verify shape as CHAR_TEMPLATE; fall to TEXT on mismatch.
+            std::vector<uint8_t> ml_rt;
+            if (!encoded.empty()) ml_rt = decode_ml_template(encoded.data(), encoded.size(), this_block);
+            if (!encoded.empty() && ml_rt.size() == this_block &&
+                std::memcmp(ml_rt.data(), block_data, this_block) == 0) {
+                memcpy(preprocess_data, encoded.data(), encoded.size());
+                preprocess_size = encoded.size();
+                res.blocks_text++;
+            } else {
+                analysis.type = BlockType::TEXT;
+                memcpy(preprocess_data, block_data, this_block);
+                res.blocks_text++;
+            }
         } else if (analysis.type == BlockType::ML_TEMPLATE_DUAL) {
             // Dual multi-line template (TypeScript interfaces + components)
             // Works per-block - detection finds complete patterns within each block
             auto encoded = MZ_TIMED("encode_ml_template_dual", encode_ml_template_dual(analysis.ml_template_dual));
-            memcpy(preprocess_data, encoded.data(), encoded.size());
-            preprocess_size = encoded.size();
-            res.blocks_text++;
+            // ROUNDTRIP VERIFY (2026-08-08) -- same adopt-without-verify shape as CHAR_TEMPLATE; fall to TEXT on mismatch.
+            std::vector<uint8_t> mld_rt;
+            if (!encoded.empty()) mld_rt = decode_ml_template_dual(encoded.data(), encoded.size(), this_block);
+            if (!encoded.empty() && mld_rt.size() == this_block &&
+                std::memcmp(mld_rt.data(), block_data, this_block) == 0) {
+                memcpy(preprocess_data, encoded.data(), encoded.size());
+                preprocess_size = encoded.size();
+                res.blocks_text++;
+            } else {
+                analysis.type = BlockType::TEXT;
+                memcpy(preprocess_data, block_data, this_block);
+                res.blocks_text++;
+            }
         } else if (analysis.type == BlockType::COLUMNAR) {
             // Columnar log format (access logs)
             // Only use for single-block data
