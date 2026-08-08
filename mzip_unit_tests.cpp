@@ -181,6 +181,56 @@ TEST(linear_gen_compression_ratio) {
 }
 
 // ============================================================================
+// uRAW-BLOAT PATHOLOGY GUARDS
+// A losslessness test CANNOT catch these: a whole-file uRAW fallback (0xB5 0x52) round-trips
+// perfectly but ships the input near-raw. Two real pathologies escaped the audit exactly this way
+// -- CHAR_TEMPLATE on repetitive syslog (22x), and int64-overflow on BIGINT UNSIGNED SQL (65-139x)
+// -- both when one encoder trial threw/mis-encoded and the top-level guard dumped the whole file raw.
+// These guards assert the output is NOT a whole-file raw store AND compresses sanely. (2026-08-08)
+// ============================================================================
+static bool is_uraw_wholefile(const std::vector<uint8_t>& c) {
+    return c.size() >= 2 && c[0] == 0xB5 && c[1] == 0x52;   // uRAW magic
+}
+
+TEST(no_uraw_bloat_bigint_unsigned_sql) {
+    // MySQL BIGINT UNSIGNED / snowflake incrementing keys (>= 2^63) -- was 65-139x uRAW bloat.
+    std::string s = "-- dump\nINSERT INTO users (id,name) VALUES ";
+    unsigned long long base = 18000000000000000000ULL;   // > 2^63, valid uint64, overflows int64
+    for (int i = 0; i < 3000; i++) {
+        char buf[64];
+        snprintf(buf, sizeof buf, "%s(%llu,'u%d')", i ? "," : "", base + (unsigned long long)i, i);
+        s += buf;
+    }
+    s += ";\n";
+    std::vector<uint8_t> in(s.begin(), s.end());
+    auto c = mzip::compress(in.data(), in.size());
+    ASSERT(!is_uraw_wholefile(c));                 // must NOT fall to whole-file raw store
+    ASSERT(c.size() * 10 < in.size());             // incrementing ids -> must compress hard (>10x)
+    auto d = mzip::decompress(c.data(), c.size());
+    ASSERT_EQ(d.size(), in.size());
+    ASSERT(memcmp(d.data(), in.data(), in.size()) == 0);
+}
+
+TEST(no_uraw_bloat_repetitive_syslog) {
+    // Highly repetitive RFC3164-style syslog (CHAR_TEMPLATE class) -- was 22x uRAW bloat.
+    std::string s;
+    for (int i = 0; i < 3000; i++) {
+        char buf[160];
+        snprintf(buf, sizeof buf,
+                 "Jan 10 %02d:%02d:%02d host sshd[%d]: Failed password for root from 10.0.0.%d port 22 ssh2\n",
+                 (i/3600)%24, (i/60)%60, i%60, 1000 + i, i % 255);
+        s += buf;
+    }
+    std::vector<uint8_t> in(s.begin(), s.end());
+    auto c = mzip::compress(in.data(), in.size());
+    ASSERT(!is_uraw_wholefile(c));
+    ASSERT(c.size() * 8 < in.size());              // repetitive log -> must compress well (>8x)
+    auto d = mzip::decompress(c.data(), c.size());
+    ASSERT_EQ(d.size(), in.size());
+    ASSERT(memcmp(d.data(), in.data(), in.size()) == 0);
+}
+
+// ============================================================================
 // CHAR_TEMPLATE Tests
 // ============================================================================
 
@@ -552,6 +602,10 @@ int main() {
     RUN_TEST(mt_tabular_fires_and_roundtrips);
     RUN_TEST(mq_sql_fires_and_roundtrips);
     RUN_TEST(ml_log_fires_and_roundtrips);
+
+    printf("\nuRAW-BLOAT PATHOLOGY GUARDS:\n");
+    RUN_TEST(no_uraw_bloat_bigint_unsigned_sql);
+    RUN_TEST(no_uraw_bloat_repetitive_syslog);
 
     printf("\nMALFORMED-STREAM SAFETY:\n");
     RUN_TEST(mqsql_invert_rejects_oversized_varint);
