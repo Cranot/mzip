@@ -17,13 +17,16 @@ LIB=zstd_release/zstd-v1.5.6-win64/static/libzstd_static.lib
 [ -f liblzma-5.dll ] || cp /mingw64/bin/liblzma-5.dll .
 BRO="./libbrotlienc.dll ./libbrotlidec.dll ./libbrotlicommon.dll ./liblzma-5.dll"
 [ -f libsais.o ] || { echo "libsais.o..."; gcc -O3 -c libsais.c -o libsais.o; }
+# PPMd var.H backstop (LZMA-SDK Ppmd7, public domain) — compiled-in like libsais
+[ -f Ppmd7.o ] || { echo "ppmd objs..."; gcc -O3 -march=native -c ppmd/Ppmd7.c ppmd/Ppmd7Enc.c ppmd/Ppmd7Dec.c; }
+PPMD="Ppmd7.o Ppmd7Enc.o Ppmd7Dec.o -I."
 echo "zc.exe...";         g++ -O3 -std=c++17 zc.cpp -I $INC $LIB -o zc.exe
-echo "mzip_cm.exe...";    g++ -O3 -std=c++17 -march=native            -o mzip_cm.exe   mzip_cli.cpp libsais.c -I $INC $LIB $BRO
-echo "mzip_base.exe...";  g++ -O3 -std=c++17 -march=native -DMZIP_NO_CM -o mzip_base.exe mzip_cli.cpp libsais.c -I $INC $LIB $BRO
+echo "mzip_cm.exe...";    g++ -O3 -std=c++17 -march=native            -o mzip_cm.exe   mzip_cli.cpp libsais.c $PPMD -I $INC $LIB $BRO
+echo "mzip_base.exe...";  g++ -O3 -std=c++17 -march=native -DMZIP_NO_CM -o mzip_base.exe mzip_cli.cpp libsais.c $PPMD -I $INC $LIB $BRO
 echo "cmtest.exe...";     g++ -O3 -std=c++17 -DCM_BACKEND_TEST -DCM_BACKEND_USE_BWT -x c++ cm_backend.hpp -x none libsais.o -o cmtest.exe
 echo "bwt9_probe.exe..."; g++ -O3 -std=c++17 bwt9_probe.cpp libsais.o -o bwt9_probe.exe
-echo "mzip_ut.exe...";    g++ -O3 -std=c++17 -march=native -D_USE_MATH_DEFINES -o mzip_ut.exe mzip_unit_tests.cpp libsais.c -I $INC $LIB $BRO
-echo "repro_dec.exe...";  g++ -O2 -std=c++17 -o repro_dec.exe repro_dec.cpp libsais.c -I $INC $LIB $BRO
+echo "mzip_ut.exe...";    g++ -O3 -std=c++17 -march=native -D_USE_MATH_DEFINES -o mzip_ut.exe mzip_unit_tests.cpp libsais.c $PPMD -I $INC $LIB $BRO
+echo "repro_dec.exe...";  g++ -O2 -std=c++17 -o repro_dec.exe repro_dec.cpp libsais.c $PPMD -I $INC $LIB $BRO
 # crash-corpus regression: every stream in fuzz_corpus/ must decompress without crashing (SIGSEGV/abort)
 if [ -f test_crashers.sh ] && [ -d fuzz_corpus ]; then echo "crash-corpus regression..."; bash test_crashers.sh || echo "WARNING: crash-corpus regression FAILED"; fi
 # amalgamated single-header: regenerate, then verify it compiles standalone (stb pattern) + roundtrips.

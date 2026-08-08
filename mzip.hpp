@@ -53,6 +53,7 @@
 #include "mzip_base64.hpp"      // Base64 de-encoding: decode to binary, compress, re-encode (1.76% better than brotli)
 #include "lzma_optimal2.hpp"    // LZMA optimal encoder: beats xz on x86 binaries with E8/E9 filter
 #include "lzma_decoder.hpp"     // LZMA decoder for decompression
+#include "ppmd_backend.hpp"     // PPMd var.H (LZMA-SDK Ppmd7, public domain) — ensemble backstop; wins ~11% on source code
 
 // ---------------------------------------------------------------------------
 // MZIP_TIME — per-detector timing telemetry (build with -DMZIP_TIME).
@@ -203,6 +204,7 @@ enum class BlockType : uint8_t {
     CM_TEXT = 0x38,             // BWT + context-mixing (bzip3-class): beats BWT_TEXT/bwt9 ~5-15% on text/logs
     BROTLI = 0x39,              // brotli-11 backstop (ensemble: never lose to brotli on small code/config)
     XZLIB = 0x3A,               // liblzma (xz -9e) backstop (ensemble: flips large-repetitive vs our lzma_opt2)
+    PPMD = 0x3B,                // PPMd var.H (LZMA-SDK Ppmd7) backstop: high-order context model beats brotli/CM/BWT on source code (~11%). payload = [order:1][memMiB:1][Ppmd7z stream]
 
     // === CROSS-BLOCK ENCODINGS (Mutual Algorithmic Information) ===
     REFERENCE = 0x30,          // Delta from similar previous block (zstd dictionary mode)
@@ -15731,6 +15733,35 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
                     }
                 }
             }
+            // PPMd var.H (Ppmd7) trial -> PPMD backstop. Its high-order local-context model beats
+            // brotli/CM_TEXT/BWT_TEXT on SOURCE CODE (~11% measured, 9/9 real code files). Text-gated
+            // (loses on binary/numeric, where the trials above win). Payload = [order:1][memMiB:1] +
+            // Ppmd7z stream; order+memMiB are stored so decode uses the same bound (Ppmd decode heap ==
+            // memMiB MiB, a pure function of that byte -> the decoder clamps it for untrusted streams).
+            // Self-verified here (maximal rigor) before adopt; the top-level verify is the final backstop. (2026-08-08)
+            // Revert the whole PPMd backstop with -DMZIP_NO_PPMD (decode still linked, harmless).
+#ifndef MZIP_NO_PPMD
+            {
+                size_t lim = this_block < 4096 ? this_block : 4096, pr = 0;
+                for (size_t i = 0; i < lim; i++) { uint8_t c = block_data[i]; if ((c >= 32 && c < 127) || c == 9 || c == 10 || c == 13) pr++; }
+                bool ppmd_texty = lim > 0 && pr * 100 >= lim * 85;   // >=85% printable => text/code
+                if (ppmd_texty) {
+                    const uint8_t PPMD_ORDER = 16, PPMD_MEM = 64;    // captures 99.93% of best ratio; decode heap = 64 MiB
+                    auto pp = ppmdbk::compress(block_data, this_block, PPMD_ORDER, PPMD_MEM);
+                    if (!pp.empty() && pp.size() + 2 < cur && pp.size() + 2 <= cap) {
+                        auto chk = ppmdbk::decompress(pp.data(), pp.size(), this_block, PPMD_ORDER, PPMD_MEM);
+                        if (chk.size() == this_block && std::memcmp(chk.data(), block_data, this_block) == 0) {
+                            preprocess_data[0] = PPMD_ORDER; preprocess_data[1] = PPMD_MEM;
+                            std::memcpy(preprocess_data + 2, pp.data(), pp.size());
+                            preprocess_size = pp.size() + 2;
+                            analysis.type = BlockType::PPMD;
+                            use_generator = true;
+                            cur = pp.size() + 2;
+                        }
+                    }
+                }
+            }
+#endif
         }
 
         size_t compressed_size;
@@ -15899,6 +15930,7 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
                            // over the compact format on small files where brotli/xz/cm win (the only remaining "losses")
                            block_type == static_cast<uint8_t>(BlockType::BROTLI) ||
                            block_type == static_cast<uint8_t>(BlockType::XZLIB) ||
+                           block_type == static_cast<uint8_t>(BlockType::PPMD) ||
                            block_type == static_cast<uint8_t>(BlockType::CM_TEXT));
 
             // Also allow NUMERIC blocks with sparse encoding (0xFF marker). MUST match the sparse
@@ -16820,6 +16852,16 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
                     || out_pos2 != orig_size) output.clear();
                 break;
             }
+            case BlockType::PPMD: {
+                // PPMd var.H backstop: payload = [order:1][memMiB:1][Ppmd7z stream]. Clamp order/memMiB so
+                // a hostile stream cannot drive a huge decode allocation (decode heap == memMiB MiB).
+                if (comp_size < 2) break;
+                unsigned order = comp_data[0]; uint32_t memMiB = comp_data[1];
+                if (order < 2) order = 2; else if (order > 64) order = 64;
+                if (memMiB < 1) memMiB = 1; else if (memMiB > 128) memMiB = 128;  // bound untrusted decode heap (encoder writes 64)
+                output = ppmdbk::decompress(comp_data + 2, comp_size - 2, orig_size, order, memMiB);
+                break;
+            }
             case BlockType::ZSTD_DICT: {
                 // Format: [dict_id:1] [zstd_data:rest]
                 if (comp_size < 2) break;
@@ -17700,6 +17742,17 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
             }
             memcpy(&output[out_pos], decoded.data(), out_pos2);
             out_pos += out_pos2;
+        } else if (type == BlockType::PPMD) {
+            // PPMd var.H backstop: block_data = [order:1][memMiB:1][Ppmd7z stream]. Clamp order/memMiB
+            // (untrusted): decode heap == memMiB MiB, a pure function of that byte, so bound it.
+            if (block_size < 2) { res.error = "PPMD block too small"; if (result) *result = res; return {}; }
+            unsigned order = block_data[0]; uint32_t memMiB = block_data[1];
+            if (order < 2) order = 2; else if (order > 64) order = 64;
+            if (memMiB < 1) memMiB = 1; else if (memMiB > 128) memMiB = 128;  // bound untrusted decode heap (encoder writes 64)
+            auto dec = ppmdbk::decompress(block_data + 2, block_size - 2, block_original_size, order, memMiB);
+            if (dec.size() != block_original_size) { res.error = "PPMD decompression failed"; if (result) *result = res; return {}; }
+            memcpy(&output[out_pos], dec.data(), dec.size());
+            out_pos += dec.size();
         } else if (type == BlockType::LZMA_RAW) {
             // Decompress LZMA (no E8/E9 filter)
             auto decompressed = lzma_dec::decompress(block_data, block_size);
@@ -17900,6 +17953,7 @@ inline const char* block_type_name(BlockType type) {
         case BlockType::CM_TEXT: return "CM_TEXT";
         case BlockType::BROTLI: return "BROTLI";
         case BlockType::XZLIB: return "XZLIB";
+        case BlockType::PPMD: return "PPMD";
         case BlockType::JSON_COLUMNAR: return "JSON_COLUMNAR";
         case BlockType::NUM_EXTRACT: return "NUM_EXTRACT";
         case BlockType::INCOMPRESSIBLE: return "INCOMPRESSIBLE";
