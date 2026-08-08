@@ -69,4 +69,32 @@ if [ ! -f corpus_extra/misc/descriptor.proto ]; then
   find corpus_extra/misc -size 0 -delete 2>/dev/null || true
   echo "prepped real new-type corpus"
 fi
+# NEW real-class benchmark corpora (2026-08-08) — PERMISSIVE licenses only, fetch-or-skip (categories in
+# benchmark_types.py skip cleanly if absent). Fills the corpus blind spots the gap-analysis sweeps found;
+# each showcases an encoder shipped this cycle (MY/MF/BCJ/PPMd/CHAR_TEMPLATE).
+if command -v curl >/dev/null 2>&1; then
+  mkdir -p corpus_extra/yaml corpus_extra/fastq corpus_extra/wasm corpus_extra/binarm corpus_extra/minified
+  # large nested k8s/CRD YAML (Apache-2.0) -> 'MY'
+  [ -s corpus_extra/yaml/prom_bundle.yaml ] || curl -sL --max-time 45 "https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/bundle.yaml" -o corpus_extra/yaml/prom_bundle.yaml 2>/dev/null || true
+  [ -s corpus_extra/yaml/certmgr.yaml ]     || curl -sL --max-time 45 "https://github.com/cert-manager/cert-manager/releases/download/v1.15.3/cert-manager.yaml" -o corpus_extra/yaml/certmgr.yaml 2>/dev/null || true
+  # FASTQ (public SRA via nf-core/test-datasets, MIT) -> 'MF'; 10k-read subset
+  [ -s corpus_extra/fastq/reads_10k.fastq ] || { curl -sL --max-time 60 "https://raw.githubusercontent.com/nf-core/test-datasets/rnaseq/testdata/GSE110004/SRR6357070_1.fastq.gz" -o /tmp/rfq.gz 2>/dev/null && gzip -dc /tmp/rfq.gz 2>/dev/null | head -n 40000 > corpus_extra/fastq/reads_10k.fastq; } || true
+  # WASM (sqlite = public domain) -> XZLIB/BWT
+  [ -s corpus_extra/wasm/sql-wasm.wasm ]    || curl -sL --max-time 45 "https://unpkg.com/sql.js@1.8.0/dist/sql-wasm.wasm" -o corpus_extra/wasm/sql-wasm.wasm 2>/dev/null || true
+  # non-x86 binary: ripgrep aarch64 (MIT/Unlicense — release-safe, NOT GPL busybox) -> arch BCJ
+  [ -s corpus_extra/binarm/rg-aarch64 ]     || { curl -sL --max-time 60 "https://github.com/BurntSushi/ripgrep/releases/download/14.1.0/ripgrep-14.1.0-aarch64-unknown-linux-gnu.tar.gz" -o /tmp/rg.tgz 2>/dev/null && tar -xzf /tmp/rg.tgz -C /tmp 2>/dev/null && find /tmp -name rg -path '*aarch64*' -exec cp {} corpus_extra/binarm/rg-aarch64 \; 2>/dev/null; } || true
+  # minified web (MIT) -> PPMd
+  [ -s corpus_extra/minified/jquery.min.js ]         || curl -sL --max-time 30 "https://code.jquery.com/jquery-3.7.1.min.js" -o corpus_extra/minified/jquery.min.js 2>/dev/null || true
+  [ -s corpus_extra/minified/bootstrap.min.css ]     || curl -sL --max-time 30 "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" -o corpus_extra/minified/bootstrap.min.css 2>/dev/null || true
+  [ -s corpus_extra/minified/bootstrap.min.css.map ] || curl -sL --max-time 30 "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css.map" -o corpus_extra/minified/bootstrap.min.css.map 2>/dev/null || true
+  find corpus_extra/yaml corpus_extra/fastq corpus_extra/wasm corpus_extra/binarm corpus_extra/minified -size 0 -delete 2>/dev/null || true
+fi
+# generated realistic samples (no license issue), labeled (syn) in the report: syslog + BIGINT UNSIGNED SQL
+if command -v python3 >/dev/null 2>&1; then
+  mkdir -p corpus_extra/syslog corpus_extra/sqlbig
+  [ -s corpus_extra/syslog/rfc3164.log ] || python3 -c "import sys;
+open('corpus_extra/syslog/rfc3164.log','w').write(''.join('Aug  8 %02d:%02d:%02d host sshd[%d]: Failed password for root from 10.0.0.%d port %d ssh2\n'%((i//3600)%24,(i//60)%60,i%60,1000+i,i%255,20000+i%40000) for i in range(6000)))" 2>/dev/null || true
+  [ -s corpus_extra/sqlbig/bigint_unsigned.sql ] || python3 -c "import sys;b=18000000000000000000;
+open('corpus_extra/sqlbig/bigint_unsigned.sql','w').write('INSERT INTO users (id,name,created) VALUES '+','.join('(%d,\'u%d\',\'2024-01-%02d\')'%(b+i,i,1+i%28) for i in range(6000))+';\n')" 2>/dev/null || true
+fi
 echo "OK — all eval binaries built."
