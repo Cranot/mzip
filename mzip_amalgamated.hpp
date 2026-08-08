@@ -35613,17 +35613,32 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
                 for (size_t i = 0; i < lim; i++) { uint8_t c = block_data[i]; if ((c >= 32 && c < 127) || c == 9 || c == 10 || c == 13) pr++; }
                 bool ppmd_texty = lim > 0 && pr * 100 >= lim * 85;   // >=85% printable => text/code
                 if (ppmd_texty) {
-                    const uint8_t PPMD_ORDER = 16, PPMD_MEM = 64;    // captures 99.93% of best ratio; decode heap = 64 MiB
-                    auto pp = ppmdbk::compress(block_data, this_block, PPMD_ORDER, PPMD_MEM);
-                    if (!pp.empty() && pp.size() + 2 < cur && pp.size() + 2 <= cap) {
-                        auto chk = ppmdbk::decompress(pp.data(), pp.size(), this_block, PPMD_ORDER, PPMD_MEM);
+#ifndef MZIP_PPMD_MEM
+#define MZIP_PPMD_MEM 64     // Ppmd model memory in MiB == decode heap; -D-tunable (decode clamps to [1,128])
+#endif
+                    const uint8_t PPMD_MEM = MZIP_PPMD_MEM;
+                    // Multi-order keep-smallest: try an ORDER SET, adopt the smallest that self-verifies and
+                    // beats cur. Order 16 is always first, so this is STRICTLY >= the single-order-16 ship
+                    // (higher orders only ADD options; keep-smallest never regresses PPMd-vs-PPMd -- the case
+                    // CLAUDE.md warns trial-and-keep does NOT cover). Captures the probe's high-order wins
+                    // (zig ~-1.7%, handlers.ts ~-1.2%) at zero format cost (order is stored per block). Cost:
+                    // up to N PPMd encodes per text block. Force single order for A/B via -DMZIP_PPMD_ORDER=n. (2026-08-08)
+#ifdef MZIP_PPMD_ORDER
+                    static const uint8_t PPMD_ORDERS[] = { (uint8_t)(MZIP_PPMD_ORDER) };
+#else
+                    static const uint8_t PPMD_ORDERS[] = { 16, 32, 48 };
+#endif
+                    for (uint8_t ord : PPMD_ORDERS) {
+                        auto pp = ppmdbk::compress(block_data, this_block, ord, PPMD_MEM);
+                        if (pp.empty() || pp.size() + 2 >= cur || pp.size() + 2 > cap) continue;
+                        auto chk = ppmdbk::decompress(pp.data(), pp.size(), this_block, ord, PPMD_MEM);
                         if (chk.size() == this_block && std::memcmp(chk.data(), block_data, this_block) == 0) {
-                            preprocess_data[0] = PPMD_ORDER; preprocess_data[1] = PPMD_MEM;
+                            preprocess_data[0] = ord; preprocess_data[1] = PPMD_MEM;
                             std::memcpy(preprocess_data + 2, pp.data(), pp.size());
                             preprocess_size = pp.size() + 2;
                             analysis.type = BlockType::PPMD;
                             use_generator = true;
-                            cur = pp.size() + 2;
+                            cur = pp.size() + 2;   // subsequent orders must beat this
                         }
                     }
                 }
