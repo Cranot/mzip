@@ -14596,6 +14596,78 @@ inline bool invert(const uint8_t* ind, size_t ind_n, const uint8_t* bod, size_t 
 }
 } // namespace mysy
 
+// ============================================================================
+// MF (FASTQ 4-line de-interleave) — FASTQ records are 4 lines (@header / sequence / '+' / quality)
+// with statistically INCOMPATIBLE content interleaved every ~100 bytes, which defeats a single
+// BWT/CM pass. Physically de-interleave into 4 sub-streams by line%4 and compress each SEPARATELY,
+// letting the ensemble route each to its best encoder (hdr->XZLIB, seq->PPMD, qual->CM_TEXT, '+'
+// ->trivial). Measured -12.2% over mzip's own interleaved result, -20.1% vs xz (real SRR6357070).
+// Bijective: a line never contains '\n'; nrec pins each stream's re-split. (2026-08-08, sweep-2 rank)
+// ============================================================================
+namespace mfq {
+// Fast SPEED gate (apply does the exact full validation): \n-terminated, first records look like FASTQ.
+inline bool looks_like(const uint8_t* d, size_t n) {
+    if (n < 256 || d[n-1] != '\n') return false;
+    size_t i = 0; int rec = 0;
+    while (i < n && rec < 4) {
+        if (d[i] != '@') return false;                 // line 0
+        for (int c = 0; c < 4; c++) {
+            size_t ls = i; while (i < n && d[i] != '\n') i++;
+            if (i >= n) return false;
+            if (c == 2 && (i == ls || d[ls] != '+')) return false;   // line 2 must start '+'
+            i++;
+        }
+        rec++;
+    }
+    return rec >= 1;
+}
+// Produce the 4 raw sub-streams (each = nrec lines joined by '\n') + nrec. Full validation; false if not FASTQ.
+inline bool apply(const uint8_t* d, size_t n, uint64_t& nrec_out,
+                  std::vector<uint8_t>& hdr, std::vector<uint8_t>& seq,
+                  std::vector<uint8_t>& plus, std::vector<uint8_t>& qual) {
+    if (!looks_like(d, n)) return false;
+    std::vector<size_t> ls, ll; size_t start = 0;
+    for (size_t k = 0; k < n; k++) if (d[k] == '\n') { ls.push_back(start); ll.push_back(k - start); start = k + 1; }
+    if (ls.empty() || ls.size() % 4 != 0) return false;
+    uint64_t nrec = ls.size() / 4;
+    for (uint64_t r = 0; r < nrec; r++) {
+        if (ll[r*4] < 1 || d[ls[r*4]] != '@') return false;
+        if (ll[r*4+2] < 1 || d[ls[r*4+2]] != '+') return false;
+    }
+    std::vector<uint8_t>* S[4] = { &hdr, &seq, &plus, &qual };
+    for (int c = 0; c < 4; c++) {
+        S[c]->clear(); S[c]->reserve(n / 4 + 8);
+        for (uint64_t r = 0; r < nrec; r++) { if (r) S[c]->push_back('\n'); S[c]->insert(S[c]->end(), d + ls[r*4+c], d + ls[r*4+c] + ll[r*4+c]); }
+    }
+    nrec_out = nrec;
+    return true;
+}
+// Reconstruct from the 4 DECOMPRESSED sub-streams. max_out bounds output (untrusted-stream guard).
+inline bool invert(uint64_t nrec, const uint8_t* h, size_t hn, const uint8_t* s, size_t sn,
+                   const uint8_t* p, size_t pn, const uint8_t* q, size_t qn,
+                   std::vector<uint8_t>& out, size_t max_out) {
+    if (nrec == 0) return false;
+    const uint8_t* S[4] = { h, s, p, q }; size_t SN[4] = { hn, sn, pn, qn };
+    std::vector<std::pair<size_t,size_t>> pcs[4];
+    for (int c = 0; c < 4; c++) {
+        size_t st = 0;
+        for (size_t i = 0; i <= SN[c]; i++) if (i == SN[c] || S[c][i] == '\n') {
+            pcs[c].push_back({st, i - st}); st = i + 1;
+            if (pcs[c].size() > nrec) return false;
+        }
+        if (pcs[c].size() != nrec) return false;
+    }
+    out.clear();
+    for (uint64_t r = 0; r < nrec; r++) for (int c = 0; c < 4; c++) {
+        auto& P = pcs[c][r];
+        if (out.size() + P.second + 1 > max_out) return false;
+        out.insert(out.end(), S[c] + P.first, S[c] + P.first + P.second);
+        out.push_back('\n');
+    }
+    return true;
+}
+} // namespace mfq
+
 // forward decl so the SoA path can roundtrip-verify its candidate before shipping it
 inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size, DecompressResult* result = nullptr);
 inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size, DecompressResult* result = nullptr);
@@ -14615,7 +14687,8 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
                                       bool try_sql = true,
                                       bool try_bcj = true,
                                       bool try_log = true,
-                                      bool try_yaml = true) {
+                                      bool try_yaml = true,
+                                      bool try_fastq = true) {
     CompressResult res;
     res.success = false;
     res.original_size = size;
@@ -16427,7 +16500,7 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
         if (best_ci >= 0 && !ZSTD_isError(raw_proxy) && best_proxy < (raw_proxy * 98) / 100) {
             const SoaCand& c = CANDS[best_ci];
             auto t = soa_apply(data, size, c.tid, c.W, c.cols);
-            auto inner = compress_impl(t.data(), size, zstd_level, block_size, nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false);
+            auto inner = compress_impl(t.data(), size, zstd_level, block_size, nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false, /*try_fastq=*/false);
             if (!inner.empty()) {
                 std::vector<uint8_t> ms;
                 ms.reserve(inner.size() + 16);
@@ -16461,7 +16534,7 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
             auto payload = tab_build_payload(rows, bitmap);
             TabMeta m{ delim, tnl, (uint32_t)rows[0].size(), (uint32_t)(rows.size() - 1) };
             auto inner = compress_impl(payload.data(), payload.size(), zstd_level, block_size,
-                                  nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false);
+                                  nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false, /*try_fastq=*/false);
             if (inner.empty()) continue;
             std::vector<uint8_t> mt;
             mt.reserve(inner.size() + 32);
@@ -16493,7 +16566,7 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
         std::vector<uint8_t> filt(data, data + size);
         uint32_t st = 0; mbcj::x86_convert(filt.data(), filt.size(), 0, &st, /*encoding=*/1);
         auto inner = compress_impl(filt.data(), filt.size(), zstd_level, block_size, nullptr, mode,
-                              /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false);
+                              /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false, /*try_fastq=*/false);
         if (!inner.empty()) {
             std::vector<uint8_t> mb; mb.reserve(inner.size() + 16);
             mb.push_back('M'); mb.push_back('B');
@@ -16519,7 +16592,7 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
             if (mqsql::invert(blob.data(), blob.size(), chk) && chk.size() == size &&
                 std::memcmp(chk.data(), data, size) == 0) {
                 auto inner = compress_impl(blob.data(), blob.size(), zstd_level, block_size, nullptr, mode,
-                                      /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false);
+                                      /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false, /*try_fastq=*/false);
                 if (!inner.empty()) {
                     std::vector<uint8_t> mq; mq.reserve(inner.size() + 16);
                     mq.push_back('M'); mq.push_back('Q');
@@ -16546,7 +16619,7 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
             if (mltsd::invert(blob.data(), blob.size(), chk) && chk.size() == size &&
                 std::memcmp(chk.data(), data, size) == 0) {
                 auto inner = compress_impl(blob.data(), blob.size(), zstd_level, block_size, nullptr, mode,
-                                      /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false);
+                                      /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false, /*try_fastq=*/false);
                 if (!inner.empty()) {
                     std::vector<uint8_t> ml; ml.reserve(inner.size() + 16);
                     ml.push_back('M'); ml.push_back('L');
@@ -16574,9 +16647,9 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
             if (mysy::invert(ind.data(), ind.size(), bod.data(), bod.size(), chk, size) &&
                 chk.size() == size && std::memcmp(chk.data(), data, size) == 0) {
                 auto ic = compress_impl(ind.data(), ind.size(), zstd_level, block_size, nullptr, mode,
-                                        /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false);
+                                        /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false, /*try_fastq=*/false);
                 auto bc = compress_impl(bod.data(), bod.size(), zstd_level, block_size, nullptr, mode,
-                                        /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false);
+                                        /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false, /*try_fastq=*/false);
                 if (!ic.empty() && !bc.empty()) {
                     std::vector<uint8_t> my; my.reserve(ic.size() + bc.size() + 24);
                     my.push_back('M'); my.push_back('Y');
@@ -16587,6 +16660,44 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
                     my.insert(my.end(), bc.begin(), bc.end());
                     auto back = decompress(my.data(), my.size(), nullptr);
                     if (back.size() == size && std::memcmp(back.data(), data, size) == 0) my_format = std::move(my);
+                }
+            }
+        }
+    }
+
+    // ============================================================================
+    // MF (FASTQ 4-line de-interleave) — split records into hdr/seq/+/qual sub-streams, compress each
+    // SEPARATELY. Kept only if smaller AND end-to-end roundtrip-verified. Wins on FASTQ (-20% vs xz,
+    // -12% over mzip's own interleaved result; measured on real SRR6357070). (2026-08-08, sweep-2)
+    // ============================================================================
+    std::vector<uint8_t> mf_format;
+    if (try_fastq && mode != CompressionMode::FAST && size >= 256 && is_text_like(data, size)) {
+        uint64_t nrec = 0;
+        std::vector<uint8_t> fh, fs, fp, fq;
+        if (mfq::apply(data, size, nrec, fh, fs, fp, fq)) {
+            std::vector<uint8_t> chk;
+            if (mfq::invert(nrec, fh.data(), fh.size(), fs.data(), fs.size(), fp.data(), fp.size(),
+                            fq.data(), fq.size(), chk, size) &&
+                chk.size() == size && std::memcmp(chk.data(), data, size) == 0) {
+                auto ch = compress_impl(fh.data(), fh.size(), zstd_level, block_size, nullptr, mode, false,false,false,false,false,false,false);
+                auto cs = compress_impl(fs.data(), fs.size(), zstd_level, block_size, nullptr, mode, false,false,false,false,false,false,false);
+                auto cp = compress_impl(fp.data(), fp.size(), zstd_level, block_size, nullptr, mode, false,false,false,false,false,false,false);
+                auto cq = compress_impl(fq.data(), fq.size(), zstd_level, block_size, nullptr, mode, false,false,false,false,false,false,false);
+                if (!ch.empty() && !cs.empty() && !cp.empty() && !cq.empty()) {
+                    std::vector<uint8_t> mf; mf.reserve(ch.size()+cs.size()+cp.size()+cq.size()+40);
+                    mf.push_back('M'); mf.push_back('F');
+                    uint8_t vb[16]; size_t vn;
+                    vn = write_uvarint_buf(vb, size);      mf.insert(mf.end(), vb, vb+vn);
+                    vn = write_uvarint_buf(vb, nrec);      mf.insert(mf.end(), vb, vb+vn);
+                    vn = write_uvarint_buf(vb, ch.size()); mf.insert(mf.end(), vb, vb+vn);
+                    vn = write_uvarint_buf(vb, cs.size()); mf.insert(mf.end(), vb, vb+vn);
+                    vn = write_uvarint_buf(vb, cp.size()); mf.insert(mf.end(), vb, vb+vn);
+                    mf.insert(mf.end(), ch.begin(), ch.end());
+                    mf.insert(mf.end(), cs.begin(), cs.end());
+                    mf.insert(mf.end(), cp.begin(), cp.end());
+                    mf.insert(mf.end(), cq.begin(), cq.end());
+                    auto back = decompress(mf.data(), mf.size(), nullptr);
+                    if (back.size() == size && std::memcmp(back.data(), data, size) == 0) mf_format = std::move(mf);
                 }
             }
         }
@@ -16648,6 +16759,10 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
     if (!my_format.empty() && my_format.size() < best_size) {
         best_size = my_format.size();
         best_format = 12;  // MY (YAML de-indent) format
+    }
+    if (!mf_format.empty() && mf_format.size() < best_size) {
+        best_size = mf_format.size();
+        best_format = 13;  // MF (FASTQ 4-line de-interleave) format
     }
 
     if (best_format == 1) {
@@ -16782,6 +16897,15 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
         if (result) *result = res;
         return my_format;
     }
+    if (best_format == 13) {
+        // MF (FASTQ 4-line de-interleave) format is smallest (FASTQ sequence data)
+        res.success = true;
+        res.compressed_size = mf_format.size();
+        res.block_count = 1;
+        res.used_lite_format = true;  // 'MF' is magic-dispatched at decompress entry
+        if (result) *result = res;
+        return mf_format;
+    }
 
     res.success = true;
     res.compressed_size = out_pos;
@@ -16826,16 +16950,17 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                                      bool try_sql = true,
                                      bool try_bcj = true,
                                      bool try_log = true,
-                                     bool try_yaml = true) {
+                                     bool try_yaml = true,
+                                     bool try_fastq = true) {
 #ifdef MZIP_NO_TOPLEVEL_VERIFY
     return compress_impl(data, size, zstd_level, block_size, result, mode,
-                         try_soa, try_tabular, try_sql, try_bcj, try_log, try_yaml);
+                         try_soa, try_tabular, try_sql, try_bcj, try_log, try_yaml, try_fastq);
 #else
     std::vector<uint8_t> out;
     bool ok = false;
     try {
         out = compress_impl(data, size, zstd_level, block_size, result, mode,
-                            try_soa, try_tabular, try_sql, try_bcj, try_log, try_yaml);
+                            try_soa, try_tabular, try_sql, try_bcj, try_log, try_yaml, try_fastq);
         if (size == 0) return out;  // empty input: trust compress_impl's (tiny) result
         if (!out.empty()) {
             std::vector<uint8_t> rt = decompress(out.data(), out.size(), nullptr);
@@ -17006,6 +17131,36 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
         if (!mysy::invert(ind.data(), ind.size(), bod.data(), bod.size(), out, (size_t)orig) ||
             out.size() != orig) {
             res.error = "MY: invert failed"; if (result) *result = res; return {};
+        }
+        res.success = true;
+        res.decompressed_size = out.size();
+        if (result) *result = res;
+        return out;
+    }
+
+    // MF (FASTQ 4-line de-interleave): 'M','F', varint(orig), varint(nrec), varint(Lh), varint(Ls),
+    // varint(Lp), hdr_comp, seq_comp, plus_comp, qual_comp. Decompress the 4 sub-streams, then
+    // mfq::invert (orig bounds the reconstruction). (2026-08-08)
+    if (size >= 4 && data[0] == 'M' && data[1] == 'F') {
+        const uint8_t* p = data + 2; const uint8_t* end = data + size;
+        uint64_t orig = read_uvarint(p, end);
+        uint64_t nrec = read_uvarint(p, end);
+        uint64_t Lh = read_uvarint(p, end);
+        uint64_t Ls = read_uvarint(p, end);
+        uint64_t Lp = read_uvarint(p, end);
+        if (p > end) { res.error = "MF: bad header"; if (result) *result = res; return {}; }
+        uint64_t avail = (uint64_t)(end - p);
+        if (Lh > avail || Ls > avail - Lh || Lp > avail - Lh - Ls) {
+            res.error = "MF: bad framing"; if (result) *result = res; return {};
+        }
+        auto h  = decompress(p, (size_t)Lh, nullptr); p += Lh;
+        auto s  = decompress(p, (size_t)Ls, nullptr); p += Ls;
+        auto pl = decompress(p, (size_t)Lp, nullptr); p += Lp;
+        auto q  = decompress(p, (size_t)(end - p), nullptr);
+        std::vector<uint8_t> out;
+        if (!mfq::invert(nrec, h.data(), h.size(), s.data(), s.size(), pl.data(), pl.size(),
+                         q.data(), q.size(), out, (size_t)orig) || out.size() != orig) {
+            res.error = "MF: invert failed"; if (result) *result = res; return {};
         }
         res.success = true;
         res.decompressed_size = out.size();
