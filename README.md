@@ -8,11 +8,11 @@
 
 A C++17 single-header library that detects mathematical structure and per-file patterns before reaching for an entropy coder. On data that has structure (numeric sequences, templates, columns, prose, audio, gradients, logs) it produces meaningfully smaller output than zstd:19, brotli:11, bzip2:9, xz:9, 7z, and rar. On generic small source code it is competitive but rarely beats brotli. Every output is round-trip-verified before the encoder commits to it.
 
-**2026 update:** mzip now ships a **context-mixing (bzip3-class) entropy backend** + an **xz/brotli ensemble backstop** (trial-and-keep, never regresses). On a held-out, type-stratified benchmark it is the overall ratio leader with **0 losses across 70 real files**. See [Primary Benchmark](#primary-benchmark-held-out-type-stratified).
+**2026 update:** mzip now ships a **context-mixing (bzip3-class) entropy backend**, a **PPMd var.H backstop** (source/prose), an **xz/brotli ensemble backstop**, and structural encoders for numeric/tabular/SQL/log/**YAML**/**FASTQ**/**x86+ARM+PPC+RISC-V executables** (all trial-and-keep, never regress). On a held-out, type-stratified benchmark spanning **48 content types / 92 files** it is the overall ratio leader with **0 losses across 84 real files**. See [Primary Benchmark](#primary-benchmark-held-out-type-stratified).
 
 | Benchmark | Result | Notes |
 |---|---|---|
-| **Held-out, type-stratified** (38 types, 70 real files) | **28 wins · 42 ties · 0 losses** — overall **7.43× ratio** | The fair, current headline. vs brotli 4.59× (+38%), xz 4.85× (+35%), zstd-22 4.11× (+45%). Real GitHub + scientific time-series + fetched real formats, each vs gzip/bzip2/zstd-19/zstd-22/xz-9e/brotli-11 at max. All roundtrip-verified. |
+| **Held-out, type-stratified** (48 types, 84 real files) | **68 wins · 16 ties · 0 losses** — overall **7.27× ratio** | The fair, current headline. vs brotli 4.96× (+31.7%), xz 5.18× (+28.8%), zstd-22 4.47× (+38.5%). Real GitHub source, scientific time-series, k8s/CRD YAML, FASTQ genomics, ARM/PPC/RISC-V + x86 binaries, WASM, minified web, syslog — each vs gzip/bzip2/zstd-19/zstd-22/xz-9e/brotli-11 at max. All roundtrip-verified. |
 | 250 synthetic tests (50 types × 5 sizes) | 235 / 250 (94.0%), avg **8.26×** | Formula-friendly suite (seeded generators) — skews high vs real data. Top ratio among the 8 compressors tested. |
 | enwik9 10 MB Wikipedia prose | **2,671,197 bytes** | Beats brotli:11 by 5.9%, bzip2:9 by 14.4% — smallest of any standard library compressor here. |
 
@@ -80,26 +80,31 @@ The first four wins come from formula or template detection — algorithmic subs
 
 ## Primary Benchmark (held-out, type-stratified)
 
-**This is mzip's fairest real-world measure and the current source of truth.** `benchmark_types.py` compresses **38 content types / 76 files** — 70 real files (real GitHub source, real scientific time-series, and fetched real `proto`/`rst`/`tsv`/`svg`/`ndjson`/`diff`) plus 6 labeled synthetic — against **every standard at max settings** (gzip-9, bzip2-9, zstd-19, zstd-22, xz-9e, brotli-11). Every mzip output is roundtrip-verified (0 failures). Reproduce: `bash build_evals.sh && python3 benchmark_types.py`.
+**This is mzip's fairest real-world measure and the current source of truth.** `benchmark_types.py` compresses **48 content types / 92 files** — 84 real files (real GitHub source in 15+ languages, real scientific time-series, k8s/CRD YAML, FASTQ genomics, x86 + ARM/PPC/RISC-V executables, WASM, minified JS/CSS + source-maps, fetched `proto`/`rst`/`tsv`/`svg`/`ndjson`/`diff`) plus 8 labeled synthetic — against **every standard at max settings** (gzip-9, bzip2-9, zstd-19, zstd-22, xz-9e, brotli-11). Every mzip output is roundtrip-verified (0 failures). Reproduce: `bash build_evals.sh && python3 benchmark_types.py`. **Full per-type table, methodology, and exact tool versions: [EVALS.md](EVALS.md).**
 
 | Real files (overall) | mzip+CM | brotli-11 | xz-9e | zstd-22 | bzip2-9 | gzip-9 |
 |---|--:|--:|--:|--:|--:|--:|
-| **Compression ratio** | **7.43×** | 4.59× | 4.85× | 4.11× | 3.70× | 3.39× |
+| **Compression ratio** | **7.27×** | 4.96× | 5.18× | 4.47× | 3.94× | 3.54× |
 
-mzip's output is smaller by **+38% vs brotli, +35% vs xz, +45% vs zstd-22**. The context-mixing backend alone contributes **+4.42%** over mzip-without-CM.
+mzip's output is smaller by **+31.7% vs brotli, +28.8% vs xz, +38.5% vs zstd-22**. The context-mixing backend alone contributes **+3.68%** over mzip-without-CM. (This corpus is deliberately harder than earlier versions — it now includes near-incompressible ARM/x86 binaries and WASM, so the aggregate ratio is lower than a code-only corpus while the *margin over every standard* holds.)
 
-**Per-file standing (70 real files): 28 strict wins · 42 framing-ties · 0 losses.** mzip matches or beats the best standard on *every* real file. A "framing-tie" means mzip's compressed payload is within 32 B of the best standard — the gap is mzip's self-describing archive header (~10–14 B/file) versus a raw stream, not a compression loss. (Across all 76 files including synthetic: 34 wins / 42 ties / 0 losses.)
+**Per-file standing (84 real files): 68 strict wins · 16 framing-ties · 0 losses.** mzip matches or beats the best standard on *every* real file. A "framing-tie" means mzip's compressed payload is within 32 B of the best standard — the gap is mzip's self-describing archive header (~5–14 B/file) versus a raw stream, not a compression loss. (Across all 92 files including synthetic: 76 wins / 16 ties / 0 losses.)
 
-Where mzip pulls ahead hardest (real types — mzip+CM ratio vs the best standard for that type):
+**Fairness — the dict-equipped comparator is brotli.** mzip uses trained dictionaries; so does brotli-11 (a ~120 KB built-in dictionary), so **mzip-vs-brotli is dict-vs-dict and is the fair headline (+31.7%)**. zstd/xz run without a dictionary, so mzip's margin over *them* includes a dictionary advantage — stated, not hidden.
+
+Where mzip pulls ahead hardest (mzip+CM ratio vs the best standard for that type; **bold** = a structural encoder shipped in the 2026 cycle):
 
 | Type | mzip+CM | Best standard | Why mzip wins |
 |---|--:|--:|---|
-| Numeric (sensor floats) | **17.63×** | xz 2.76× | formula / ALP float coding + `bwt9` backstop |
-| SQL | **17.27×** | xz 15.98× | columnar separation + CM |
-| Log | **16.95×** | bzip2 14.44× | per-column separation + CM |
-| XML | **11.32×** | xz 6.98× | tag / content stream split |
-| Metrics | **10.50×** | bzip2 10.00× | columnar + CM |
-| JSON | **10.15×** | brotli 9.18× | JSON columnar + CM |
+| **YAML-CRD** (k8s, large nested) | **57.54×** | xz 42.73× | `'MY'` indentation de-indent (depth + body streams) |
+| Numeric (gas time-series) | **29.41×** | xz 2.76× | formula / ALP float coding + `bwt9` backstop |
+| SQL | **26.16×** | xz 15.98× | INSERT-tuple columnar transpose + CM |
+| Log | **20.58×** | bzip2 14.44× | per-column separation + CM |
+| **FASTQ** (genomics) | **12.96×** | xz 10.35× | `'MF'` 4-line record de-interleave |
+| **Minified-CSS** | **11.54×** | brotli 10.25× | PPMd high-order context model |
+| **Binary-ARM/PPC** | **4.42×** | xz 4.08× | arch BCJ filter (ARM/PPC/RISC-V) |
+
+Two 2026 correctness fixes turned former blow-ups into wins: repetitive **syslog** now compresses **35.45×** (was a 22× archive-inflation bug), and **BIGINT-UNSIGNED SQL** now compresses **70.19×** (was a 65–139× bug where an oversized-integer parse dumped the whole file near-raw). Both are now guarded by unit tests.
 
 **How it gets there — three trial-and-keep layers, none of which can regress** (the encoder keeps the smallest roundtrip-verified candidate per block):
 
@@ -107,7 +112,7 @@ Where mzip pulls ahead hardest (real types — mzip+CM ratio vs the best standar
 - **Ensemble backstop** — each block also trials **xz (liblzma -9e)** and **brotli-11** and keeps the smallest, so mzip never loses where those tools would win (this flipped SQL / YAML / config). `bwt9` is itself a universal backstop that catches BWT-friendly data the type detectors miss (this flipped real float / sensor arrays that previously lost to bzip2).
 - **Encoder-firing audit (`diagnose_encoders.py`)** — per-block telemetry (`MZIP_STATS=1`) cross-referenced with each type's expected encoder and win-gap, to systematically find where a specialized encoder *doesn't fire*. This is how the numeric losses and an under-representative TypeScript sample were found and fixed.
 
-> **Fairness notes.** `real_bench/` is held-out; the dictionaries are trained on a *separate* `train_corpus/` (mzip is never benchmarked on its own training data); `samples/` are synthetic (labeled). mzip is a trial-everything ensemble — it trades **speed** for ratio: **~0.2 MB/s** (the brotli backstop is gated to ≤1 MB blocks for ~2× on large data; `MZIP_MAXRATIO` opts out). zstd / brotli are 10–100×+ faster; if read latency matters, use them.
+> **Fairness notes.** `real_bench/` is held-out; the dictionaries are trained on a *separate* `train_corpus/` (mzip is never benchmarked on its own training data); binary/YAML/FASTQ/minified corpora are fetched permissively (MIT/public-domain — no GPL) by `build_evals.sh`; `samples/` are synthetic (labeled). mzip is a trial-everything ensemble — it trades **compression speed** for ratio: **~0.1 MB/s compress** on this box (single-shot, indicative), but **~11 MB/s decompress** (decode just inverts the winning transform). zstd / brotli compress 10–100×+ faster; if write-side latency matters, use them. Ratios are exact and machine-independent; the speed figures are not.
 
 The synthetic suite and 47-file GitHub corpus below predate this harness and remain for reference — these held-out numbers are the headline.
 
