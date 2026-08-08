@@ -34369,6 +34369,82 @@ inline bool invert(const uint8_t* blob, size_t bn, std::vector<uint8_t>& out){
   return false; }
 } // namespace mltsd
 
+// ============================================================================
+// MY (YAML / indentation de-indent) — split each '\n'-segment into (leading-space
+// depth, dedented body) and compress the two sub-streams SEPARATELY: the depth
+// sequence (run-repetitive -> NUMERIC/PPMD) and the dedented bodies (repeated keys
+// without the varying indent prefix -> PPMD). Measured -22 to -25% over best-standard
+// on large deeply-nested config (k8s CRD/manifest YAML): prom_bundle 91,319->68,634,
+// certmgr 27,098->20,520 (real, invert-verified). Compressing the two streams TOGETHER
+// only gets ~half the win (mixed statistics), so they are kept separate. Bijective:
+// segment = depth*' ' + body; a body never contains '\n'; the depth count pins the body
+// re-split. (2026-08-08, gap-analysis workflow rank 1)
+// ============================================================================
+namespace mysy {
+// Gate for SPEED only (trial-and-keep + end-to-end verify make it safe regardless of the gate):
+// enough lines and a substantial fraction indented with spaces.
+inline bool looks_like(const uint8_t* d, size_t n) {
+    if (n < 512) return false;
+    size_t sample = n < 65536 ? n : 65536, lines = 0, indented = 0, i = 0;
+    while (i < sample) {
+        size_t lead = 0;
+        while (i < sample && d[i] == ' ') { lead++; i++; }
+        while (i < sample && d[i] != '\n') i++;
+        if (i < sample) i++;                          // skip '\n'
+        lines++;
+        if (lead > 0) indented++;
+    }
+    return lines >= 16 && indented * 4 >= lines;       // >= 25% of lines indented
+}
+// Produce the two raw sub-streams (indent = concatenated depth varints; body = dedented bodies
+// joined by '\n'). Returns false if not applicable. Bijective by construction.
+inline bool apply(const uint8_t* d, size_t n,
+                  std::vector<uint8_t>& indent, std::vector<uint8_t>& body) {
+    if (!looks_like(d, n)) return false;
+    indent.clear(); body.clear();
+    indent.reserve(n / 16 + 8); body.reserve(n);
+    size_t start = 0, nseg = 0;
+    for (size_t i = 0; i <= n; i++) {
+        if (i == n || d[i] == '\n') {
+            size_t j = start, lead = 0;
+            while (j < i && d[j] == ' ') { lead++; j++; }
+            uint8_t vb[16]; size_t vn = write_uvarint_buf(vb, (uint64_t)lead);
+            indent.insert(indent.end(), vb, vb + vn);
+            if (nseg > 0) body.push_back('\n');
+            body.insert(body.end(), d + j, d + i);
+            nseg++; start = i + 1;
+            if (i == n) break;
+        }
+    }
+    return nseg >= 2;
+}
+// Reconstruct from the two DECOMPRESSED sub-streams. max_out bounds output (untrusted-stream guard).
+inline bool invert(const uint8_t* ind, size_t ind_n, const uint8_t* bod, size_t bod_n,
+                   std::vector<uint8_t>& out, size_t max_out) {
+    std::vector<uint32_t> depths;
+    { const uint8_t* p = ind; const uint8_t* e = ind + ind_n;
+      while (p < e) { uint64_t dv = read_uvarint(p, e); if (p > e) return false;
+                      if (dv > (1u << 24)) return false; depths.push_back((uint32_t)dv); } }
+    if (depths.empty()) return false;
+    out.clear(); out.reserve(bod_n + depths.size());
+    const uint8_t* be = bod + bod_n; const uint8_t* seg = bod; size_t s = 0;
+    for (const uint8_t* q = bod; ; q++) {
+        if (q == be || *q == '\n') {
+            if (s >= depths.size()) return false;                     // more body pieces than depths
+            if (out.size() + depths[s] + (size_t)(q - seg) > max_out) return false;
+            out.insert(out.end(), depths[s], ' ');
+            out.insert(out.end(), seg, q);
+            s++;
+            if (q == be) break;
+            out.push_back('\n');
+            if (out.size() > max_out) return false;
+            seg = q + 1;
+        }
+    }
+    return s == depths.size();                                        // piece count must equal depth count
+}
+} // namespace mysy
+
 // forward decl so the SoA path can roundtrip-verify its candidate before shipping it
 inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size, DecompressResult* result = nullptr);
 inline std::vector<uint8_t> decompress(const uint8_t* data, size_t size, DecompressResult* result = nullptr);
@@ -34387,7 +34463,8 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
                                       bool try_tabular = true,
                                       bool try_sql = true,
                                       bool try_bcj = true,
-                                      bool try_log = true) {
+                                      bool try_log = true,
+                                      bool try_yaml = true) {
     CompressResult res;
     res.success = false;
     res.original_size = size;
@@ -36199,7 +36276,7 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
         if (best_ci >= 0 && !ZSTD_isError(raw_proxy) && best_proxy < (raw_proxy * 98) / 100) {
             const SoaCand& c = CANDS[best_ci];
             auto t = soa_apply(data, size, c.tid, c.W, c.cols);
-            auto inner = compress_impl(t.data(), size, zstd_level, block_size, nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false);
+            auto inner = compress_impl(t.data(), size, zstd_level, block_size, nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false);
             if (!inner.empty()) {
                 std::vector<uint8_t> ms;
                 ms.reserve(inner.size() + 16);
@@ -36233,7 +36310,7 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
             auto payload = tab_build_payload(rows, bitmap);
             TabMeta m{ delim, tnl, (uint32_t)rows[0].size(), (uint32_t)(rows.size() - 1) };
             auto inner = compress_impl(payload.data(), payload.size(), zstd_level, block_size,
-                                  nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false);
+                                  nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false);
             if (inner.empty()) continue;
             std::vector<uint8_t> mt;
             mt.reserve(inner.size() + 32);
@@ -36265,7 +36342,7 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
         std::vector<uint8_t> filt(data, data + size);
         uint32_t st = 0; mbcj::x86_convert(filt.data(), filt.size(), 0, &st, /*encoding=*/1);
         auto inner = compress_impl(filt.data(), filt.size(), zstd_level, block_size, nullptr, mode,
-                              /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false);
+                              /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false);
         if (!inner.empty()) {
             std::vector<uint8_t> mb; mb.reserve(inner.size() + 16);
             mb.push_back('M'); mb.push_back('B');
@@ -36291,7 +36368,7 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
             if (mqsql::invert(blob.data(), blob.size(), chk) && chk.size() == size &&
                 std::memcmp(chk.data(), data, size) == 0) {
                 auto inner = compress_impl(blob.data(), blob.size(), zstd_level, block_size, nullptr, mode,
-                                      /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false);
+                                      /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false);
                 if (!inner.empty()) {
                     std::vector<uint8_t> mq; mq.reserve(inner.size() + 16);
                     mq.push_back('M'); mq.push_back('Q');
@@ -36318,7 +36395,7 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
             if (mltsd::invert(blob.data(), blob.size(), chk) && chk.size() == size &&
                 std::memcmp(chk.data(), data, size) == 0) {
                 auto inner = compress_impl(blob.data(), blob.size(), zstd_level, block_size, nullptr, mode,
-                                      /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false);
+                                      /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false);
                 if (!inner.empty()) {
                     std::vector<uint8_t> ml; ml.reserve(inner.size() + 16);
                     ml.push_back('M'); ml.push_back('L');
@@ -36326,6 +36403,39 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
                     ml.insert(ml.end(), inner.begin(), inner.end());
                     auto back = decompress(ml.data(), ml.size(), nullptr);
                     if (back.size() == size && std::memcmp(back.data(), data, size) == 0) ml_format = std::move(ml);
+                }
+            }
+        }
+    }
+
+    // ============================================================================
+    // MY (YAML/indentation de-indent) — split each line into (leading-space depth, dedented body)
+    // and compress the two sub-streams SEPARATELY (depths -> NUMERIC/PPMD, bodies -> PPMD). Kept
+    // only if smaller AND end-to-end roundtrip-verified. Wins on large deeply-nested config
+    // (k8s CRD YAML: prom_bundle -24.8%, certmgr -24.3%, measured). (2026-08-08, workflow rank 1)
+    // ============================================================================
+    std::vector<uint8_t> my_format;
+    if (try_yaml && mode != CompressionMode::FAST && size >= 512 && is_text_like(data, size)) {
+        std::vector<uint8_t> ind, bod;
+        if (mysy::apply(data, size, ind, bod)) {
+            std::vector<uint8_t> chk;
+            // self-verify the transform before the (2x) recursive compress prunes bad splits early
+            if (mysy::invert(ind.data(), ind.size(), bod.data(), bod.size(), chk, size) &&
+                chk.size() == size && std::memcmp(chk.data(), data, size) == 0) {
+                auto ic = compress_impl(ind.data(), ind.size(), zstd_level, block_size, nullptr, mode,
+                                        /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false);
+                auto bc = compress_impl(bod.data(), bod.size(), zstd_level, block_size, nullptr, mode,
+                                        /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false);
+                if (!ic.empty() && !bc.empty()) {
+                    std::vector<uint8_t> my; my.reserve(ic.size() + bc.size() + 24);
+                    my.push_back('M'); my.push_back('Y');
+                    uint8_t vb[16]; size_t vn;
+                    vn = write_uvarint_buf(vb, size);      my.insert(my.end(), vb, vb + vn);
+                    vn = write_uvarint_buf(vb, ic.size()); my.insert(my.end(), vb, vb + vn);
+                    my.insert(my.end(), ic.begin(), ic.end());
+                    my.insert(my.end(), bc.begin(), bc.end());
+                    auto back = decompress(my.data(), my.size(), nullptr);
+                    if (back.size() == size && std::memcmp(back.data(), data, size) == 0) my_format = std::move(my);
                 }
             }
         }
@@ -36383,6 +36493,10 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
     if (!ml_format.empty() && ml_format.size() < best_size) {
         best_size = ml_format.size();
         best_format = 11;  // ML (log timestamp-delta) format
+    }
+    if (!my_format.empty() && my_format.size() < best_size) {
+        best_size = my_format.size();
+        best_format = 12;  // MY (YAML de-indent) format
     }
 
     if (best_format == 1) {
@@ -36508,6 +36622,15 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
         if (result) *result = res;
         return ml_format;
     }
+    if (best_format == 12) {
+        // MY (YAML de-indent) format is smallest (large deeply-nested config)
+        res.success = true;
+        res.compressed_size = my_format.size();
+        res.block_count = 1;
+        res.used_lite_format = true;  // 'MY' is magic-dispatched at decompress entry
+        if (result) *result = res;
+        return my_format;
+    }
 
     res.success = true;
     res.compressed_size = out_pos;
@@ -36551,16 +36674,17 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                                      bool try_tabular = true,
                                      bool try_sql = true,
                                      bool try_bcj = true,
-                                     bool try_log = true) {
+                                     bool try_log = true,
+                                     bool try_yaml = true) {
 #ifdef MZIP_NO_TOPLEVEL_VERIFY
     return compress_impl(data, size, zstd_level, block_size, result, mode,
-                         try_soa, try_tabular, try_sql, try_bcj, try_log);
+                         try_soa, try_tabular, try_sql, try_bcj, try_log, try_yaml);
 #else
     std::vector<uint8_t> out;
     bool ok = false;
     try {
         out = compress_impl(data, size, zstd_level, block_size, result, mode,
-                            try_soa, try_tabular, try_sql, try_bcj, try_log);
+                            try_soa, try_tabular, try_sql, try_bcj, try_log, try_yaml);
         if (size == 0) return out;  // empty input: trust compress_impl's (tiny) result
         if (!out.empty()) {
             std::vector<uint8_t> rt = decompress(out.data(), out.size(), nullptr);
@@ -36709,6 +36833,28 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
         std::vector<uint8_t> out;
         if (!mltsd::invert(inner.data(), inner.size(), out) || out.size() != orig) {
             res.error = "ML: invert failed"; if (result) *result = res; return {};
+        }
+        res.success = true;
+        res.decompressed_size = out.size();
+        if (result) *result = res;
+        return out;
+    }
+
+    // MY (YAML de-indent): 'M','Y', varint(orig), varint(len_indent_comp), indent_comp, body_comp.
+    // Decompress the two sub-streams, then mysy::invert (orig bounds the reconstruction). (2026-08-08)
+    if (size >= 4 && data[0] == 'M' && data[1] == 'Y') {
+        const uint8_t* p = data + 2; const uint8_t* end = data + size;
+        uint64_t orig = read_uvarint(p, end);
+        uint64_t li   = read_uvarint(p, end);
+        if (p > end || li > (uint64_t)(end - p)) {
+            res.error = "MY: bad framing"; if (result) *result = res; return {};
+        }
+        auto ind = decompress(p, (size_t)li, nullptr);
+        auto bod = decompress(p + li, (size_t)(end - (p + li)), nullptr);
+        std::vector<uint8_t> out;
+        if (!mysy::invert(ind.data(), ind.size(), bod.data(), bod.size(), out, (size_t)orig) ||
+            out.size() != orig) {
+            res.error = "MY: invert failed"; if (result) *result = res; return {};
         }
         res.success = true;
         res.decompressed_size = out.size();
