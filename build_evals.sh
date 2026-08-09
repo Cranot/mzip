@@ -100,5 +100,19 @@ if command -v python3 >/dev/null 2>&1; then
 open('corpus_extra/syslog/rfc3164.log','w').write(''.join('Aug  8 %02d:%02d:%02d host sshd[%d]: Failed password for root from 10.0.0.%d port %d ssh2\n'%((i//3600)%24,(i//60)%60,i%60,1000+i,i%255,20000+i%40000) for i in range(6000)))" 2>/dev/null || true
   [ -s corpus_extra/sqlbig/bigint_unsigned.sql ] || python3 -c "import sys;b=18000000000000000000;
 open('corpus_extra/sqlbig/bigint_unsigned.sql','w').write('INSERT INTO users (id,name,created) VALUES '+','.join('(%d,\'u%d\',\'2024-01-%02d\')'%(b+i,i,1+i%28) for i in range(6000))+';\n')" 2>/dev/null || true
+  # Scientific sparse matrix (Matrix Market coordinate) -> 'MM' encoder. GENERATED (CC0/public-domain),
+  # column-sorted with sign-alignment spacing like real .mtx writers. Random values make this a CONSERVATIVE
+  # showcase: real matrices (whose values carry FEM-assembly structure) win far more (bcsstk16 -58.6% vs xz).
+  mkdir -p corpus_extra/grids
+  [ -s corpus_extra/grids/synthetic_fem.mtx ] || python3 -c "import random;random.seed(20260809);N=6000
+f=open('corpus_extra/grids/synthetic_fem.mtx','w',newline='')
+f.write('%%MatrixMarket matrix coordinate real symmetric\n% Synthetic column-sorted FEM-like sparse matrix (generated, CC0/public-domain)\n')
+e=[]
+for j in range(1,N+1):
+ b=sorted(set(random.sample(range(j,min(N,j+60)+1),min(14,N-j+1))))
+ e+=[(i,j,random.uniform(-3e8,3e8)) for i in b]
+f.write('%d %d %d\n'%(N,N,len(e)))
+for i,j,v in e: f.write(('%d %d %.13e\n' if v<0 else '%d %d  %.13e\n')%(i,j,v))
+f.close()" 2>/dev/null || true
 fi
 echo "OK — all eval binaries built."

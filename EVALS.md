@@ -177,3 +177,27 @@ brotli 1.20x · **mzip 1.76x** · FLAC 2.30x.
 within 4.9% of FLAC — but for audio, use FLAC. mzip's value here is that a *general* compressor need not fall
 back to gzip-class ratios on PCM. (A dedicated de-interleave+order-1-delta encoder was measured to add only
 another ~2-3% over mzip's BWT_TEXT, so it is not built — see internal notes.) flac 1.4.3 (BSD), `flac -8`.
+
+## Scientific sparse matrices (Matrix Market / .mtx) — the 'MM' encoder (2026-08-09)
+
+Whitespace-delimited numeric grids (Matrix Market coordinate `.mtx`, XYZ point clouds, space/tab-aligned
+scientific tables) are a class no general compressor — or mzip's own CSV/TSV transpose — handled well: the
+CSV transpose joins cells with a single delimiter, so it can neither parse variable-width whitespace nor
+reproduce the sign-alignment padding real `.mtx` writers emit (a leading space before positive values to align
+the `-` of negatives). The `MM` encoder captures the exact byte layout in a "skeleton" (each field token
+replaced by one placeholder, all separators kept verbatim) and stores the fields **column-major** — the
+transpose that concentrates a coordinate matrix's long column-index runs, ascending row indices, and clustered
+values — with order-1 delta on integer columns. Lossless by construction, self-verified, roundtrip-checked.
+
+| Matrix (real, held-out) | orig | best general | mzip (MM) | mzip vs best |
+|---|--:|--:|--:|--:|
+| bcsstk16.mtx (structural) | 4516629 | 313068 (xz) | 129668 | **-58.6%** |
+| bcsstk14.mtx (structural) | 972072 | 171044 (xz) | 125183 | **-26.8%** |
+| 1138_bus.mtx (power grid) | 75396 | 15872 (xz) | 12458 | **-21.5%** |
+| plat1919.mtx (oceanography) | 513216 | 149736 (xz) | 118457 | **-20.9%** |
+
+Generated CC0 row shipped in the benchmark (`corpus_extra/grids/synthetic_fem.mtx`, 2.5 MB): gzip 2.61x ·
+bzip2 3.04x · zstd-19 3.15x · xz 3.41x · brotli 3.39x · **mzip (MM) 4.25x** (−19.7% vs xz). This synthetic
+uses *random* values, so it **understates** the real-world win — real matrices whose values carry
+FEM-assembly structure (bcsstk16) reach −58.6%. Real matrices from NIST MatrixMarket (Harwell-Boeing set),
+all mzip roundtrip-verified; the shipped benchmark file is generated to keep the repo license-clean.

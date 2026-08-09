@@ -8,7 +8,7 @@
 
 A C++17 single-header library that detects mathematical structure and per-file patterns before reaching for an entropy coder. On data that has structure (numeric sequences, templates, columns, prose, audio, gradients, logs) it produces meaningfully smaller output than zstd:19, brotli:11, bzip2:9, xz:9, 7z, and rar. On generic small source code it is competitive but rarely beats brotli. Every output is round-trip-verified before the encoder commits to it.
 
-**2026 update:** mzip now ships a **context-mixing (bzip3-class) entropy backend**, a **PPMd var.H backstop** (source/prose), an **xz/brotli ensemble backstop**, and structural encoders for numeric/tabular/SQL/log/**YAML**/**FASTQ**/**x86+ARM+PPC+RISC-V executables** (all trial-and-keep, never regress). On a held-out, type-stratified benchmark spanning **48 content types / 92 files** it is the overall ratio leader with **0 losses across 84 real files**. See [Primary Benchmark](#primary-benchmark-held-out-type-stratified).
+**2026 update:** mzip now ships a **context-mixing (bzip3-class) entropy backend**, a **PPMd var.H backstop** (source/prose), an **xz/brotli ensemble backstop**, and structural encoders for numeric/tabular/SQL/log/**YAML**/**FASTQ**/**sparse matrices (Matrix Market `.mtx`)**/**x86+ARM+PPC+RISC-V executables** (all trial-and-keep, never regress). On a held-out, type-stratified benchmark spanning **48 content types / 92 files** it is the overall ratio leader with **0 losses across 84 real files**. See [Primary Benchmark](#primary-benchmark-held-out-type-stratified).
 
 | Benchmark | Result | Notes |
 |---|---|---|
@@ -103,7 +103,10 @@ Where mzip pulls ahead hardest (mzip+CM ratio vs the best standard for that type
 | **FASTQ** (genomics) | **12.96×** | xz 10.35× | `'MF'` 4-line record de-interleave |
 | **Minified-CSS** | **11.54×** | brotli 10.25× | PPMd high-order context model |
 | **Binary-ARM/PPC** | **4.42×** | xz 4.08× | arch BCJ filter (ARM/PPC/RISC-V) |
+| **Scientific-Matrix** (sparse `.mtx`) | **4.25×** | xz 3.41× | `'MM'` skeleton + column-transpose (real matrices reach −58.6%) |
 | Audio (WAV/PCM) | **1.76×** | xz 1.22× | 16-bit samples → BWT/CM (general tools get ~1.1×) |
+
+*Matrix caveat (honest):* the **4.25×** row is a generated, license-clean synthetic with *random* values, so it **understates** the real win — on real Matrix Market matrices (whose values carry FEM-assembly structure) the `'MM'` encoder reaches **−20 % to −58.6 % vs xz** (bcsstk16.mtx: 4.5 MB → 129,668 B). Whitespace-delimited numeric grids (`.mtx`, XYZ point clouds, space/tab-aligned tables) are a class general compressors and mzip's own CSV transpose both miss. Full matrix table: [EVALS.md](EVALS.md).
 
 *Audio caveat (honest):* on real WAVs mzip beats every **general** compressor by 15–38% (and comes within 4.9% of FLAC on piano), but the purpose-built lossless audio codec **FLAC still wins** (test1.wav: mzip 1.76× vs FLAC 2.30×). mzip is a general compressor, not an audio codec — for audio, use FLAC. Full audio table + FLAC numbers: [EVALS.md](EVALS.md).
 
