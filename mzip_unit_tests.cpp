@@ -495,6 +495,26 @@ TEST(ml_log_fires_and_roundtrips) {
     ASSERT(memcmp(d.data(), orig.data(), orig.size()) == 0);
 }
 
+TEST(mm_matrixmarket_fires_and_roundtrips) {
+    // column-sorted Matrix Market coordinate file WITH sign-alignment spacing (positive
+    // values get an extra leading space, as real .mtx writers emit) -> exercises the exact
+    // whitespace the skeleton must preserve and MT structurally cannot.
+    std::string s = "%%MatrixMarket matrix coordinate real symmetric\n% a comment\n2000 2000 6000\n";
+    for (int j = 1; j <= 2000; j++)
+        for (int i = j; i < j + 3 && i <= 2000; i++) {
+            double v = ((i * 31 + j * 7) % 2 ? -1.0 : 1.0) * (1e7 + (i * 131 + j) % 900000);
+            char b[64];
+            snprintf(b, sizeof b, v < 0 ? "%d %d %.10e\n" : "%d %d  %.10e\n", i, j, v);
+            s += b;
+        }
+    std::vector<uint8_t> orig(s.begin(), s.end());
+    auto c = mzip::compress(orig.data(), orig.size(), 19, mzip::DEFAULT_BLOCK_SIZE, nullptr, mzip::CompressionMode::SMALL);
+    ASSERT(c.size() >= 2 && c[0] == 'M' && c[1] == 'M');           // MM fired
+    auto d = mzip::decompress(c.data(), c.size());
+    ASSERT_EQ(d.size(), orig.size());
+    ASSERT(memcmp(d.data(), orig.data(), orig.size()) == 0);       // byte-exact incl. spacing
+}
+
 // ============================================================================
 // Malformed / untrusted-stream safety (locks in the 011a155 decode hardening)
 // ============================================================================
@@ -531,6 +551,16 @@ TEST(decompress_nested_magic_no_stack_overflow) {
     for (int i = 0; i < 100000; i++) { bomb.push_back('M'); bomb.push_back('Q'); bomb.push_back(0x00); }
     auto d = mzip::decompress(bomb.data(), bomb.size());
     ASSERT(d.empty());
+}
+
+TEST(mwg_invert_rejects_bad_framing) {
+    // k=3 grid claiming header longer than the payload -> must reject, no OOB read
+    std::vector<uint8_t> bad = {0xFF, 0xFF, 0xFF, 0xFF, 0x0F};  // huge varint header length
+    std::vector<uint8_t> out;
+    ASSERT(!mzip::mwg::invert(bad.data(), bad.size(), out));
+    // hlen=0, k=99 (out of 2..8 range) -> reject
+    std::vector<uint8_t> bad2 = {0x00, 99, 0x04, 0x00};
+    ASSERT(!mzip::mwg::invert(bad2.data(), bad2.size(), out));
 }
 
 // ============================================================================
@@ -602,6 +632,7 @@ int main() {
     RUN_TEST(mt_tabular_fires_and_roundtrips);
     RUN_TEST(mq_sql_fires_and_roundtrips);
     RUN_TEST(ml_log_fires_and_roundtrips);
+    RUN_TEST(mm_matrixmarket_fires_and_roundtrips);
 
     printf("\nuRAW-BLOAT PATHOLOGY GUARDS:\n");
     RUN_TEST(no_uraw_bloat_bigint_unsigned_sql);
@@ -611,6 +642,7 @@ int main() {
     RUN_TEST(mqsql_invert_rejects_oversized_varint);
     RUN_TEST(mqsql_invert_rejects_huge_nrows);
     RUN_TEST(mltsd_invert_rejects_overflow_number);
+    RUN_TEST(mwg_invert_rejects_bad_framing);
     RUN_TEST(decompress_nested_magic_no_stack_overflow);
 
     printf("\nCOMPREHENSIVE:\n");

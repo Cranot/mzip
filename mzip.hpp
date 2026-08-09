@@ -14063,6 +14063,204 @@ inline bool tab_invert(const uint8_t* pay, size_t psize, const TabMeta& m,
 }
 
 // ============================================================================
+// MM (whitespace-delimited numeric grid — Matrix Market, sparse-triple .mtx, XYZ point
+// clouds, space/tab-aligned scientific tables). MT cannot touch these: it joins cells with
+// a SINGLE delim byte, so it can neither parse variable-width whitespace runs nor reproduce
+// sign-alignment padding (e.g. Matrix Market pads positive values with an extra space to
+// align the '-' of negatives — 43% of bcsstk16's lines). MM captures the EXACT layout in a
+// "skeleton": the body with every field token replaced by one 0x00 placeholder, all
+// separators/terminators kept verbatim. Fields are stored column-major (the transpose that
+// concentrates per-column redundancy — a coordinate matrix's column index is long runs, its
+// row index ascending, its values clustered), with order-1 delta on canonically-integer
+// columns. The skeleton is near-constant (a few whitespace patterns) so it costs ~nothing
+// after recursive compression. LOSSLESS by construction (concatenative: every body byte is
+// either a literal in the skeleton or the head of exactly one field) AND self-verified +
+// end-to-end roundtrip-checked before adoption (fail-closed). Measured: bcsstk16.mtx -68%
+// vs xz. Gated by try_tabular; whitespace-grid parse is the cheap filter (no proxy).
+// (2026-08-09)
+// ============================================================================
+namespace mwg {
+
+// Parse a whitespace numeric grid and emit a self-describing payload. Returns false unless:
+// after stripping leading %/# comment lines, the remainder is a uniform k-column (2..8)
+// whitespace grid of >=32 lines, every field is 0x00-free, and >=2 columns are canonical
+// integers (the index-column signal that keeps this off prose / ragged text).
+inline bool build_payload(const uint8_t* data, size_t size, std::vector<uint8_t>& out) {
+    if (size < 256) return false;
+    // 1. header = leading run of comment lines ('%' Matrix Market / '#' generic).
+    size_t hp = 0;
+    while (hp < size && (data[hp] == '%' || data[hp] == '#')) {
+        size_t le = hp; while (le < size && data[le] != '\n') le++;
+        hp = (le < size) ? le + 1 : le;
+    }
+    if (hp >= size) return false;
+
+    // 2. tokenize the body into a uniform k-column grid; collect absolute field ranges,
+    //    row-major. Whitespace within a line = space/tab/CR (lines split on LF).
+    struct FR { size_t off, len; };
+    std::vector<FR> fields;
+    size_t nlines = 0; int k = -1;
+    size_t p = hp;
+    auto is_ws = [](uint8_t c) { return c == ' ' || c == '\t' || c == '\r'; };
+    while (p < size) {
+        size_t le = p; while (le < size && data[le] != '\n') le++;
+        int nf = 0; size_t q = p; size_t first_field = fields.size();
+        while (q < le) {
+            while (q < le && is_ws(data[q])) q++;
+            if (q >= le) break;
+            size_t fs = q;
+            while (q < le && !is_ws(data[q])) {
+                if (data[q] == 0x00) return false;      // 0x00 in a field breaks the skeleton
+                q++;
+            }
+            fields.push_back({ fs, q - fs }); nf++;
+        }
+        if (nf == 0) {
+            if (le >= size) break;                       // trailing whitespace-only tail (kept in skeleton)
+            return false;                                // interior blank line breaks the grid
+        }
+        if (k < 0) { k = nf; if (k < 2 || k > 8) return false; }
+        else if (nf != k) { (void)first_field; return false; }
+        nlines++;
+        if (le >= size) break;
+        p = le + 1;
+    }
+    if (k < 2 || nlines < 32) return false;
+    if (fields.size() != (size_t)k * nlines) return false;
+
+    // 3. classify columns: canonical-int columns get order-1 delta.
+    std::vector<uint8_t> bitmap((size_t)((k + 7) / 8), 0);
+    int nint = 0;
+    for (int c = 0; c < k; c++) {
+        bool all_int = true;
+        for (size_t l = 0; l < nlines && all_int; l++) {
+            const FR& f = fields[l * k + c];
+            long long v;
+            if (!tab_parse_int((const char*)data + f.off, f.len, v)) all_int = false;
+        }
+        if (all_int) { bitmap[c >> 3] |= (uint8_t)(1u << (c & 7)); nint++; }
+    }
+    if (nint < 2) return false;                          // needs the numeric-index signal
+
+    // 4. skeleton: walk the body; emit one 0x00 per field, every other byte verbatim.
+    std::vector<uint8_t> skel; skel.reserve(size - hp);
+    size_t fi = 0, bp = hp;
+    while (bp < size) {
+        if (fi < fields.size() && bp == fields[fi].off) {
+            skel.push_back(0x00);
+            bp += fields[fi].len; fi++;
+        } else {
+            skel.push_back(data[bp]); bp++;
+        }
+    }
+    if (fi != fields.size()) return false;
+
+    // 5. column blobs ('\n'-joined field values; delta'd if the column is canonical-int).
+    std::vector<std::vector<uint8_t>> cols((size_t)k);
+    for (int c = 0; c < k; c++) {
+        bool is_int = (bitmap[c >> 3] & (uint8_t)(1u << (c & 7))) != 0;
+        std::vector<uint8_t>& blob = cols[(size_t)c];
+        long long prev = 0;
+        for (size_t l = 0; l < nlines; l++) {
+            if (l) blob.push_back('\n');
+            const FR& f = fields[l * k + c];
+            if (is_int) {
+                long long v; tab_parse_int((const char*)data + f.off, f.len, v);
+                long long d = (l == 0) ? v
+                            : (long long)((unsigned long long)v - (unsigned long long)prev);
+                prev = v;
+                char b[24]; int mlen = snprintf(b, sizeof(b), "%lld", d);
+                blob.insert(blob.end(), b, b + mlen);
+            } else {
+                blob.insert(blob.end(), data + f.off, data + f.off + f.len);
+            }
+        }
+    }
+
+    // 6. assemble self-describing payload.
+    uint8_t vb[16]; size_t vn;
+    vn = write_uvarint_buf(vb, hp);          out.insert(out.end(), vb, vb + vn);
+    out.insert(out.end(), data, data + hp);                       // header verbatim
+    out.push_back((uint8_t)k);
+    vn = write_uvarint_buf(vb, nlines);      out.insert(out.end(), vb, vb + vn);
+    out.insert(out.end(), bitmap.begin(), bitmap.end());
+    vn = write_uvarint_buf(vb, skel.size()); out.insert(out.end(), vb, vb + vn);
+    out.insert(out.end(), skel.begin(), skel.end());
+    for (int c = 0; c < k; c++) {
+        vn = write_uvarint_buf(vb, cols[(size_t)c].size()); out.insert(out.end(), vb, vb + vn);
+        out.insert(out.end(), cols[(size_t)c].begin(), cols[(size_t)c].end());
+    }
+    return true;
+}
+
+// Inverse of build_payload. Fail-closed on any structural mismatch.
+inline bool invert(const uint8_t* pay, size_t psize, std::vector<uint8_t>& out) {
+    const uint8_t* p = pay; const uint8_t* end = pay + psize;
+    uint64_t hlen = read_uvarint(p, end);
+    if (p > end || hlen > (uint64_t)(end - p)) return false;
+    const uint8_t* header = p; p += hlen;
+    if (p >= end) return false;
+    uint8_t k = *p++;
+    if (k < 2 || k > 8) return false;
+    uint64_t nlines = read_uvarint(p, end);
+    if (p > end || nlines == 0) return false;
+    size_t bmlen = (size_t)((k + 7) / 8);
+    if ((size_t)(end - p) < bmlen) return false;
+    const uint8_t* bitmap = p; p += bmlen;
+    uint64_t skel_len = read_uvarint(p, end);
+    if (p > end || skel_len > (uint64_t)(end - p)) return false;
+    const uint8_t* skel = p; p += skel_len;
+
+    // reconstruct each column's field values (un-delta the integer columns).
+    std::vector<std::vector<std::string>> colvals((size_t)k);
+    for (int c = 0; c < k; c++) {
+        uint64_t clen = read_uvarint(p, end);
+        if (p > end || clen > (uint64_t)(end - p)) return false;
+        const uint8_t* cb = p; p += clen;
+        std::vector<std::string>& vals = colvals[(size_t)c];
+        vals.reserve((size_t)nlines);
+        size_t s = 0;
+        for (size_t i = 0; i <= (size_t)clen; i++) {
+            if (i == (size_t)clen || cb[i] == '\n') {
+                vals.emplace_back((const char*)cb + s, i - s);
+                s = i + 1;
+            }
+        }
+        if (vals.size() != (size_t)nlines) return false;
+        if (bitmap[c >> 3] & (uint8_t)(1u << (c & 7))) {
+            long long acc = 0;
+            for (size_t l = 0; l < (size_t)nlines; l++) {
+                long long d;
+                if (!tab_parse_int(vals[l].data(), vals[l].size(), d)) return false;
+                acc = (l == 0) ? d : (long long)((unsigned long long)acc + (unsigned long long)d);
+                char b[24]; int mlen = snprintf(b, sizeof(b), "%lld", acc);
+                vals[l].assign(b, (size_t)mlen);
+            }
+        }
+    }
+    if (p != end) return false;                          // trailing garbage
+
+    out.insert(out.end(), header, header + hlen);        // header verbatim
+    std::vector<size_t> cur((size_t)k, 0);               // per-column line cursor
+    size_t m = 0;                                        // row-major placeholder counter
+    for (size_t i = 0; i < (size_t)skel_len; i++) {
+        if (skel[i] == 0x00) {
+            size_t col = m % k;
+            if (cur[col] >= (size_t)nlines) return false;
+            const std::string& v = colvals[col][cur[col]++];
+            out.insert(out.end(), v.begin(), v.end());
+            m++;
+        } else {
+            out.push_back(skel[i]);
+        }
+    }
+    if (m != (size_t)k * (size_t)nlines) return false;
+    return true;
+}
+
+} // namespace mwg
+
+// ============================================================================
 // MQ (SQL-INSERT-tuple column-transpose) — port of sqladv_transpose.py (verified).
 // Parse repeated INSERT INTO t (...) VALUES (r1),(r2),...; tuples into a column grid,
 // transpose column-major + delta perfectly-linear integer columns, into one self-
@@ -16556,6 +16754,33 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
     }
 
     // ============================================================================
+    // MM (whitespace numeric grid — Matrix Market etc.) — skeleton + column-transpose
+    // for space/tab-delimited numeric grids that MT's single-delim parse can't reach.
+    // The grid parse is the cheap filter (no proxy); kept only if smaller AND end-to-end
+    // roundtrip-verified. (2026-08-09)
+    // ============================================================================
+    std::vector<uint8_t> mm_format;
+    if (try_tabular && mode != CompressionMode::FAST && size >= 256 && is_text_like(data, size)) {
+        std::vector<uint8_t> payload;
+        if (mwg::build_payload(data, size, payload)) {
+            auto inner = compress_impl(payload.data(), payload.size(), zstd_level, block_size,
+                                  nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false, /*try_fastq=*/false);
+            if (!inner.empty()) {
+                std::vector<uint8_t> mm;
+                mm.reserve(inner.size() + 16);
+                mm.push_back('M'); mm.push_back('M');
+                uint8_t vb[16]; size_t vn = write_uvarint_buf(vb, size);
+                mm.insert(mm.end(), vb, vb + vn);
+                mm.insert(mm.end(), inner.begin(), inner.end());
+                // safe-by-construction: adopt only if the 'MM' stream reconstructs exactly
+                auto back = decompress(mm.data(), mm.size(), nullptr);
+                if (back.size() == size && std::memcmp(back.data(), data, size) == 0)
+                    mm_format = std::move(mm);
+            }
+        }
+    }
+
+    // ============================================================================
     // MB (x86 BCJ pre-filter) — Bra86 rewrite of E8/E9 targets, then compress
     // recursively. Gated by MZ/ELF magic or E8/E9 density; kept only if smaller AND
     // end-to-end roundtrip-verified. Recovers the liblzma BCJ gain mzip's XZLIB
@@ -16764,6 +16989,10 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
         best_size = mf_format.size();
         best_format = 13;  // MF (FASTQ 4-line de-interleave) format
     }
+    if (!mm_format.empty() && mm_format.size() < best_size) {
+        best_size = mm_format.size();
+        best_format = 14;  // MM (whitespace numeric grid) format
+    }
 
     if (best_format == 1) {
         // Pure zstd is smallest
@@ -16905,6 +17134,15 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
         res.used_lite_format = true;  // 'MF' is magic-dispatched at decompress entry
         if (result) *result = res;
         return mf_format;
+    }
+    if (best_format == 14) {
+        // MM (whitespace numeric grid) format is smallest (Matrix Market / .mtx / XYZ)
+        res.success = true;
+        res.compressed_size = mm_format.size();
+        res.block_count = 1;
+        res.used_lite_format = true;  // 'MM' is magic-dispatched at decompress entry
+        if (result) *result = res;
+        return mm_format;
     }
 
     res.success = true;
@@ -17161,6 +17399,22 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
         if (!mfq::invert(nrec, h.data(), h.size(), s.data(), s.size(), pl.data(), pl.size(),
                          q.data(), q.size(), out, (size_t)orig) || out.size() != orig) {
             res.error = "MF: invert failed"; if (result) *result = res; return {};
+        }
+        res.success = true;
+        res.decompressed_size = out.size();
+        if (result) *result = res;
+        return out;
+    }
+
+    // MM (whitespace numeric grid): 'M','M', varint(orig), inner-stream. Decompress inner
+    // (the self-describing grid payload), then mwg::invert. (2026-08-09)
+    if (size >= 4 && data[0] == 'M' && data[1] == 'M') {
+        const uint8_t* p = data + 2; const uint8_t* end = data + size;
+        uint64_t orig = read_uvarint(p, end);
+        auto inner = decompress(p, (size_t)(end - p), nullptr);
+        std::vector<uint8_t> out;
+        if (!mwg::invert(inner.data(), inner.size(), out) || out.size() != orig) {
+            res.error = "MM: invert failed"; if (result) *result = res; return {};
         }
         res.success = true;
         res.decompressed_size = out.size();
