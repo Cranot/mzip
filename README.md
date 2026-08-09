@@ -103,6 +103,9 @@ Where mzip pulls ahead hardest (mzip+CM ratio vs the best standard for that type
 | **FASTQ** (genomics) | **12.96×** | xz 10.35× | `'MF'` 4-line record de-interleave |
 | **Minified-CSS** | **11.54×** | brotli 10.25× | PPMd high-order context model |
 | **Binary-ARM/PPC** | **4.42×** | xz 4.08× | arch BCJ filter (ARM/PPC/RISC-V) |
+| Audio (WAV/PCM) | **1.76×** | xz 1.22× | 16-bit samples → BWT/CM (general tools get ~1.1×) |
+
+*Audio caveat (honest):* on real WAVs mzip beats every **general** compressor by 15–38% (and comes within 4.9% of FLAC on piano), but the purpose-built lossless audio codec **FLAC still wins** (test1.wav: mzip 1.76× vs FLAC 2.30×). mzip is a general compressor, not an audio codec — for audio, use FLAC. Full audio table + FLAC numbers: [EVALS.md](EVALS.md).
 
 Two 2026 correctness fixes turned former blow-ups into wins: repetitive **syslog** now compresses **35.45×** (was a 22× archive-inflation bug), and **BIGINT-UNSIGNED SQL** now compresses **70.19×** (was a 65–139× bug where an oversized-integer parse dumped the whole file near-raw). Both are now guarded by unit tests.
 

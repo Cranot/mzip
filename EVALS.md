@@ -157,3 +157,23 @@ comparison is sharpest:
 
 **Even given mzip's exact dictionary, zstd-19 is 11.6% larger than mzip on code/config** (per-file -2.1% to
 -17.1%). mzip's edge is CM + structural transforms + xz/brotli backstops layered on top of the same dictionary.
+
+## Audio (WAV / PCM) — mzip vs general compressors vs the specialist FLAC (2026-08-09)
+
+16-bit PCM audio is numeric sample data, which mzip's BWT/CM handles far better than general-purpose
+compressors — but a purpose-built lossless audio codec (FLAC: LPC + Rice coding) is a different category and
+wins, as expected. mzip is a general compressor, not an audio codec. Real WAVs, all mzip roundtrip-verified.
+
+| WAV (real) | orig | best general | mzip+CM | FLAC (specialist) | mzip vs general | mzip vs FLAC |
+|---|--:|--:|--:|--:|--:|--:|
+| test1.wav (pydub, MIT) | 1281256 | 1046052 (xz) | 728152 | 557724 | **-30.4%** | +30.6% |
+| piano.wav | 1210892 | 843672 (xz) | 522335 | 497768 | **-38.1%** | +4.9% |
+| lrmono.wav | 7442284 | 3125556 (xz) | 2647611 | 2073559 | **-15.3%** | +27.7% |
+
+full test1.wav row: gzip 1.10x · bzip2 1.11x · zstd-19 1.10x · zstd-22 1.10x · zstd-19+dict 1.09x · xz 1.22x ·
+brotli 1.20x · **mzip 1.76x** · FLAC 2.30x.
+
+**Takeaway:** on audio mzip beats every general compressor by 15-38% (1.76x vs ~1.1-1.2x), and on piano gets
+within 4.9% of FLAC — but for audio, use FLAC. mzip's value here is that a *general* compressor need not fall
+back to gzip-class ratios on PCM. (A dedicated de-interleave+order-1-delta encoder was measured to add only
+another ~2-3% over mzip's BWT_TEXT, so it is not built — see internal notes.) flac 1.4.3 (BSD), `flac -8`.

@@ -87,7 +87,11 @@ if command -v curl >/dev/null 2>&1; then
   [ -s corpus_extra/minified/jquery.min.js ]         || curl -sL --max-time 30 "https://code.jquery.com/jquery-3.7.1.min.js" -o corpus_extra/minified/jquery.min.js 2>/dev/null || true
   [ -s corpus_extra/minified/bootstrap.min.css ]     || curl -sL --max-time 30 "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" -o corpus_extra/minified/bootstrap.min.css 2>/dev/null || true
   [ -s corpus_extra/minified/bootstrap.min.css.map ] || curl -sL --max-time 30 "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css.map" -o corpus_extra/minified/bootstrap.min.css.map 2>/dev/null || true
-  find corpus_extra/yaml corpus_extra/fastq corpus_extra/wasm corpus_extra/binarm corpus_extra/minified -size 0 -delete 2>/dev/null || true
+  # audio (WAV/PCM) -> BWT_TEXT. Real permissive test WAV (pydub, MIT). mzip beats general tools ~-30%;
+  # the specialist FLAC still wins (mzip is a general compressor, not an audio codec -- see EVALS.md).
+  mkdir -p corpus_extra/audio
+  [ -s corpus_extra/audio/test1.wav ] || curl -sL --max-time 45 "https://raw.githubusercontent.com/jiaaro/pydub/master/test/data/test1.wav" -o corpus_extra/audio/test1.wav 2>/dev/null || true
+  find corpus_extra/yaml corpus_extra/fastq corpus_extra/wasm corpus_extra/binarm corpus_extra/minified corpus_extra/audio -size 0 -delete 2>/dev/null || true
 fi
 # generated realistic samples (no license issue), labeled (syn) in the report: syslog + BIGINT UNSIGNED SQL
 if command -v python3 >/dev/null 2>&1; then
