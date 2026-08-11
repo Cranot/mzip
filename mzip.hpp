@@ -16722,8 +16722,11 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
     // ============================================================================
     std::vector<uint8_t> mt_format;
     if (try_tabular && mode != CompressionMode::FAST && size >= 256 && is_text_like(data, size)) {
-        const uint8_t delims[2] = { (uint8_t)',', (uint8_t)'\t' };
-        for (int di = 0; di < 2; di++) {
+        // ';' and '|' are as common as ',' outside en-US: European-locale exports, HL7 v2,
+        // CDR/mainframe dumps. The transpose is delimiter-agnostic (tab_parse takes delim as
+        // a parameter and the wrapper stores it), so widening the sniff is the whole fix.
+        const uint8_t delims[] = { (uint8_t)',', (uint8_t)'\t', (uint8_t)';', (uint8_t)'|' };
+        for (size_t di = 0; di < sizeof(delims); di++) {
             uint8_t delim = delims[di];
             std::vector<std::vector<std::string>> rows;
             bool tnl = false;
