@@ -142,8 +142,13 @@ if command -v curl >/dev/null 2>&1 && [ ! -s corpus_extra/raster/baboon.bmp ]; t
   curl -sL --max-time 60 "$B/baboon.jpg" -o corpus_extra/raster/_baboon.jpg 2>/dev/null || true
   curl -sL --max-time 60 "$B/board.jpg"  -o corpus_extra/raster/_board.jpg  2>/dev/null || true
   curl -sL --max-time 60 "$B/fruits.jpg" -o corpus_extra/raster/_fruits.jpg 2>/dev/null || true
-  if command -v magick >/dev/null 2>&1 || command -v convert >/dev/null 2>&1; then
-    CONV=$(command -v magick || command -v convert)
+  # NB: a bare `command -v convert` is a FALSE POSITIVE on Windows -- C:\WINDOWS\system32\convert
+  # is the FAT-to-NTFS disk utility, not ImageMagick. Verify the tool identifies itself.
+  CONV=""
+  if command -v magick >/dev/null 2>&1; then CONV=$(command -v magick)
+  elif command -v convert >/dev/null 2>&1 && convert -version 2>/dev/null | grep -qi imagemagick; then CONV=$(command -v convert)
+  fi
+  if [ -n "$CONV" ]; then
     for n in baboon board; do
       [ -s corpus_extra/raster/_$n.jpg ] && { "$CONV" corpus_extra/raster/_$n.jpg -compress none BMP3:corpus_extra/raster/$n.bmp 2>/dev/null
                                               "$CONV" corpus_extra/raster/_$n.jpg -compress none corpus_extra/raster/$n.tga 2>/dev/null; }
