@@ -57,8 +57,10 @@ int main(int argc,char**argv){
       for(size_t k=0;k<n;k++) stream.push_back((uint8_t)rnd());
     }
     else { // 2-byte magic-prefixed random (stress the format dispatchers)
-      static const char* M[]={"MT","MQ","ML","MB","MS","MU","MC","BT","CL","BG","MZ"};
-      const char* mg=M[rr(11)]; stream.push_back(mg[0]); stream.push_back(mg[1]);
+      // count derived from the array: MM/MY/MF/MI were each added after this list and a
+      // hand-maintained bound silently left the newest dispatcher unfuzzed.
+      static const char* M[]={"MT","MQ","ML","MB","MS","MU","MC","BT","CL","BG","MZ","MM","MY","MF","MI"};
+      const char* mg=M[rr((uint32_t)(sizeof(M)/sizeof(M[0])))]; stream.push_back(mg[0]); stream.push_back(mg[1]);
       size_t n = (rr(4)==0? rr(24) : rr(2048));         // occasionally tiny
       for(size_t k=0;k<n;k++) stream.push_back((uint8_t)rnd());
     }

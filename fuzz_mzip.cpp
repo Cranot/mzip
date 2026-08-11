@@ -43,15 +43,52 @@ static std::vector<uint8_t> gen_iso(){ std::vector<uint8_t> v; uint32_t rows=4+r
     for(int i=0;i<n;i++) v.push_back((uint8_t)b[i]); } return v; }
 static std::vector<uint8_t> gen_binary(){ size_t n=256+rr(8192); std::vector<uint8_t> v(n); for(size_t i=0;i<n;i++) v[i]=(uint8_t)rnd(); for(size_t i=0;i+5<n;i+=8+rr(40)){ v[i]=rr(2)?0xE8:0xE9; } if(rr(2)){ v[0]='M'; v[1]='Z'; } return v; }
 static std::vector<uint8_t> gen_numeric(){ uint32_t nel=8+rr(2000); int W=rr(2)?4:8; std::vector<uint8_t> v(nel*W); double base=rr(1000); for(uint32_t e=0;e<nel;e++){ double val=base + e*0.01 + (rr(100)*0.001); if(W==8){ memcpy(&v[e*8],&val,8);} else { float f=(float)val; memcpy(&v[e*4],&f,4);} } return v; }
+// raster containers for the MI scanline filter. Deliberately mixes well-formed images with
+// edge cases the parser must REFUSE rather than misread: odd strides, 0 dims, truncated
+// planes, 16-bit maxval, top-down BMP heights, and trailing bytes after the pixel data.
+static std::vector<uint8_t> gen_raster(){
+  std::vector<uint8_t> v; uint32_t kind=rr(4);
+  uint32_t w=1+rr(70), h=1+rr(70); uint8_t chan=(rr(2)?3:1);
+  if(rr(16)==0){ w=0; } if(rr(16)==0){ h=0; }
+  if(kind==0){ // BMP
+    uint32_t bpp=(rr(4)==0?4:3), stride=((w*bpp+3)/4)*4, off=54;
+    v.assign(off,0); v[0]='B'; v[1]='M'; uint32_t tot=off+stride*h;
+    int32_t hh=(rr(4)==0? -(int32_t)h : (int32_t)h);   // negative height = top-down
+    for(int i=0;i<4;i++){ v[2+i]=(uint8_t)(tot>>(8*i)); v[10+i]=(uint8_t)(off>>(8*i));
+                          v[18+i]=(uint8_t)(w>>(8*i)); v[22+i]=(uint8_t)((uint32_t)hh>>(8*i)); }
+    v[14]=40; v[26]=1; v[28]=(uint8_t)(bpp*8);
+    if(rr(8)==0) v[30]=1;                              // RLE compression -> must be refused
+    size_t n=(size_t)stride*h; if(rr(8)==0 && n) n-=1+rr((uint32_t)n); // truncated plane
+    for(size_t i=0;i<n;i++) v.push_back((uint8_t)(i*7+rnd()%3));
+  } else if(kind==1){ // PPM/PGM
+    put(v, chan==3?"P6\n":"P5\n"); if(rr(3)==0) put(v,"# fuzz comment\n");
+    puti(v,w); v.push_back(' '); puti(v,h); v.push_back('\n');
+    puti(v, rr(8)==0?65535:255); v.push_back('\n');    // 16-bit maxval -> must be refused
+    size_t n=(size_t)w*h*chan; for(size_t i=0;i<n;i++) v.push_back((uint8_t)(i*5+rnd()%3));
+  } else if(kind==2){ // TGA
+    uint32_t bpp=(chan==3?3:1); v.assign(18,0);
+    v[2]=(chan==3?2:3); v[12]=(uint8_t)w; v[13]=(uint8_t)(w>>8);
+    v[14]=(uint8_t)h; v[15]=(uint8_t)(h>>8); v[16]=(uint8_t)(bpp*8);
+    size_t n=(size_t)w*h*bpp; for(size_t i=0;i<n;i++) v.push_back((uint8_t)(i*3+rnd()%3));
+    if(rr(3)==0) for(int i=0;i<26;i++) v.push_back((uint8_t)rnd());   // v2 footer
+    else if(rr(4)==0) for(uint32_t i=0,e=rr(40);i<e;i++) v.push_back((uint8_t)rnd()); // odd tail
+  } else { // near-miss magic: right prefix, wrong everything else
+    static const char* P[]={"BM","P6","P5"}; put(v,P[rr(3)]);
+    size_t n=64+rr(4096); for(size_t i=0;i<n;i++) v.push_back((uint8_t)rnd());
+  }
+  return v;
+}
+
 static std::vector<uint8_t> gen_text(){ static const char* W[]={"the","of","and","to","in","a","is","that","it","for","was","on","are","as"}; size_t target=rr(8192); std::vector<uint8_t> v; while(v.size()<target){ put(v,W[rr(14)]); v.push_back(rr(8)?' ':'\n'); } return v; }
 
 std::vector<uint8_t> generate2();  // fwd decl (non-recursive concat generator)
 static std::vector<uint8_t> generate(){
   std::vector<uint8_t> v;
-  switch(rr(9)){
+  switch(rr(10)){
     case 0: v=gen_random(); break; case 1: v=gen_boundary(); break; case 2: v=gen_csv(); break;
     case 3: v=gen_sql(); break; case 4: v=gen_clf(); break; case 5: v=gen_iso(); break;
-    case 6: v=gen_binary(); break; case 7: v=gen_numeric(); break; default: v=gen_text(); break;
+    case 6: v=gen_binary(); break; case 7: v=gen_numeric(); break; case 8: v=gen_raster(); break;
+    default: v=gen_text(); break;
   }
   // mutations
   uint32_t m=rr(5);
@@ -61,7 +98,7 @@ static std::vector<uint8_t> generate(){
   return v;
 }
 // non-recursive second generator for concat (avoid deep recursion)
-std::vector<uint8_t> generate2(){ switch(rr(9)){ case 0: return gen_random(); case 1: return gen_boundary(); case 2: return gen_csv(); case 3: return gen_sql(); case 4: return gen_clf(); case 5: return gen_iso(); case 6: return gen_binary(); case 7: return gen_numeric(); default: return gen_text(); } }
+std::vector<uint8_t> generate2(){ switch(rr(10)){ case 0: return gen_random(); case 1: return gen_boundary(); case 2: return gen_csv(); case 3: return gen_sql(); case 4: return gen_clf(); case 5: return gen_iso(); case 6: return gen_binary(); case 7: return gen_numeric(); case 8: return gen_raster(); default: return gen_text(); } }
 
 int main(int argc,char**argv){
   uint64_t N = argc>1 ? strtoull(argv[1],0,10) : 1000000ULL;

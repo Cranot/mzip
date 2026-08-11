@@ -117,6 +117,9 @@ TYPES = {
  "SQL-BigIntUnsigned":(sorted(glob.glob(EX+"sqlbig/*")),0),                                # -> NUMERIC (was a 65-139x uRAW pathology, fixed)
  "Audio (WAV/PCM)":([EX+"audio/test1.wav"],1),                                             # -> BWT_TEXT (mzip beats GENERAL tools -30%; the specialist FLAC still wins -- see EVALS.md audio note)
  "Scientific-Matrix (sparse)":([EX+"grids/synthetic_fem.mtx"],0),                          # -> 'MM' skeleton+column-transpose (generated CC0; real .mtx win -20 to -59% -- see EVALS.md)
+ "Raster (BMP/PPM/TGA uncompressed)":([EX+"raster/baboon.bmp",EX+"raster/baboon.ppm",EX+"raster/baboon.tga",
+                                       EX+"raster/board.bmp",EX+"raster/board.tga",EX+"raster/fruits.pgm"],1),  # -> 'MI' scanline filter (real OpenCV photos; also beats PNG-opt)
+ "Delimited (semicolon/pipe CSV)":([EX+"delim/stocks_semi.csv",EX+"delim/stocks_pipe.csv"],1),                   # -> 'MT' (real OHLCV re-delimited; European/HL7-style exports)
 }
 
 def ratio(o,c): return f"{o/c:.2f}x" if c>0 else "-"

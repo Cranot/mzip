@@ -115,4 +115,45 @@ f.write('%d %d %d\n'%(N,N,len(e)))
 for i,j,v in e: f.write(('%d %d %.13e\n' if v<0 else '%d %d  %.13e\n')%(i,j,v))
 f.close()" 2>/dev/null || true
 fi
+
+# Semicolon/pipe-delimited tabular -> 'MT' delimiter sniff. REAL OHLCV rows (plotly/datasets, public),
+# re-delimited in place. The source contains no ';', '|' or '"', so the substitution is a BIJECTION:
+# the three variants carry byte-identical content and differ only in the delimiter, which is exactly
+# the control that isolates the detector from the transform.
+if command -v curl >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1 && [ ! -s corpus_extra/delim/stocks_semi.csv ]; then
+  mkdir -p corpus_extra/delim
+  curl -sL --max-time 90 "https://raw.githubusercontent.com/plotly/datasets/master/all_stocks_5yr.csv" -o corpus_extra/delim/_src.csv 2>/dev/null || true
+  [ -s corpus_extra/delim/_src.csv ] && python3 -c "
+src=open('corpus_extra/delim/_src.csv','rb').read()
+cut=src[:2000000]; cut=cut[:cut.rfind(b'\n')+1]
+assert not any(d in cut for d in (b';', b'|', b'\"')), 'source contains a target delimiter; re-delimit would NOT be lossless'
+open('corpus_extra/delim/stocks_comma.csv','wb').write(cut)
+open('corpus_extra/delim/stocks_semi.csv','wb').write(cut.replace(b',', b';'))
+open('corpus_extra/delim/stocks_pipe.csv','wb').write(cut.replace(b',', b'|'))" 2>/dev/null || true
+  rm -f corpus_extra/delim/_src.csv
+  find corpus_extra/delim -size 0 -delete 2>/dev/null || true
+fi
+
+# Uncompressed rasters -> 'MI' scanline filter. REAL photographic images (OpenCV sample data, BSD)
+# in genuine uncompressed containers; ImageMagick converts to the BMP/PPM/PGM/TGA variants if present.
+if command -v curl >/dev/null 2>&1 && [ ! -s corpus_extra/raster/baboon.bmp ]; then
+  mkdir -p corpus_extra/raster
+  B="https://raw.githubusercontent.com/opencv/opencv/4.x/samples/data"
+  curl -sL --max-time 60 "$B/baboon.jpg" -o corpus_extra/raster/_baboon.jpg 2>/dev/null || true
+  curl -sL --max-time 60 "$B/board.jpg"  -o corpus_extra/raster/_board.jpg  2>/dev/null || true
+  curl -sL --max-time 60 "$B/fruits.jpg" -o corpus_extra/raster/_fruits.jpg 2>/dev/null || true
+  if command -v magick >/dev/null 2>&1 || command -v convert >/dev/null 2>&1; then
+    CONV=$(command -v magick || command -v convert)
+    for n in baboon board; do
+      [ -s corpus_extra/raster/_$n.jpg ] && { "$CONV" corpus_extra/raster/_$n.jpg -compress none BMP3:corpus_extra/raster/$n.bmp 2>/dev/null
+                                              "$CONV" corpus_extra/raster/_$n.jpg -compress none corpus_extra/raster/$n.tga 2>/dev/null; }
+    done
+    [ -s corpus_extra/raster/_baboon.jpg ] && "$CONV" corpus_extra/raster/_baboon.jpg -compress none corpus_extra/raster/baboon.ppm 2>/dev/null
+    [ -s corpus_extra/raster/_fruits.jpg ] && "$CONV" corpus_extra/raster/_fruits.jpg -colorspace Gray -compress none corpus_extra/raster/fruits.pgm 2>/dev/null
+  else
+    echo "note: ImageMagick not found — corpus_extra/raster/ left empty, the Raster benchmark type will be skipped"
+  fi
+  rm -f corpus_extra/raster/_*.jpg
+  find corpus_extra/raster -size 0 -delete 2>/dev/null || true
+fi
 echo "OK — all eval binaries built."

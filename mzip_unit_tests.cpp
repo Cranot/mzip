@@ -553,6 +553,85 @@ TEST(decompress_nested_magic_no_stack_overflow) {
     ASSERT(d.empty());
 }
 
+TEST(mimg_filter_inverts_exactly) {
+    // Every one of the 5 PNG predictors must invert byte-for-byte. Build a gradient with
+    // both vertical and horizontal structure so different rows genuinely pick different
+    // filters, then prove unfilter(filter(x)) == x for 1/3/4 bytes-per-pixel.
+    for (uint8_t bpp : {1, 3, 4}) {
+        size_t rows = 64, stride = 61 * bpp;   // deliberately not a power of two
+        std::vector<uint8_t> plane(rows * stride);
+        for (size_t y = 0; y < rows; y++)
+            for (size_t x = 0; x < stride; x++)
+                plane[y * stride + x] = (uint8_t)(y * 3 + x * 7 + ((x ^ y) & 31));
+        std::vector<uint8_t> tags, res, back;
+        mzip::mimg::filter(plane.data(), rows, stride, bpp, tags, res);
+        ASSERT(tags.size() == rows);
+        ASSERT(res.size() == rows * stride);
+        ASSERT(mzip::mimg::unfilter(res.data(), rows, stride, bpp, tags.data(), back));
+        ASSERT(back == plane);
+    }
+}
+
+TEST(mimg_bmp_ppm_pgm_roundtrip) {
+    // Real container shapes through the full public API: compress -> decompress -> compare.
+    auto pixels = [](size_t n) {
+        std::vector<uint8_t> v(n);
+        for (size_t i = 0; i < n; i++) v[i] = (uint8_t)((i / 97) * 5 + (i % 97) * 3);
+        return v;
+    };
+    // BMP: 40-byte BITMAPINFOHEADER, 24bpp, rows padded to 4 bytes
+    {
+        uint32_t w = 61, h = 70, stride = ((w * 3 + 3) / 4) * 4, off = 54;
+        std::vector<uint8_t> f(off, 0);
+        f[0] = 'B'; f[1] = 'M';
+        uint32_t total = off + stride * h;
+        for (int i = 0; i < 4; i++) {
+            f[2 + i]  = (uint8_t)(total >> (8 * i));
+            f[10 + i] = (uint8_t)(off   >> (8 * i));
+            f[18 + i] = (uint8_t)(w     >> (8 * i));
+            f[22 + i] = (uint8_t)(h     >> (8 * i));
+        }
+        f[14] = 40; f[26] = 1; f[28] = 24;
+        auto px = pixels(stride * h);
+        f.insert(f.end(), px.begin(), px.end());
+        auto c = mzip::compress(f.data(), f.size());
+        auto d = mzip::decompress(c.data(), c.size());
+        ASSERT(d == f);
+    }
+    // PPM (P6) with a comment line, and PGM (P5)
+    for (const char* magic : {"P6", "P5"}) {
+        size_t bpp = (magic[1] == '6') ? 3 : 1;
+        std::string hdr = std::string(magic) + "\n# made by the mzip unit suite\n71 80\n255\n";
+        std::vector<uint8_t> f(hdr.begin(), hdr.end());
+        auto px = pixels(71 * 80 * bpp);
+        f.insert(f.end(), px.begin(), px.end());
+        auto c = mzip::compress(f.data(), f.size());
+        auto d = mzip::decompress(c.data(), c.size());
+        ASSERT(d == f);
+    }
+}
+
+TEST(mi_decode_rejects_malformed_stream) {
+    std::vector<uint8_t> out;
+    // rows*stride overflowing the claimed original -> must reject, never allocate on it
+    {
+        std::vector<uint8_t> bad = {'M','I', 0x10, 0x00, 0xFF, 0x7F, 0xFF, 0x7F, 3, 0x00};
+        auto d = mzip::decompress(bad.data(), bad.size());
+        ASSERT(d.empty());
+    }
+    // bpp = 0 and bpp > 4 are both invalid
+    for (uint8_t bpp : {0, 5, 255}) {
+        std::vector<uint8_t> bad = {'M','I', 0x40, 0x00, 0x04, 0x10, bpp, 0x00};
+        auto d = mzip::decompress(bad.data(), bad.size());
+        ASSERT(d.empty());
+    }
+    // a filter tag > 4 in an otherwise well-formed plane must be refused by unfilter
+    {
+        std::vector<uint8_t> tags = {9, 0, 0, 0}, res(4 * 8, 0);
+        ASSERT(!mzip::mimg::unfilter(res.data(), 4, 8, 1, tags.data(), out));
+    }
+}
+
 TEST(mwg_invert_rejects_bad_framing) {
     // k=3 grid claiming header longer than the payload -> must reject, no OOB read
     std::vector<uint8_t> bad = {0xFF, 0xFF, 0xFF, 0xFF, 0x0F};  // huge varint header length
@@ -633,6 +712,8 @@ int main() {
     RUN_TEST(mq_sql_fires_and_roundtrips);
     RUN_TEST(ml_log_fires_and_roundtrips);
     RUN_TEST(mm_matrixmarket_fires_and_roundtrips);
+    RUN_TEST(mimg_filter_inverts_exactly);
+    RUN_TEST(mimg_bmp_ppm_pgm_roundtrip);
 
     printf("\nuRAW-BLOAT PATHOLOGY GUARDS:\n");
     RUN_TEST(no_uraw_bloat_bigint_unsigned_sql);
@@ -643,6 +724,7 @@ int main() {
     RUN_TEST(mqsql_invert_rejects_huge_nrows);
     RUN_TEST(mltsd_invert_rejects_overflow_number);
     RUN_TEST(mwg_invert_rejects_bad_framing);
+    RUN_TEST(mi_decode_rejects_malformed_stream);
     RUN_TEST(decompress_nested_magic_no_stack_overflow);
 
     printf("\nCOMPREHENSIVE:\n");
