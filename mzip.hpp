@@ -154,6 +154,16 @@ constexpr size_t MAX_BLOCK_SIZE = 16 * 1024 * 1024; // 16MB maximum
 // a 2.1 GB allocation (measured under ASan 2026-08-12).
 constexpr size_t MU_MAX_SIZE = 65536;
 
+// Every write into the DECODE output buffer must be bounded by the buffer, not by a guard on some
+// other quantity. The block loop has two loop-top guards (block_original_size, block_size) but the
+// writes use NINE different size expressions; 38 of them use decoded.size(), which no guard covers.
+// The sub-decoders (bwt9, cmbk, PPMd, LZMA, brotli) take their output length from the INNER stream,
+// not from the block header, so a crafted archive declaring a tiny block_original_size alongside an
+// inner stream that decodes large wrote past the end of `output`. (2026-08-12)
+inline bool out_fits(const std::vector<uint8_t>& out, size_t pos, uint64_t n) {
+    return pos <= out.size() && n <= (uint64_t)(out.size() - pos);
+}
+
 // Reserving a length taken straight from an untrusted stream lets a few hundred bytes demand tens
 // of gigabytes. MEASURED under ASan 2026-08-12: a 490-byte input drove
 //   "allocator is trying to allocate 0x5db68f654 bytes" = 24.6 GB
@@ -18434,41 +18444,73 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
         if (type == BlockType::LINEAR_GEN) {
             // Decode linear generator - regenerate sequence from params
             auto decoded = decode_linear_gen(block_data, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::LINEAR_GEN_APPROX) {
             // Decode linear generator with exceptions - regenerate + apply exceptions
             auto decoded = decode_linear_gen_approx(block_data, block_size, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::GEOMETRIC) {
             // Decode geometric generator - regenerate from base * ratio^i
             auto decoded = decode_geometric(block_data, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::QUADRATIC) {
             // Decode quadratic generator - regenerate from a + b*i + c*i²
             auto decoded = decode_quadratic(block_data, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::RECURRENCE) {
             // Decode recurrence generator - regenerate Fibonacci-like sequence
             auto decoded = decode_recurrence(block_data, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::MODULAR) {
             // Decode modular generator - regenerate wrapping counter sequence
             auto decoded = decode_modular(block_data, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::PERIODIC) {
             // Decode periodic pattern - regenerate from period + pattern
             auto decoded = decode_periodic(block_data, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::PERIODIC_APPROX) {
             // Decode periodic pattern with exceptions (Effective Complexity)
             auto decoded = decode_periodic_approx(block_data, block_size, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::SPARSE) {
@@ -18479,41 +18521,73 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
             } else {
                 decoded = decode_sparse(block_data, block_size, block_original_size);
             }
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::TIMESTAMP) {
             // Decode timestamp - reverse delta-of-delta + zigzag + varint
             auto decoded = decode_timestamp(block_data, block_size, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::TEMPLATE) {
             // Decode template - reconstruct from template + columns
             auto decoded = decode_template(block_data, block_size, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::CHAR_TEMPLATE) {
             // Decode char template - reconstruct from char-level template + columns
             auto decoded = decode_char_template(block_data, block_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::ML_TEMPLATE) {
             // Decode multi-line template - reconstruct from template + variables
             auto decoded = decode_ml_template(block_data, block_size, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::ML_TEMPLATE_DUAL) {
             // Decode dual multi-line template - reconstruct from two templates + variables
             auto decoded = decode_ml_template_dual(block_data, block_size, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::COLUMNAR) {
             // Decode columnar - reconstruct from columns
             auto decoded = decode_columnar(block_data, block_size, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::CSV_COLUMNAR) {
             // Decode CSV columnar - reconstruct from columns with LINEAR_GEN
             auto decoded = decode_csv_columnar(block_data, block_size, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::JSON_COLUMNAR) {
@@ -18523,6 +18597,10 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
                 res.error = "JSON_COLUMNAR decompression failed";
                 if (result) *result = res;
                 return {};
+            }
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
             }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
@@ -18534,11 +18612,19 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
                 if (result) *result = res;
                 return {};
             }
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::LINE_TEMPLATE) {
             // Decode line template - reconstruct from prefix/suffix/separators + linear vars
             auto decoded = decode_line_template(block_data, block_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::PHRASE_PARTITION) {
@@ -18548,6 +18634,10 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
                 res.error = "PHRASE_PARTITION decompression failed";
                 if (result) *result = res;
                 return {};
+            }
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
             }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
@@ -18559,6 +18649,10 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
                 if (result) *result = res;
                 return {};
             }
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::PHRASE_DICT) {
@@ -18568,6 +18662,10 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
                 res.error = "PHRASE_DICT decompression failed";
                 if (result) *result = res;
                 return {};
+            }
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
             }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
@@ -18579,6 +18677,10 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
                 if (result) *result = res;
                 return {};
             }
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::KV_CONFIG) {
@@ -18589,46 +18691,82 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
                 if (result) *result = res;
                 return {};
             }
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::SECTION_TEMPLATE) {
             // Decode section template - reconstruct from template + LINEAR_GEN params
             auto decoded = decode_section_template(block_data, block_size, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::WORD_TEMPLATE) {
             // Decode word template - reconstruct from template + words list
             auto decoded = decode_word_template(block_data, block_size, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::MULTI_WORD_TEMPLATE) {
             // Decode multi-word template - reconstruct from template + multiple variable lists
             auto decoded = decode_multi_word_template(block_data, block_size, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::LINE_GROUP_TEMPLATE) {
             // Decode line group template - reconstruct from grouped lines
             auto decoded = decode_line_group_template(block_data, block_size, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::CODE_STREAM) {
             // Decode code stream - reconstruct from skeleton + grammar-parsed identifiers
             auto decoded = decode_code_stream(block_data, block_size, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::DBF_CONSTCOL) {
             // Decode DBF constant column elimination — zstd decompress + reconstruct records
             auto decoded = decode_dbf_constcol(block_data, block_size, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::BWT_TEXT) {
             // Decode smart adaptive BWT (v9) - dispatches to v8 or v4 based on mode byte
             auto decoded = bwt9::decompress(block_data, block_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::CM_TEXT) {
             // Decode BWT + context-mixing (bzip3-class)
             auto decoded = cmbk::decompress_bwt(block_data, block_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::ZSTD_DICT) {
@@ -18656,21 +18794,37 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
         } else if (type == BlockType::HTML_STREAM) {
             // Decode HTML stream - reconstruct from separated tag/content streams
             auto decoded = decode_html_stream(block_data, block_size, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::URL_STREAM) {
             // Decode URL stream - reconstruct from separated protocol/domain/path/params streams
             auto decoded = decode_url_stream(block_data, block_size, block_original_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::BASE64_DECODE) {
             // Decode base64 - decompress binary, re-encode to base64 with exact original size
             auto decoded = decode_base64_decode(block_data, block_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::WORD_ENCODED) {
             // Decode word-encoded text - reconstruct from vocabulary + word indices
             auto decoded = decode_word_text(block_data, block_size);
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::NUMERIC && strategy != tieredcompress::Strategy::NONE) {
@@ -18709,6 +18863,10 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
                 unpreprocess_buf.data(), rev_data, rev_size,
                 block_original_size, strategy
             );
+            if (!out_fits(output, out_pos, final_size)) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], unpreprocess_buf.data(), final_size);
             out_pos += final_size;
         } else if (type == BlockType::REFERENCE) {
@@ -18746,10 +18904,18 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
                 return {};
             }
             
+            if (!out_fits(output, out_pos, decoded.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), decoded.size());
             out_pos += decoded.size();
         } else if (type == BlockType::BINARY_X86) {
             // Reverse E8/E9 filtering
+            if (!out_fits(output, out_pos, block_size)) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], block_data, block_size);
             e8e9_filter_decode(&output[out_pos], block_size);
             out_pos += block_size;
@@ -18763,6 +18929,10 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
             }
             // Reverse E8/E9 filter
             e8e9_filter_decode(decompressed.data(), decompressed.size());
+            if (!out_fits(output, out_pos, decompressed.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decompressed.data(), decompressed.size());
             out_pos += decompressed.size();
         } else if (type == BlockType::BROTLI) {
@@ -18774,6 +18944,10 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
                 res.error = "brotli decompression failed";
                 if (result) *result = res;
                 return {};
+            }
+            if (!out_fits(output, out_pos, dsz)) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
             }
             memcpy(&output[out_pos], decoded.data(), dsz);
             out_pos += dsz;
@@ -18789,6 +18963,10 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
                 if (result) *result = res;
                 return {};
             }
+            if (!out_fits(output, out_pos, out_pos2)) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decoded.data(), out_pos2);
             out_pos += out_pos2;
         } else if (type == BlockType::PPMD) {
@@ -18800,6 +18978,10 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
             if (memMiB < 1) memMiB = 1; else if (memMiB > 128) memMiB = 128;  // bound untrusted decode heap (encoder writes 64)
             auto dec = ppmdbk::decompress(block_data + 2, block_size - 2, block_original_size, order, memMiB);
             if (dec.size() != block_original_size) { res.error = "PPMD decompression failed"; if (result) *result = res; return {}; }
+            if (!out_fits(output, out_pos, dec.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], dec.data(), dec.size());
             out_pos += dec.size();
         } else if (type == BlockType::LZMA_RAW) {
@@ -18810,9 +18992,17 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
                 if (result) *result = res;
                 return {};
             }
+            if (!out_fits(output, out_pos, decompressed.size())) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], decompressed.data(), decompressed.size());
             out_pos += decompressed.size();
         } else {
+            if (!out_fits(output, out_pos, block_size)) {
+                res.error = "Block write exceeds output buffer (corrupt or malicious archive)";
+                if (result) *result = res; return {};
+            }
             memcpy(&output[out_pos], block_data, block_size);
             out_pos += block_size;
         }
