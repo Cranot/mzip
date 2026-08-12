@@ -148,6 +148,47 @@ constexpr uint8_t BLOCK_FLAG_COMP_EQ_PREPROC = 0x80; // Compressed size equals p
 constexpr size_t DEFAULT_BLOCK_SIZE = 16 * 1024 * 1024;  // 16MB blocks (templated data needs large blocks)
 constexpr size_t MIN_BLOCK_SIZE = 4 * 1024;        // 4KB minimum
 constexpr size_t MAX_BLOCK_SIZE = 16 * 1024 * 1024; // 16MB maximum
+// The 'MU' single-block format is emitted ONLY for inputs <= this size (see the encoder gate).
+// Declared once so the encoder gate and the decoder's bound cannot drift apart -- the decoder
+// previously trusted MU's orig_size varint and resize()d to it, which let a 378-byte input drive
+// a 2.1 GB allocation (measured under ASan 2026-08-12).
+constexpr size_t MU_MAX_SIZE = 65536;
+
+// Reserving a length taken straight from an untrusted stream lets a few hundred bytes demand tens
+// of gigabytes. MEASURED under ASan 2026-08-12: a 490-byte input drove
+//   "allocator is trying to allocate 0x5db68f654 bytes" = 24.6 GB
+// through output.reserve(orig_size) in the CHUNKED decode path -- a ~50-million-fold amplification,
+// and a DIFFERENT site from the block-container bound added earlier the same day.
+// reserve() is ALWAYS a pure optimisation: the container still grows on demand, so clamping the
+// hint cannot change any result, only the number of reallocations on genuinely huge archives.
+template <class V>
+inline void reserve_hint(V& v, uint64_t claimed) {
+    constexpr uint64_t kMaxReserveHint = 64ull * 1024 * 1024;
+    v.reserve((size_t)(claimed < kMaxReserveHint ? claimed : kMaxReserveHint));
+}
+
+// mzip's numeric detectors reinterpret raw input as int64 and multiply/subtract values read straight out of the
+// input, so products routinely exceed int64 range. Signed overflow is UNDEFINED BEHAVIOUR, and
+// UBSan flags it on the first random 8-byte-aligned block a fuzzer supplies:
+//   mzip.hpp: runtime error: signed integer overflow: 4392630932023269130 * 4392630932023269130
+// The arithmetic here is deliberately MODULAR -- encode and decode wrap identically, and that is
+// precisely what makes the transform lossless -- so the fix is to make the wraparound EXPLICIT and
+// defined rather than to reject overflow. Output stays byte-identical. Converting an out-of-range
+// unsigned back to signed is implementation-defined before C++20 and modular on every compiler
+// this ships against, which is strictly better than UB the optimiser may reason away. (2026-08-12)
+static inline int64_t rec_mul(int64_t a, int64_t b) { return (int64_t)((uint64_t)a * (uint64_t)b); }
+static inline int64_t rec_add(int64_t a, int64_t b) { return (int64_t)((uint64_t)a + (uint64_t)b); }
+static inline int64_t rec_sub(int64_t a, int64_t b) { return (int64_t)((uint64_t)a - (uint64_t)b); }
+
+// INT64_MIN / -1 overflows and raises SIGFPE on x86 -- a crash on the ENCODE path reachable from
+// attacker-supplied data, since det and the numerators come from the input. `det != 0` does not
+// cover it.
+static inline bool rec_divisible(int64_t num, int64_t den) {
+    if (den == 0) return false;
+    if (den == -1 && num == INT64_MIN) return false;   // would trap, not merely overflow
+    return num % den == 0;
+}
+
 
 // Block types
 enum class BlockType : uint8_t {
@@ -277,9 +318,9 @@ inline size_t write_varint(std::vector<uint8_t>& out, int64_t val) {
 inline int64_t read_varint(const uint8_t*& ptr, const uint8_t* end) {
     uint64_t uval = 0;
     int shift = 0;
-    while (ptr < end) {
+    while (ptr < end && shift < 64) {
         uint8_t byte = *ptr++;
-        uval |= ((uint64_t)(byte & 0x7F)) << shift;
+        uval |= ((uint64_t)(byte & 0x7F)) << (shift & 63);
         if ((byte & 0x80) == 0) break;
         shift += 7;
         if (shift >= 64) break;  // Overflow protection
@@ -303,9 +344,9 @@ inline size_t write_uvarint(std::vector<uint8_t>& out, uint64_t val) {
 inline uint64_t read_uvarint(const uint8_t*& ptr, const uint8_t* end) {
     uint64_t val = 0;
     int shift = 0;
-    while (ptr < end) {
+    while (ptr < end && shift < 64) {
         uint8_t byte = *ptr++;
-        val |= ((uint64_t)(byte & 0x7F)) << shift;
+        val |= ((uint64_t)(byte & 0x7F)) << (shift & 63);
         if ((byte & 0x80) == 0) break;
         shift += 7;
         if (shift >= 64) break;
@@ -768,16 +809,16 @@ try_64bit:
         size_t count = n / 8;
         const int64_t* vals = reinterpret_cast<const int64_t*>(data);
 
-        int64_t delta = vals[1] - vals[0];
+        int64_t delta = rec_sub(vals[1], vals[0]);
         if (delta == 0) goto try_16bit;  // Let PERIODIC handle constant fill
         size_t mid = count / 2;
-        int64_t expected_mid = vals[0] + delta * mid;
-        int64_t expected_last = vals[0] + delta * (count - 1);
+        int64_t expected_mid = rec_add(vals[0], rec_mul(delta, (int64_t)mid));
+        int64_t expected_last = rec_add(vals[0], rec_mul(delta, (int64_t)(count - 1)));
 
         if (vals[mid] == expected_mid && vals[count-1] == expected_last) {
             size_t step = (count > 256) ? 64 : 1;
             for (size_t i = 0; i < count; i += step) {
-                int64_t expected = vals[0] + delta * (int64_t)i;
+                int64_t expected = rec_add(vals[0], rec_mul(delta, (int64_t)i));
                 if (vals[i] != expected) return false;
             }
 
@@ -944,11 +985,11 @@ inline void write_varint(std::vector<uint8_t>& out, uint64_t val) {
 inline uint64_t read_varint(const uint8_t*& p) {
     uint64_t val = 0;
     int shift = 0;
-    while (*p & 0x80) {
-        val |= (uint64_t)(*p++ & 0x7F) << shift;
+    while (*p & 0x80 && shift < 64) {
+        val |= (uint64_t)(*p++ & 0x7F) << (shift & 63);
         shift += 7;
     }
-    val |= (uint64_t)(*p++) << shift;
+    val |= (uint64_t)(*p++) << (shift & 63);
     return val;
 }
 
@@ -1727,7 +1768,7 @@ inline std::vector<uint8_t> decode_line_group_template(const uint8_t* encoded, s
 
     // Reconstruct original
     std::string result;
-    result.reserve(orig_size);
+    reserve_hint(result, orig_size);
 
     for (size_t i = 0; i < line_types.size(); i++) {
         uint8_t group_idx = line_types[i];
@@ -1808,12 +1849,12 @@ inline int64_t estimate_delta_robust(const uint32_t* vals, size_t count) {
 }
 
 inline int64_t estimate_delta_robust_64(const int64_t* vals, size_t count) {
-    if (count < 4) return vals[1] - vals[0];
-    int64_t d1 = vals[1] - vals[0];
+    if (count < 4) return rec_sub(vals[1], vals[0]);
+    int64_t d1 = rec_sub(vals[1], vals[0]);
     size_t mid = count / 2;
-    int64_t d2 = vals[mid + 1] - vals[mid];
+    int64_t d2 = rec_sub(vals[mid + 1], vals[mid]);
     size_t near_end = count - 2;
-    int64_t d3 = vals[near_end + 1] - vals[near_end];
+    int64_t d3 = rec_sub(vals[near_end + 1], vals[near_end]);
     if ((d1 <= d2 && d2 <= d3) || (d3 <= d2 && d2 <= d1)) return d2;
     if ((d2 <= d1 && d1 <= d3) || (d3 <= d1 && d1 <= d2)) return d1;
     return d3;
@@ -1926,7 +1967,7 @@ try_64bit:
         if (count < config.min_elements) goto try_16bit;
 
         const int64_t* vals = reinterpret_cast<const int64_t*>(data);
-        int64_t delta = vals[1] - vals[0];
+        int64_t delta = rec_sub(vals[1], vals[0]);
 
         if (delta == 0) goto try_16bit;
 
@@ -1934,7 +1975,7 @@ try_64bit:
         std::vector<std::pair<uint32_t, int64_t>> found_exceptions;
 
         for (size_t i = 0; i < count; i++) {
-            int64_t expected = vals[0] + delta * (int64_t)i;
+            int64_t expected = rec_add(vals[0], rec_mul(delta, (int64_t)i));
             if (vals[i] != expected) {
                 if (found_exceptions.size() >= max_exceptions) {
                     goto try_16bit;
@@ -2150,7 +2191,7 @@ inline bool detect_geometric(const uint8_t* data, size_t n, GeometricParams& par
                 bool matches = true;
                 for (size_t i = 0; i < count && matches; i++) {
                     if (vals[i] != expected) matches = false;
-                    expected *= ratio;
+                    expected = rec_mul(expected, ratio);
                 }
                 if (matches) {
                     params.elem_size = 8;
@@ -2177,7 +2218,7 @@ inline bool detect_geometric(const uint8_t* data, size_t n, GeometricParams& par
                 bool matches = true;
                 for (size_t i = 0; i < count && matches; i++) {
                     if (vals[i] != expected) matches = false;
-                    expected *= ratio;
+                    expected = rec_mul(expected, ratio);
                 }
                 if (matches) {
                     params.elem_size = 4;
@@ -2255,10 +2296,10 @@ inline bool detect_quadratic(const uint8_t* data, size_t n, QuadraticParams& par
             // f(0) = a, f(1) = a+b+c, f(2) = a+2b+4c
             // Second difference is constant for quadratic: d2 = f(2) - 2*f(1) + f(0) = 2c
             int64_t a = vals[0];
-            int64_t d2 = vals[2] - 2*vals[1] + vals[0];
+            int64_t d2 = rec_add(rec_sub(vals[2], rec_mul(2, vals[1])), vals[0]);
             if (d2 % 2 == 0) {
                 int64_t c = d2 / 2;
-                int64_t b = vals[1] - a - c;
+                int64_t b = rec_sub(rec_sub(vals[1], a), c);
 
                 // Skip degenerate cases: b=0,c=0 is constant (PERIODIC handles better)
                 // b!=0,c=0 is linear (LINEAR_GEN handles better)
@@ -2266,7 +2307,7 @@ inline bool detect_quadratic(const uint8_t* data, size_t n, QuadraticParams& par
 
                 bool matches = true;
                 for (size_t i = 0; i < count && matches; i++) {
-                    int64_t expected = a + b*(int64_t)i + c*(int64_t)(i*i);
+                    int64_t expected = rec_add(rec_add(a, rec_mul(b, (int64_t)i)), rec_mul(c, (int64_t)(i*i)));
                     if (vals[i] != expected) matches = false;
                 }
                 if (matches) {
@@ -2292,14 +2333,14 @@ try_32bit_quad:
             int64_t d2 = (int64_t)vals[2] - 2*(int64_t)vals[1] + (int64_t)vals[0];
             if (d2 % 2 == 0) {
                 int64_t c = d2 / 2;
-                int64_t b = vals[1] - a - c;
+                int64_t b = rec_sub(rec_sub(vals[1], a), c);
 
                 // Skip degenerate cases
                 if (c == 0) return false;
 
                 bool matches = true;
                 for (size_t i = 0; i < count && matches; i++) {
-                    int64_t expected = a + b*(int64_t)i + c*(int64_t)(i*i);
+                    int64_t expected = rec_add(rec_add(a, rec_mul(b, (int64_t)i)), rec_mul(c, (int64_t)(i*i)));
                     if (vals[i] != expected) matches = false;
                 }
                 if (matches) {
@@ -2378,18 +2419,18 @@ inline bool detect_recurrence(const uint8_t* data, size_t n, RecurrenceParams& p
             // Solve for c0, c1 from:
             // vals[2] = c0*vals[1] + c1*vals[0]
             // vals[3] = c0*vals[2] + c1*vals[1]
-            int64_t det = vals[1]*vals[1] - vals[0]*vals[2];
+            int64_t det = rec_sub(rec_mul(vals[1], vals[1]), rec_mul(vals[0], vals[2]));
             if (det != 0) {
-                int64_t c0_num = vals[2]*vals[1] - vals[3]*vals[0];
-                int64_t c1_num = vals[3]*vals[1] - vals[2]*vals[2];
+                int64_t c0_num = rec_sub(rec_mul(vals[2], vals[1]), rec_mul(vals[3], vals[0]));
+                int64_t c1_num = rec_sub(rec_mul(vals[3], vals[1]), rec_mul(vals[2], vals[2]));
 
-                if (c0_num % det == 0 && c1_num % det == 0) {
+                if (rec_divisible(c0_num, det) && rec_divisible(c1_num, det)) {
                     int64_t c0 = c0_num / det;
                     int64_t c1 = c1_num / det;
 
                     bool matches = true;
                     for (size_t i = 2; i < count && matches; i++) {
-                        int64_t expected = c0 * vals[i-1] + c1 * vals[i-2];
+                        int64_t expected = rec_add(rec_mul(c0, (int64_t)vals[i-1]), rec_mul(c1, (int64_t)vals[i-2]));
                         if (vals[i] != expected) matches = false;
                     }
                     if (matches) {
@@ -2412,18 +2453,18 @@ inline bool detect_recurrence(const uint8_t* data, size_t n, RecurrenceParams& p
         size_t count = n / 4;
 
         if (count >= 4) {
-            int64_t det = (int64_t)vals[1]*vals[1] - (int64_t)vals[0]*vals[2];
+            int64_t det = rec_sub((int64_t)vals[1]*vals[1], (int64_t)vals[0]*vals[2]);
             if (det != 0) {
-                int64_t c0_num = (int64_t)vals[2]*vals[1] - (int64_t)vals[3]*vals[0];
-                int64_t c1_num = (int64_t)vals[3]*vals[1] - (int64_t)vals[2]*vals[2];
+                int64_t c0_num = rec_sub((int64_t)vals[2]*vals[1], (int64_t)vals[3]*vals[0]);
+                int64_t c1_num = rec_sub((int64_t)vals[3]*vals[1], (int64_t)vals[2]*vals[2]);
 
-                if (c0_num % det == 0 && c1_num % det == 0) {
+                if (rec_divisible(c0_num, det) && rec_divisible(c1_num, det)) {
                     int64_t c0 = c0_num / det;
                     int64_t c1 = c1_num / det;
 
                     bool matches = true;
                     for (size_t i = 2; i < count && matches; i++) {
-                        int64_t expected = c0 * vals[i-1] + c1 * vals[i-2];
+                        int64_t expected = rec_add(rec_mul(c0, (int64_t)vals[i-1]), rec_mul(c1, (int64_t)vals[i-2]));
                         if (vals[i] != expected) matches = false;
                     }
                     if (matches) {
@@ -2471,7 +2512,7 @@ inline std::vector<uint8_t> decode_recurrence(const uint8_t* encoded, size_t ori
         if (count >= 1) out[0] = (int32_t)seed0;
         if (count >= 2) out[1] = (int32_t)seed1;
         for (size_t i = 2; i < count; i++) {
-            out[i] = (int32_t)(c0 * out[i-1] + c1 * out[i-2]);
+            out[i] = (int32_t)rec_add(rec_mul(c0, (int64_t)out[i-1]), rec_mul(c1, (int64_t)out[i-2]));
         }
     } else if (elem_size == 8) {
         int64_t* out = reinterpret_cast<int64_t*>(result.data());
@@ -2479,7 +2520,7 @@ inline std::vector<uint8_t> decode_recurrence(const uint8_t* encoded, size_t ori
         if (count >= 1) out[0] = seed0;
         if (count >= 2) out[1] = seed1;
         for (size_t i = 2; i < count; i++) {
-            out[i] = c0 * out[i-1] + c1 * out[i-2];
+            out[i] = rec_add(rec_mul(c0, out[i-1]), rec_mul(c1, out[i-2]));
         }
     }
 
@@ -2615,12 +2656,12 @@ try_64bit:
         size_t count = n / 8;
 
         if (count >= 4) {
-            int64_t step = arr64[1] - arr64[0];
+            int64_t step = rec_sub(arr64[1], arr64[0]);
             if (step != 0) {
                 // Find first wrap point
                 int64_t modulus = 0;
                 for (size_t i = 1; i < count; i++) {
-                    int64_t expected = arr64[i-1] + step;
+                    int64_t expected = rec_add(arr64[i-1], step);
                     if (arr64[i] != expected) {
                         if (modulus == 0) {
                             modulus = expected;
@@ -3095,9 +3136,9 @@ inline size_t varint_encode_to(uint8_t* out, uint64_t v) {
 inline uint64_t varint_decode_from(const uint8_t*& ptr, const uint8_t* end) {
     uint64_t result = 0;
     int shift = 0;
-    while (ptr < end) {
+    while (ptr < end && shift < 64) {
         uint8_t b = *ptr++;
-        result |= (uint64_t)(b & 0x7F) << shift;
+        result |= (uint64_t)(b & 0x7F) << (shift & 63);
         if ((b & 0x80) == 0) break;
         shift += 7;
     }
@@ -3121,9 +3162,9 @@ inline bool detect_timestamp(const uint8_t* data, size_t n, TimestampParams& par
         if (vals[1] <= vals[0] || vals[count-1] <= vals[count-2]) return false;
 
         // Calculate delta-of-deltas for samples
-        int64_t d1 = vals[1] - vals[0];
-        int64_t d2 = vals[2] - vals[1];
-        int64_t dd = d2 - d1;
+        int64_t d1 = rec_sub(vals[1], vals[0]);
+        int64_t d2 = rec_sub(vals[2], vals[1]);
+        int64_t dd = rec_sub(d2, d1);
 
         // Check if first delta is reasonable (< 1 trillion = ~30 years in ms)
         if (d1 <= 0 || d1 > 1000000000000LL) return false;
@@ -3135,7 +3176,7 @@ inline bool detect_timestamp(const uint8_t* data, size_t n, TimestampParams& par
         int64_t prev_delta = d1;
 
         for (size_t i = 1; i < count && i < samples * step; i += step) {
-            int64_t delta = vals[i+1] - vals[i];
+            int64_t delta = rec_sub(vals[i+1], vals[i]);
             int64_t this_dd = delta - prev_delta;
             if (this_dd < 0) this_dd = -this_dd;
             if (this_dd > max_dd) max_dd = this_dd;
@@ -3202,7 +3243,7 @@ inline std::vector<uint8_t> encode_timestamp(const uint8_t* data, const Timestam
         // Store delta-of-deltas as zigzag varints
         int64_t prev_delta = first_delta;
         for (size_t i = 2; i < params.count; i++) {
-            int64_t delta = vals[i] - vals[i-1];
+            int64_t delta = rec_sub(vals[i], vals[i-1]);
             int64_t dd = delta - prev_delta;
             len = varint_encode_to(buf, zigzag_encode_val(dd));
             for (size_t j = 0; j < len; j++) result.push_back(buf[j]);
@@ -4331,7 +4372,7 @@ inline std::vector<uint8_t> decode_phrase_partition(const uint8_t* data, size_t 
 
     // Reconstruct from indices
     std::vector<uint8_t> result;
-    result.reserve(original_size);
+    reserve_hint(result, original_size);
 
     for (size_t i = 0; i < indices_count; i++) {
         uint8_t idx = indices[i];
@@ -4652,9 +4693,9 @@ inline std::vector<uint8_t> decode_html_stream(const uint8_t* data, size_t n, si
     auto read_varint = [&data, &pos, n]() -> uint64_t {
         uint64_t val = 0;
         int shift = 0;
-        while (pos < n && shift < 63) {
+        while (pos < n && shift < 63 && shift < 64) {
             uint8_t b = data[pos++];
-            val |= (uint64_t)(b & 0x7F) << shift;
+            val |= (uint64_t)(b & 0x7F) << (shift & 63);
             if ((b & 0x80) == 0) break;
             shift += 7;
         }
@@ -4911,9 +4952,9 @@ inline std::vector<uint8_t> decode_url_stream(const uint8_t* data, size_t n, siz
     auto read_varint = [&data, &pos, n]() -> uint64_t {
         uint64_t val = 0;
         int shift = 0;
-        while (pos < n && shift < 63) {
+        while (pos < n && shift < 63 && shift < 64) {
             uint8_t b = data[pos++];
-            val |= (uint64_t)(b & 0x7F) << shift;
+            val |= (uint64_t)(b & 0x7F) << (shift & 63);
             if ((b & 0x80) == 0) break;
             shift += 7;
         }
@@ -5168,7 +5209,7 @@ inline std::vector<uint8_t> decode_phrase_dict(const uint8_t* data, size_t n, si
 
     // Rest is token stream - expand to output
     std::vector<uint8_t> output;
-    output.reserve(original_size);
+    reserve_hint(output, original_size);
 
     while (pos < raw_size) {
         uint8_t byte = buf[pos++];
@@ -5429,9 +5470,9 @@ inline std::vector<uint8_t> decode_sorted_dict(const uint8_t* data, size_t n, si
     while (original_order.size() < line_count && order_pos < order_len) {
         uint32_t zz = 0;
         int shift = 0;
-        while (order_pos < order_len) {
+        while (order_pos < order_len && shift < 64) {
             uint8_t b = data[pos + order_pos++];
-            zz |= (b & 0x7F) << shift;
+            zz |= (b & 0x7F) << (shift & 63);
             if (!(b & 0x80)) break;
             shift += 7;
         }
@@ -7601,7 +7642,7 @@ inline std::vector<uint8_t> decode_template(const uint8_t* encoded, size_t encod
     // Reconstruct lines from template + columns, interleaving non-matching lines.
     // Hard cap at 2x original_size to bound runaway corruption from malformed metadata.
     std::vector<uint8_t> result;
-    result.reserve(original_size);
+    reserve_hint(result, original_size);
     const size_t MAX_RESULT = original_size * 2 + 16;
     auto safe_push = [&](uint8_t b) -> bool {
         if (result.size() >= MAX_RESULT) return false;
@@ -8018,7 +8059,7 @@ inline std::vector<uint8_t> decode_ml_template(const uint8_t* encoded, size_t en
 
     // Reconstruct output
     std::vector<uint8_t> result;
-    result.reserve(original_size);
+    reserve_hint(result, original_size);
 
     // Header bytes
     for (char c : header_bytes) result.push_back((uint8_t)c);
@@ -8454,7 +8495,7 @@ inline std::vector<uint8_t> decode_ml_template_dual(const uint8_t* encoded, size
 
     // Reconstruct output
     std::vector<uint8_t> result;
-    result.reserve(original_size);
+    reserve_hint(result, original_size);
 
     for (char c : header_bytes) result.push_back((uint8_t)c);
 
@@ -8772,20 +8813,20 @@ inline std::vector<uint8_t> decode_columnar(const uint8_t* encoded, size_t encod
         // Read row_count as varint
         uint32_t row_count = 0;
         size_t shift = 0;
-        while (ptr < end && (*ptr & 0x80)) {
-            row_count |= (uint32_t)(*ptr++ & 0x7F) << shift;
+        while (ptr < end && (*ptr & 0x80) && shift < 64) {
+            row_count |= (uint32_t)(*ptr++ & 0x7F) << (shift & 63);
             shift += 7;
         }
-        if (ptr < end) row_count |= (uint32_t)(*ptr++) << shift;
+        if (ptr < end) row_count |= (uint32_t)(*ptr++) << (shift & 63);
 
         // Read BWT size and decompress 8 columns
         size_t bwt_size = 0;
         shift = 0;
-        while (ptr < end && (*ptr & 0x80)) {
-            bwt_size |= (size_t)(*ptr++ & 0x7F) << shift;
+        while (ptr < end && (*ptr & 0x80) && shift < 64) {
+            bwt_size |= (size_t)(*ptr++ & 0x7F) << (shift & 63);
             shift += 7;
         }
-        if (ptr < end) bwt_size |= (size_t)(*ptr++) << shift;
+        if (ptr < end) bwt_size |= (size_t)(*ptr++) << (shift & 63);
 
         if (ptr + bwt_size > end) return {};
         auto col8_data = bwt9::decompress(ptr, bwt_size);
@@ -8794,11 +8835,11 @@ inline std::vector<uint8_t> decode_columnar(const uint8_t* encoded, size_t encod
         // Read time BWT size and decompress
         size_t time_size = 0;
         shift = 0;
-        while (ptr < end && (*ptr & 0x80)) {
-            time_size |= (size_t)(*ptr++ & 0x7F) << shift;
+        while (ptr < end && (*ptr & 0x80) && shift < 64) {
+            time_size |= (size_t)(*ptr++ & 0x7F) << (shift & 63);
             shift += 7;
         }
-        if (ptr < end) time_size |= (size_t)(*ptr++) << shift;
+        if (ptr < end) time_size |= (size_t)(*ptr++) << (shift & 63);
 
         if (ptr + time_size > end) return {};
 
@@ -8841,15 +8882,15 @@ inline std::vector<uint8_t> decode_columnar(const uint8_t* encoded, size_t encod
         // Read trailing_len as varint
         uint32_t trailing_len = 0;
         shift = 0;
-        while (ptr < end && (*ptr & 0x80)) {
-            trailing_len |= (uint32_t)(*ptr++ & 0x7F) << shift;
+        while (ptr < end && (*ptr & 0x80) && shift < 64) {
+            trailing_len |= (uint32_t)(*ptr++ & 0x7F) << (shift & 63);
             shift += 7;
         }
-        if (ptr < end) trailing_len |= (uint32_t)(*ptr++) << shift;
+        if (ptr < end) trailing_len |= (uint32_t)(*ptr++) << (shift & 63);
 
         // Reconstruct extended nginx log format
         std::vector<uint8_t> result;
-        result.reserve(original_size);
+        reserve_hint(result, original_size);
 
         for (size_t i = 0; i < row_count; i++) {
             std::string line;
@@ -8968,7 +9009,7 @@ inline std::vector<uint8_t> decode_columnar(const uint8_t* encoded, size_t encod
 
         // Reconstruct
         std::vector<uint8_t> result;
-        result.reserve(original_size);
+        reserve_hint(result, original_size);
 
         // Trust no length field: guard every parallel-column access (columns 1..5 were unguarded,
         // an OOB vector::operator[] on a malformed stream). Matches the standard-7col branch below.
@@ -9028,7 +9069,7 @@ inline std::vector<uint8_t> decode_columnar(const uint8_t* encoded, size_t encod
     }
 
     std::vector<uint8_t> result;
-    result.reserve(original_size);
+    reserve_hint(result, original_size);
 
     // Trust no length field: columns 1..6 may hold fewer rows than column 0 on a malformed
     // stream. Indexing columns[k][i] unguarded is vector::operator[] OOB -> reads a garbage
@@ -9429,7 +9470,7 @@ inline std::vector<uint8_t> decode_csv_columnar(const uint8_t* encoded, size_t e
 
     // Reconstruct CSV
     std::vector<uint8_t> result;
-    result.reserve(original_size);
+    reserve_hint(result, original_size);
 
     // Header
     for (char c : header) result.push_back((uint8_t)c);
@@ -10292,9 +10333,9 @@ inline std::vector<uint8_t> decode_num_extract(const uint8_t* encoded, size_t en
     while (numbers.size() < num_count && vi < varint_size) {
         uint32_t num = 0;
         int shift = 0;
-        while (vi < varint_size) {
+        while (vi < varint_size && shift < 64) {
             uint8_t b = varint_buf[vi++];
-            num |= (uint32_t)(b & 0x7F) << shift;
+            num |= (uint32_t)(b & 0x7F) << (shift & 63);
             if ((b & 0x80) == 0) break;
             shift += 7;
         }
@@ -10320,7 +10361,7 @@ inline std::vector<uint8_t> decode_num_extract(const uint8_t* encoded, size_t en
 
     // Reconstruct: replace placeholders with numbers
     std::vector<uint8_t> result;
-    result.reserve(original_size);
+    reserve_hint(result, original_size);
 
     size_t num_idx = 0;
     for (size_t i = 0; i < templ.size(); i++) {
@@ -12130,7 +12171,7 @@ inline std::vector<uint8_t> decode_code_stream(const uint8_t* encoded, size_t en
 
     // Reconstruct code: replace \x01 markers with identifiers
     std::vector<uint8_t> result;
-    result.reserve(original_size);
+    reserve_hint(result, original_size);
     size_t ident_idx = 0;
     for (uint8_t c : skeleton) {
         if (c == 0x01 && ident_idx < identifiers.size()) {
@@ -14533,7 +14574,7 @@ inline int d4(const uint8_t* p){ for(int i=0;i<4;i++) if(p[i]<'0'||p[i]>'9') ret
 inline int mon_idx(const uint8_t* p){ for(int i=0;i<12;i++) if(p[0]==(uint8_t)MON[i][0]&&p[1]==(uint8_t)MON[i][1]&&p[2]==(uint8_t)MON[i][2]) return i+1; return 0; }
 inline int64_t days_from_civil(int64_t y,int64_t m,int64_t d){ y-=(m<=2); int64_t era=(y>=0?y:y-399)/400; int64_t yoe=y-era*400; int64_t doy=(153*(m+(m>2?-3:9))+2)/5+d-1; int64_t doe=yoe*365+yoe/4-yoe/100+doy; return era*146097+doe-719468; }
 inline void civil_from_days(int64_t z,int64_t&Y,int64_t&M,int64_t&D){ z+=719468; int64_t era=(z>=0?z:z-146096)/146097; int64_t doe=z-era*146097; int64_t yoe=(doe-doe/1460+doe/36524-doe/146096)/365; int64_t y=yoe+era*400; int64_t doy=doe-(365*yoe+yoe/4-yoe/100); int64_t mp=(5*doy+2)/153; int64_t d=doy-(153*mp+2)/5+1; int64_t m=mp+(mp<10?3:-9); Y=y+(m<=2); M=m; D=d; }
-inline uint64_t zz(int64_t n){ return (uint64_t)((n<<1)^(n>>63)); }
+inline uint64_t zz(int64_t n){ return ((uint64_t)n << 1) ^ (uint64_t)(n >> 63); }  // n<<1 on a negative is UB
 inline int64_t unzz(uint64_t u){ return (int64_t)((u>>1)^(uint64_t)(0-(int64_t)(u&1))); }
 inline int fmt_dt(int64_t e, char* buf){                          // -> "DD/Mon/YYYY:HH:MM:SS", len or -1
   int64_t days=e/86400, rem=e%86400; if(rem<0){ days--; rem+=86400; }
@@ -16568,8 +16609,7 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
         // IMPORTANT: Only use MU for blocks stored RAW (is_raw=true), since
         // MU format doesn't preserve the zstd compression layer!
         // ========================================================================
-        constexpr size_t MU_MAX_SIZE = 65536;  // <=64KB: MU header (~5B) is size-agnostic; the ~9B saving vs the
-                                               // compact format matters most where output is small (small structured files)
+        // MU_MAX_SIZE is declared at namespace scope so the decoder bounds against the SAME value.
         if (size <= MU_MAX_SIZE && is_raw) {
             // Text-oriented strategies that benefit from MU format
             // Only use MU when data is stored raw (is_raw=true), meaning the
@@ -17669,7 +17709,7 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
             res.error = "MI: unfilter failed"; if (result) *result = res; return {};
         }
         std::vector<uint8_t> out;
-        out.reserve((size_t)orig);
+        reserve_hint(out, orig);
         out.insert(out.end(), q, q + hdr_len);                        // header
         out.insert(out.end(), plane_out.begin(), plane_out.end());    // pixels
         out.insert(out.end(), q + hdr_len, q + hdr_len + tail);       // tail
@@ -17701,13 +17741,13 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
         // Read size varint
         uint64_t orig_size = 0;
         int shift = 0;
-        while (pos < size && (data[pos] & 0x80)) {
-            orig_size |= static_cast<uint64_t>(data[pos] & 0x7F) << shift;
+        while (pos < size && (data[pos] & 0x80) && shift < 64) {
+            orig_size |= static_cast<uint64_t>(data[pos] & 0x7F) << (shift & 63);
             shift += 7;
             pos++;
         }
         if (pos < size) {
-            orig_size |= static_cast<uint64_t>(data[pos]) << shift;
+            orig_size |= static_cast<uint64_t>(data[pos]) << (shift & 63);
             pos++;
         }
 
@@ -17734,13 +17774,13 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
         // Read size varint (original size)
         uint64_t orig_size = 0;
         int shift = 0;
-        while (pos < size && (data[pos] & 0x80)) {
-            orig_size |= static_cast<uint64_t>(data[pos] & 0x7F) << shift;
+        while (pos < size && (data[pos] & 0x80) && shift < 64) {
+            orig_size |= static_cast<uint64_t>(data[pos] & 0x7F) << (shift & 63);
             shift += 7;
             pos++;
         }
         if (pos < size) {
-            orig_size |= static_cast<uint64_t>(data[pos]) << shift;
+            orig_size |= static_cast<uint64_t>(data[pos]) << (shift & 63);
             pos++;
         }
 
@@ -17770,14 +17810,23 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
         // Read size varint (original size)
         uint64_t orig_size = 0;
         int shift = 0;
-        while (pos < size && (data[pos] & 0x80)) {
-            orig_size |= static_cast<uint64_t>(data[pos] & 0x7F) << shift;
+        while (pos < size && (data[pos] & 0x80) && shift < 64) {
+            orig_size |= static_cast<uint64_t>(data[pos] & 0x7F) << (shift & 63);
             shift += 7;
             pos++;
         }
         if (pos < size) {
-            orig_size |= static_cast<uint64_t>(data[pos]) << shift;
+            orig_size |= static_cast<uint64_t>(data[pos]) << (shift & 63);
             pos++;
+        }
+
+        // Bound the claim against the encoder's own gate BEFORE any allocation: no legitimate MU
+        // stream can carry more than MU_MAX_SIZE, and the BROTLI branch below resize()s to this
+        // value before decoding into it.
+        if (orig_size > MU_MAX_SIZE) {
+            res.error = "MU: declared size exceeds the format maximum";
+            if (result) *result = res;
+            return {};
         }
 
         // Compressed data is everything remaining
@@ -17933,32 +17982,32 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
         // Read original size varint
         uint64_t orig_size = 0;
         int shift = 0;
-        while (pos < size && (data[pos] & 0x80)) {
-            orig_size |= static_cast<uint64_t>(data[pos] & 0x7F) << shift;
+        while (pos < size && (data[pos] & 0x80) && shift < 64) {
+            orig_size |= static_cast<uint64_t>(data[pos] & 0x7F) << (shift & 63);
             shift += 7;
             pos++;
         }
         if (pos < size) {
-            orig_size |= static_cast<uint64_t>(data[pos]) << shift;
+            orig_size |= static_cast<uint64_t>(data[pos]) << (shift & 63);
             pos++;
         }
 
         // Read num_chunks varint
         uint64_t num_chunks = 0;
         shift = 0;
-        while (pos < size && (data[pos] & 0x80)) {
-            num_chunks |= static_cast<uint64_t>(data[pos] & 0x7F) << shift;
+        while (pos < size && (data[pos] & 0x80) && shift < 64) {
+            num_chunks |= static_cast<uint64_t>(data[pos] & 0x7F) << (shift & 63);
             shift += 7;
             pos++;
         }
         if (pos < size) {
-            num_chunks |= static_cast<uint64_t>(data[pos]) << shift;
+            num_chunks |= static_cast<uint64_t>(data[pos]) << (shift & 63);
             pos++;
         }
 
         // Decompress each chunk
         std::vector<uint8_t> output;
-        output.reserve(orig_size);
+        reserve_hint(output, orig_size);
 
         for (uint64_t chunk = 0; chunk < num_chunks && pos < size; chunk++) {
             // Read backend
@@ -17967,26 +18016,26 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
             // Read chunk orig_size varint
             uint64_t chunk_orig = 0;
             shift = 0;
-            while (pos < size && (data[pos] & 0x80)) {
-                chunk_orig |= static_cast<uint64_t>(data[pos] & 0x7F) << shift;
+            while (pos < size && (data[pos] & 0x80) && shift < 64) {
+                chunk_orig |= static_cast<uint64_t>(data[pos] & 0x7F) << (shift & 63);
                 shift += 7;
                 pos++;
             }
             if (pos < size) {
-                chunk_orig |= static_cast<uint64_t>(data[pos]) << shift;
+                chunk_orig |= static_cast<uint64_t>(data[pos]) << (shift & 63);
                 pos++;
             }
 
             // Read chunk comp_size varint
             uint64_t chunk_comp = 0;
             shift = 0;
-            while (pos < size && (data[pos] & 0x80)) {
-                chunk_comp |= static_cast<uint64_t>(data[pos] & 0x7F) << shift;
+            while (pos < size && (data[pos] & 0x80) && shift < 64) {
+                chunk_comp |= static_cast<uint64_t>(data[pos] & 0x7F) << (shift & 63);
                 shift += 7;
                 pos++;
             }
             if (pos < size) {
-                chunk_comp |= static_cast<uint64_t>(data[pos]) << shift;
+                chunk_comp |= static_cast<uint64_t>(data[pos]) << (shift & 63);
                 pos++;
             }
 
@@ -18060,13 +18109,13 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
 
         uint64_t orig_size = 0;
         int shift = 0;
-        while (pos < size && (data[pos] & 0x80)) {
-            orig_size |= static_cast<uint64_t>(data[pos] & 0x7F) << shift;
+        while (pos < size && (data[pos] & 0x80) && shift < 64) {
+            orig_size |= static_cast<uint64_t>(data[pos] & 0x7F) << (shift & 63);
             shift += 7;
             pos++;
         }
         if (pos < size) {
-            orig_size |= static_cast<uint64_t>(data[pos]) << shift;
+            orig_size |= static_cast<uint64_t>(data[pos]) << (shift & 63);
             pos++;
         }
 
@@ -18090,13 +18139,13 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
         // Read size varint
         uint64_t orig_size = 0;
         int shift = 0;
-        while (pos < size && (data[pos] & 0x80)) {
-            orig_size |= static_cast<uint64_t>(data[pos] & 0x7F) << shift;
+        while (pos < size && (data[pos] & 0x80) && shift < 64) {
+            orig_size |= static_cast<uint64_t>(data[pos] & 0x7F) << (shift & 63);
             shift += 7;
             pos++;
         }
         if (pos < size) {
-            orig_size |= static_cast<uint64_t>(data[pos]) << shift;
+            orig_size |= static_cast<uint64_t>(data[pos]) << (shift & 63);
             pos++;
         }
 
@@ -18637,17 +18686,17 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
                 // Read count (varint)
                 uint32_t count = 0; int shift = 0;
                 while (p < block_size && (block_data[p] & 0x80)) {
-                    count |= (uint32_t)(block_data[p++] & 0x7F) << shift; shift += 7;
+                    count |= (uint32_t)(block_data[p++] & 0x7F) << (shift & 63); shift += 7;
                 }
-                if (p < block_size) count |= (uint32_t)block_data[p++] << shift;
+                if (p < block_size) count |= (uint32_t)block_data[p++] << (shift & 63);
                 // Read delta-encoded positions + values
                 size_t pos = 0;
                 for (uint32_t i = 0; i < count && p + 1 < block_size; i++) {
                     uint32_t delta_pos = 0; shift = 0;
                     while (p < block_size && (block_data[p] & 0x80)) {
-                        delta_pos |= (uint32_t)(block_data[p++] & 0x7F) << shift; shift += 7;
+                        delta_pos |= (uint32_t)(block_data[p++] & 0x7F) << (shift & 63); shift += 7;
                     }
-                    if (p < block_size) delta_pos |= (uint32_t)block_data[p++] << shift;
+                    if (p < block_size) delta_pos |= (uint32_t)block_data[p++] << (shift & 63);
                     pos += delta_pos;
                     if (pos < sparse_decoded.size() && p < block_size)
                         sparse_decoded[pos] = block_data[p++];
