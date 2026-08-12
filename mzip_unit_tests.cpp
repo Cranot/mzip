@@ -471,6 +471,30 @@ TEST(mt_tabular_fires_and_roundtrips) {
     ASSERT(memcmp(d.data(), orig.data(), orig.size()) == 0);
 }
 
+TEST(mt_all_four_delimiters_fire_and_roundtrip) {
+    // The sniff covers {',', '\t', ';', '|'}. Until 2026-08-11 it was comma+tab only and the
+    // suite only ever exercised ','; the two new delimiters shipped with no unit coverage.
+    // The grid content is IDENTICAL across delimiters, so every arm must reach the same MT
+    // payload — which is what proves the transform is delimiter-agnostic rather than merely
+    // lossless. The delimiter must not appear inside any field or the re-delimit is not a bijection.
+    for (char delim : {',', '\t', ';', '|'}) {
+        std::string s = std::string("id") + delim + "name" + delim + "val\n";
+        for (int i = 0; i < 400; i++) {
+            char b[64];
+            snprintf(b, sizeof b, "%d%citem%d%c%d\n", 1000 + i, delim, i % 7, delim, (i * 13) % 1000);
+            s += b;
+        }
+        std::vector<uint8_t> orig(s.begin(), s.end());
+        auto c = mzip::compress(orig.data(), orig.size(), 19, mzip::DEFAULT_BLOCK_SIZE, nullptr,
+                                mzip::CompressionMode::SMALL);
+        ASSERT(c.size() >= 3 && c[0] == 'M' && c[1] == 'T');       // MT fired for this delimiter
+        ASSERT(c[2] == (uint8_t)delim);                            // and stored the delimiter it used
+        auto d = mzip::decompress(c.data(), c.size());
+        ASSERT_EQ(d.size(), orig.size());
+        ASSERT(memcmp(d.data(), orig.data(), orig.size()) == 0);
+    }
+}
+
 TEST(mq_sql_fires_and_roundtrips) {
     std::string s = "-- dump\nINSERT INTO users (id,name,email) VALUES ";
     for (int i = 0; i < 200; i++) { char b[96]; snprintf(b, sizeof b, "%s(%d,'user%d','u%d@x.com')", i ? "," : "", 1 + i, i, i); s += b; }
@@ -709,6 +733,7 @@ int main() {
 
     printf("\nSTRUCTURAL ENCODERS (MT/MQ/ML):\n");
     RUN_TEST(mt_tabular_fires_and_roundtrips);
+    RUN_TEST(mt_all_four_delimiters_fire_and_roundtrip);
     RUN_TEST(mq_sql_fires_and_roundtrips);
     RUN_TEST(ml_log_fires_and_roundtrips);
     RUN_TEST(mm_matrixmarket_fires_and_roundtrips);

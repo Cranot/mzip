@@ -28,13 +28,29 @@ echo "bwt9_probe.exe..."; g++ -O3 -std=c++17 bwt9_probe.cpp libsais.o -o bwt9_pr
 echo "mzip_ut.exe...";    g++ -O3 -std=c++17 -march=native -D_USE_MATH_DEFINES -o mzip_ut.exe mzip_unit_tests.cpp libsais.c $PPMD -I $INC $LIB $BRO
 echo "repro_dec.exe...";  g++ -O2 -std=c++17 -o repro_dec.exe repro_dec.cpp libsais.c $PPMD -I $INC $LIB $BRO
 # crash-corpus regression: every stream in fuzz_corpus/ must decompress without crashing (SIGSEGV/abort)
-if [ -f test_crashers.sh ] && [ -d fuzz_corpus ]; then echo "crash-corpus regression..."; bash test_crashers.sh || echo "WARNING: crash-corpus regression FAILED"; fi
+GATE_FAILED=0
+if [ -f test_crashers.sh ] && [ -d fuzz_corpus ]; then echo "crash-corpus regression..."; bash test_crashers.sh || { echo "GATE FAILED: crash-corpus regression"; GATE_FAILED=1; }; fi
 # amalgamated single-header: regenerate, then verify it compiles standalone (stb pattern) + roundtrips.
 # Catches the header going stale vs the source (it had drifted months behind, missing every fix).
 if [ -f amalgamate.py ] && [ -f amalg_test.cpp ]; then
-  echo "mzip_amalgamated.hpp (regen + check)..."; python3 amalgamate.py > mzip_amalgamated.hpp 2>/dev/null
-  g++ -O2 -std=c++17 -march=native amalg_test.cpp -I $INC $LIB $BRO -o amalg_test.exe 2>/dev/null \
-    && ./amalg_test.exe $(ls real_bench/* 2>/dev/null | head -3) || echo "WARNING: amalgamated build/roundtrip FAILED"
+  echo "mzip_amalgamated.hpp (regen + check)..."
+  # Regenerate to a TEMP file first. The old `python3 amalgamate.py > mzip_amalgamated.hpp` wrote
+  # in place, so any generator failure truncated a tracked 1.6 MB artifact to zero bytes and the
+  # `2>/dev/null` hid the reason. (2026-08-12)
+  if python3 amalgamate.py > mzip_amalgamated.hpp.tmp 2>amalgamate.err && [ -s mzip_amalgamated.hpp.tmp ]; then
+    mv -f mzip_amalgamated.hpp.tmp mzip_amalgamated.hpp; rm -f amalgamate.err
+  else
+    echo "GATE FAILED: amalgamate.py produced nothing; keeping the existing header. See amalgamate.err"
+    rm -f mzip_amalgamated.hpp.tmp; GATE_FAILED=1
+  fi
+  AMALG_FILES=$(ls real_bench/* 2>/dev/null | head -3)
+  if [ -z "$AMALG_FILES" ]; then
+    echo "GATE FAILED: no real_bench files to roundtrip the amalgamated header against"; GATE_FAILED=1
+  elif g++ -O2 -std=c++17 -march=native amalg_test.cpp -I $INC $LIB $BRO -o amalg_test.exe 2>amalg_build.err; then
+    ./amalg_test.exe $AMALG_FILES || { echo "GATE FAILED: amalgamated roundtrip"; GATE_FAILED=1; }
+  else
+    echo "GATE FAILED: amalgamated header does not compile. See amalg_build.err"; GATE_FAILED=1
+  fi
 fi
 # prep extra real corpora for benchmark_types.py v2 (numeric time-series truncated to 4MB + repo shell scripts)
 if [ -d benchmark_data ] && [ ! -f corpus_extra/citytemp_float.bin ]; then
@@ -161,4 +177,8 @@ if command -v curl >/dev/null 2>&1 && [ ! -s corpus_extra/raster/baboon.bmp ]; t
   rm -f corpus_extra/raster/_*.jpg
   find corpus_extra/raster -size 0 -delete 2>/dev/null || true
 fi
-echo "OK — all eval binaries built."
+if [ "${GATE_FAILED:-0}" -ne 0 ]; then
+  echo "BUILD FINISHED WITH FAILED GATES — do not treat this run as a pass."
+  exit 1
+fi
+echo "OK — all eval binaries built (all gates passed)."

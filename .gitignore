@@ -49,6 +49,9 @@ ziptest/
 
 # Python scripts (experimental)
 *.py
+# ...but amalgamate.py GENERATES the tracked mzip_amalgamated.hpp; excluding it made the
+# shipped single header unreproducible from a fresh clone. (2026-08-12)
+!amalgamate.py
 # but DO track the README/bench helpers
 !generate_readme_tables.py
 !summarize_real_bench.py

@@ -17106,10 +17106,10 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
             if (mfq::invert(nrec, fh.data(), fh.size(), fs.data(), fs.size(), fp.data(), fp.size(),
                             fq.data(), fq.size(), chk, size) &&
                 chk.size() == size && std::memcmp(chk.data(), data, size) == 0) {
-                auto ch = compress_impl(fh.data(), fh.size(), zstd_level, block_size, nullptr, mode, false,false,false,false,false,false,false);
-                auto cs = compress_impl(fs.data(), fs.size(), zstd_level, block_size, nullptr, mode, false,false,false,false,false,false,false);
-                auto cp = compress_impl(fp.data(), fp.size(), zstd_level, block_size, nullptr, mode, false,false,false,false,false,false,false);
-                auto cq = compress_impl(fq.data(), fq.size(), zstd_level, block_size, nullptr, mode, false,false,false,false,false,false,false);
+                auto ch = compress_impl(fh.data(), fh.size(), zstd_level, block_size, nullptr, mode, /*soa*/false,/*tabular*/false,/*sql*/false,/*bcj*/false,/*log*/false,/*yaml*/false,/*fastq*/false,/*image*/false);
+                auto cs = compress_impl(fs.data(), fs.size(), zstd_level, block_size, nullptr, mode, /*soa*/false,/*tabular*/false,/*sql*/false,/*bcj*/false,/*log*/false,/*yaml*/false,/*fastq*/false,/*image*/false);
+                auto cp = compress_impl(fp.data(), fp.size(), zstd_level, block_size, nullptr, mode, /*soa*/false,/*tabular*/false,/*sql*/false,/*bcj*/false,/*log*/false,/*yaml*/false,/*fastq*/false,/*image*/false);
+                auto cq = compress_impl(fq.data(), fq.size(), zstd_level, block_size, nullptr, mode, /*soa*/false,/*tabular*/false,/*sql*/false,/*bcj*/false,/*log*/false,/*yaml*/false,/*fastq*/false,/*image*/false);
                 if (!ch.empty() && !cs.empty() && !cp.empty() && !cq.empty()) {
                     std::vector<uint8_t> mf; mf.reserve(ch.size()+cs.size()+cp.size()+cq.size()+40);
                     mf.push_back('M'); mf.push_back('F');
@@ -17404,16 +17404,17 @@ inline std::vector<uint8_t> compress(const uint8_t* data, size_t size,
                                      bool try_bcj = true,
                                      bool try_log = true,
                                      bool try_yaml = true,
-                                     bool try_fastq = true) {
+                                     bool try_fastq = true,
+                                     bool try_image = true) {
 #ifdef MZIP_NO_TOPLEVEL_VERIFY
     return compress_impl(data, size, zstd_level, block_size, result, mode,
-                         try_soa, try_tabular, try_sql, try_bcj, try_log, try_yaml, try_fastq);
+                         try_soa, try_tabular, try_sql, try_bcj, try_log, try_yaml, try_fastq, try_image);
 #else
     std::vector<uint8_t> out;
     bool ok = false;
     try {
         out = compress_impl(data, size, zstd_level, block_size, result, mode,
-                            try_soa, try_tabular, try_sql, try_bcj, try_log, try_yaml, try_fastq);
+                            try_soa, try_tabular, try_sql, try_bcj, try_log, try_yaml, try_fastq, try_image);
         if (size == 0) return out;  // empty input: trust compress_impl's (tiny) result
         if (!out.empty()) {
             std::vector<uint8_t> rt = decompress(out.data(), out.size(), nullptr);
@@ -18215,6 +18216,32 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
         pos += 4;
     }
 
+    // ALLOCATION BOUND — 2026-08-12. `output` below is the value-initialising vector ctor, so
+    // it both commits and zero-fills `original_size` bytes BEFORE a single block is parsed.
+    // original_size is a varint straight off the untrusted stream: a 319-byte input declaring
+    // 16,251,223,882 drove a ~12 GB commit that took minutes and then failed anyway. The
+    // existing catch at the bottom of decompress() only converts a FAILED allocation into an
+    // empty return — it is silent on a SUCCESSFUL one, so a fuzzer scoring "no crash / empty
+    // result" records the balloon as a pass.
+    //
+    // Both clauses are ENCODER INVARIANTS, so no truthful archive can trip them and no fixed
+    // cap is introduced (a legitimate 10 GB archive carries >=640 blocks and passes untouched):
+    //   - every block is clamped to MAX_BLOCK_SIZE, and original_size is the sum of every
+    //     block_original_size (already enforced after the loop), hence
+    //     original_size <= block_count * MAX_BLOCK_SIZE exactly;
+    //   - every compact block header costs >=3 bytes and every legacy one >=14, hence
+    //     block_count <= remaining_input / min_block_header.
+    {
+        const size_t min_blk_hdr = (version == VERSION_COMPACT) ? 3u : 14u;
+        if (pos > size ||
+            block_count > (size - pos) / min_blk_hdr ||
+            original_size > (uint64_t)block_count * (uint64_t)MAX_BLOCK_SIZE) {
+            res.error = "Declared original_size exceeds what the input can produce";
+            if (result) *result = res;
+            return {};
+        }
+    }
+
     // Allocate output
     std::vector<uint8_t> output(original_size);
     size_t out_pos = 0;
@@ -18337,6 +18364,21 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
 
             block_data = decompress_buf.data();
             block_size = decompressed;
+        }
+
+        // OUTPUT BOUNDS CHECK, PART 2 — 2026-08-12. The check above bounds writes sized by
+        // block_original_size. It does NOT cover the branches that write `block_size`, which
+        // for a raw block is `stored_size` — a SEPARATE, independently attacker-chosen header
+        // field. The fall-through `else { memcpy(&output[out_pos], block_data, block_size); }`
+        // at the end of this loop is exactly such a site, so an archive declaring a tiny
+        // block_original_size (passing the first check) alongside a large stored_size drives a
+        // heap buffer overflow. A truthful archive always passes: for a raw block the encoder
+        // writes stored_size == block_original_size, and a decompressed block cannot exceed
+        // decompress_buf (MAX_BLOCK_SIZE) anyway.
+        if (out_pos + block_size > output.size()) {
+            res.error = "Block stored size exceeds output buffer (corrupt or malicious archive)";
+            if (result) *result = res;
+            return {};
         }
 
         // Reverse preprocessing
