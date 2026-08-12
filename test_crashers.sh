@@ -7,7 +7,9 @@ cd "$(dirname "$0")"
 BIN=${1:-./repro_dec.exe}
 [ -x "$BIN" ] || { echo "need $BIN (build: g++ -O0 -std=c++17 repro_dec.cpp libsais.c <zstd> <brotli> <lzma>)"; exit 2; }
 fail=0; n=0
-for f in fuzz_corpus/*.bin; do
+# find, not a flat glob: a subdirectory of reproducers would otherwise be SILENTLY skipped, which
+# is the same class as a hand-maintained list going stale. (2026-08-12)
+for f in $(find fuzz_corpus -type f -name '*.bin' | sort); do
   [ -f "$f" ] || continue
   n=$((n+1))
   "$BIN" "$f" >/dev/null 2>&1; rc=$?
