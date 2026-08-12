@@ -43,6 +43,9 @@ if [ -f amalgamate.py ] && [ -f amalg_test.cpp ]; then
     echo "GATE FAILED: amalgamate.py produced nothing; keeping the existing header. See amalgamate.err"
     rm -f mzip_amalgamated.hpp.tmp; GATE_FAILED=1
   fi
+  # Independent staleness gate: regenerate to a temp file and compare CONTENT (not timestamps).
+  # The header went stale twice, the second time missing four consecutive commits' security fixes.
+  bash check_amalgam.sh || { echo "GATE FAILED: amalgamated header stale"; GATE_FAILED=1; }
   AMALG_FILES=$(ls real_bench/* 2>/dev/null | head -3)
   if [ -z "$AMALG_FILES" ]; then
     echo "GATE FAILED: no real_bench files to roundtrip the amalgamated header against"; GATE_FAILED=1
