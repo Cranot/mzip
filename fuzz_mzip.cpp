@@ -111,7 +111,7 @@ int main(int argc,char**argv){
     int lvl = (rnd()%10)? 3 : 19;
     mzip::CompressionMode mode = (rnd()%10)? mzip::CompressionMode::BALANCED : mzip::CompressionMode::SMALL;
     // repro capture: overwrite the current input + meta (incl lvl/mode) each iter so a SEGV leaves the crasher on disk
-    { FILE* cf=fopen("fuzz_cur.bin","wb"); if(cf){ fwrite(in.data(),1,in.size(),cf); fclose(cf); }
+    { FILE* cf=fopen("fuzz_cur.bin","wb"); if(cf){ if(!in.empty()) fwrite(in.data(),1,in.size(),cf); fclose(cf); }
       FILE* mf=fopen("fuzz_cur.txt","w"); if(mf){ fprintf(mf,"iter=%llu seed=0x%llx size=%zu lvl=%d mode=%d\n",(unsigned long long)i,(unsigned long long)seed,in.size(),lvl,(int)mode); fclose(mf); } }
     try {
       c = mzip::compress(in.data(), in.size(), lvl, mzip::DEFAULT_BLOCK_SIZE, nullptr, mode);

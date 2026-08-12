@@ -64,7 +64,7 @@ int main(int argc,char**argv){
       size_t n = (rr(4)==0? rr(24) : rr(2048));         // occasionally tiny
       for(size_t k=0;k<n;k++) stream.push_back((uint8_t)rnd());
     }
-    { FILE* cf=fopen("fuzzd_cur.bin","wb"); if(cf){ fwrite(stream.data(),1,stream.size(),cf); fclose(cf);}
+    { FILE* cf=fopen("fuzzd_cur.bin","wb"); if(cf){ if(!stream.empty()) fwrite(stream.data(),1,stream.size(),cf); fclose(cf);}
       FILE* mf=fopen("fuzzd_cur.txt","w"); if(mf){ fprintf(mf,"iter=%llu base=0x%llx kind=%u size=%zu\n",(unsigned long long)i,(unsigned long long)base,kind,stream.size()); fclose(mf);} }
     try { auto d = mzip::decompress(stream.data(), stream.size()); if(d.empty()) empty++; else nonempty++; }
     catch(const std::exception& e){ exc++; }
