@@ -154,6 +154,23 @@ constexpr size_t MAX_BLOCK_SIZE = 16 * 1024 * 1024; // 16MB maximum
 // a 2.1 GB allocation (measured under ASan 2026-08-12).
 constexpr size_t MU_MAX_SIZE = 65536;
 
+// Reading an int32/int64 out of an arbitrary byte buffer via reinterpret_cast is a MISALIGNED LOAD:
+// `data` is whatever the caller passed, frequently an interior offset of a std::vector<uint8_t>, so
+// the pointer is not guaranteed to meet the type's alignment. That is UB per the standard even
+// though x86-64 and ARM64 tolerate it, and UBSan reports it. These readers do the same job through
+// memcpy, which every compiler lowers to the identical single unaligned load -- no cost, no UB.
+// Drop-in: they provide operator[], so `vals[i]` call sites are unchanged. (2026-08-12)
+struct Rd64 {
+    const uint8_t* p;
+    explicit Rd64(const uint8_t* d) : p(d) {}
+    int64_t operator[](size_t i) const { int64_t v; std::memcpy(&v, p + i * 8, 8); return v; }
+};
+struct Rd32 {
+    const uint8_t* p;
+    explicit Rd32(const uint8_t* d) : p(d) {}
+    int32_t operator[](size_t i) const { int32_t v; std::memcpy(&v, p + i * 4, 4); return v; }
+};
+
 // Every write into the DECODE output buffer must be bounded by the buffer, not by a guard on some
 // other quantity. The block loop has two loop-top guards (block_original_size, block_size) but the
 // writes use NINE different size expressions; 38 of them use decoded.size(), which no guard covers.
@@ -817,7 +834,7 @@ try_64bit:
     // Try 64-bit integers
     if (n >= 24 && n % 8 == 0) {
         size_t count = n / 8;
-        const int64_t* vals = reinterpret_cast<const int64_t*>(data);
+        const Rd64 vals(data);
 
         int64_t delta = rec_sub(vals[1], vals[0]);
         if (delta == 0) goto try_16bit;  // Let PERIODIC handle constant fill
@@ -1976,7 +1993,7 @@ try_64bit:
         size_t count = n / 8;
         if (count < config.min_elements) goto try_16bit;
 
-        const int64_t* vals = reinterpret_cast<const int64_t*>(data);
+        const Rd64 vals(data);
         int64_t delta = rec_sub(vals[1], vals[0]);
 
         if (delta == 0) goto try_16bit;
@@ -2189,7 +2206,7 @@ struct GeometricParams {
 inline bool detect_geometric(const uint8_t* data, size_t n, GeometricParams& params) {
     // Try 64-bit first (most common for geometric - values grow fast)
     if (n >= 24 && n % 8 == 0) {
-        const int64_t* vals = reinterpret_cast<const int64_t*>(data);
+        const Rd64 vals(data);
         size_t count = n / 8;
 
         if (count >= 2 && vals[0] != 0 && vals[1] % vals[0] == 0) {
@@ -2216,7 +2233,7 @@ inline bool detect_geometric(const uint8_t* data, size_t n, GeometricParams& par
 
     // Try 32-bit
     if (n >= 12 && n % 4 == 0) {
-        const int32_t* vals = reinterpret_cast<const int32_t*>(data);
+        const Rd32 vals(data);
         size_t count = n / 4;
 
         if (count >= 2 && vals[0] != 0 && vals[1] % vals[0] == 0) {
@@ -2299,7 +2316,7 @@ struct QuadraticParams {
 inline bool detect_quadratic(const uint8_t* data, size_t n, QuadraticParams& params) {
     // Try 64-bit first
     if (n >= 24 && n % 8 == 0) {
-        const int64_t* vals = reinterpret_cast<const int64_t*>(data);
+        const Rd64 vals(data);
         size_t count = n / 8;
 
         if (count >= 3) {
@@ -2335,7 +2352,7 @@ inline bool detect_quadratic(const uint8_t* data, size_t n, QuadraticParams& par
 try_32bit_quad:
     // Try 32-bit
     if (n >= 12 && n % 4 == 0) {
-        const int32_t* vals = reinterpret_cast<const int32_t*>(data);
+        const Rd32 vals(data);
         size_t count = n / 4;
 
         if (count >= 3) {
@@ -2422,7 +2439,7 @@ struct RecurrenceParams {
 inline bool detect_recurrence(const uint8_t* data, size_t n, RecurrenceParams& params) {
     // Try 64-bit first
     if (n >= 32 && n % 8 == 0) {
-        const int64_t* vals = reinterpret_cast<const int64_t*>(data);
+        const Rd64 vals(data);
         size_t count = n / 8;
 
         if (count >= 4) {
@@ -2459,7 +2476,7 @@ inline bool detect_recurrence(const uint8_t* data, size_t n, RecurrenceParams& p
 
     // Try 32-bit
     if (n >= 16 && n % 4 == 0) {
-        const int32_t* vals = reinterpret_cast<const int32_t*>(data);
+        const Rd32 vals(data);
         size_t count = n / 4;
 
         if (count >= 4) {
@@ -2613,7 +2630,7 @@ try_32bit:
     // Check for 32-bit aligned data
     if (n >= 16 && n % 4 == 0) {
         // Try 32-bit
-        const int32_t* arr32 = reinterpret_cast<const int32_t*>(data);
+        const Rd32 arr32(data);
         size_t count = n / 4;
 
         if (count >= 8) {
@@ -2662,7 +2679,7 @@ try_32bit:
 
 try_64bit:
     if (n >= 32 && n % 8 == 0) {
-        const int64_t* arr64 = reinterpret_cast<const int64_t*>(data);
+        const Rd64 arr64(data);
         size_t count = n / 8;
 
         if (count >= 4) {
@@ -3166,7 +3183,7 @@ inline bool detect_timestamp(const uint8_t* data, size_t n, TimestampParams& par
         size_t count = n / 8;
         if (count < 3) return false;
 
-        const int64_t* vals = reinterpret_cast<const int64_t*>(data);
+        const Rd64 vals(data);
 
         // Check if values are monotonically increasing (typical for timestamps)
         if (vals[1] <= vals[0] || vals[count-1] <= vals[count-2]) return false;
@@ -3237,7 +3254,7 @@ inline std::vector<uint8_t> encode_timestamp(const uint8_t* data, const Timestam
     result.push_back(params.elem_size);
 
     if (params.elem_size == 8) {
-        const int64_t* vals = reinterpret_cast<const int64_t*>(data);
+        const Rd64 vals(data);
 
         // Store first value
         for (int i = 0; i < 8; i++) result.push_back((data[i]));
