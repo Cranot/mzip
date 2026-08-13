@@ -32,6 +32,11 @@ abc
 abc.*
 test*
 verify_*
+# The ablation's counterfactuals are DERIVED from logged candidate sizes. This log is the run that
+# confronted them with reality (family actually masked off, real archive re-measured, 102/102
+# agree). Keeping the claim and discarding its confirmation is how a prediction quietly becomes
+# quoted as a measurement.
+!verify_grid.log
 rand_*
 repro_*
 trace_*

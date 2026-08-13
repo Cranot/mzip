@@ -3,6 +3,11 @@
 Measured with `./mzip_cm.exe` over 102 file(s) of corpus `DEV-2026-08`. Every candidate the encoder considered was logged, winner or loser.
 
 
+## Are these counterfactuals real?
+
+The costs below are computed from logged candidate sizes, so they are a PREDICTION about what would ship if a family did not exist. That prediction has been confronted with reality: **`--verify A5_GRID` re-ran the encoder over all 102 files with `MZIP_FAMILY_MASK=0x1DF` (GRID actually disabled) and the real archive size equalled the predicted one on 102 of 102 files, 0 mismatches** (2026-08-13). The masking path is family-agnostic — one `mz_family_on()` guard per candidate — so the same code is exercised for every family; but strictly, A5_GRID is the family that was re-run, and the others rest on that shared mechanism rather than on their own re-run.
+
+
 ## What each family is worth
 
 `cost` = bytes the archive would GROW by if the family did not exist (`ship(without F) − ship(all)`). A family can win files and still cost 0: that means the runner-up was just as good, so the win was cosmetic and the family is not load-bearing there.
