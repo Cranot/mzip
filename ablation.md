@@ -1,6 +1,6 @@
 # Candidate-family ablation (A0–A8)
 
-Measured with `./mzip_cm.exe` over 102 file(s) of corpus `DEV-2026-08`. Every candidate the encoder considered was logged, winner or loser.
+Measured with `./mzip_fam.exe` over 102 file(s) of corpus `DEV-2026-08`. Every candidate the encoder considered was logged, winner or loser.
 
 
 ## Are these counterfactuals real?
@@ -31,6 +31,31 @@ Those three are the largest contributors (418,875 + 645,475 + 384,417 B), i.e. *
 | A6_RECORD | 3 | 3 | 3 | 39,261 | `reads_10k.fastq` +27,364 |
 | A7_TEMPORAL | 3 | 3 | 3 | 16,349 | `app.log` +6,401 |
 | A8_FILTER | 55 | 21 | 21 | 645,475 | `board.tga` +149,389 |
+
+## Per-magic: detector precision
+
+`fires` = the detector produced a candidate. `wins` = that candidate shipped. **precision = wins/fires** is how often firing was justified; the rest is search time spent for nothing. `cost` here is per-MAGIC (what the archive would grow by without that one candidate), so it does not sum to the family totals when two magics share a family.
+
+| magic | family | fires | wins | precision | load-bearing | cost (B) |
+|---|---|---|---|---|---|---|
+| `MI` | A8_FILTER | 6 | 6 | 100.0% | 6 | 606,685 |
+| `MS` | A4_NUMERIC | 5 | 3 | 60.0% | 3 | 384,417 |
+| `MT` | A5_GRID | 5 | 5 | 100.0% | 5 | 270,199 |
+| `MM` | A5_GRID | 1 | 1 | 100.0% | 1 | 148,676 |
+| `MY` | A8_FILTER | 43 | 10 | 23.3% ⚠ | 10 | 30,425 |
+| `MF` | A6_RECORD | 1 | 1 | 100.0% | 1 | 27,364 |
+| `ML` | A7_TEMPORAL | 3 | 3 | 100.0% | 3 | 16,349 |
+| `MQ` | A6_RECORD | 2 | 2 | 100.0% | 2 | 11,897 |
+| `MB` | A8_FILTER | 6 | 5 | 83.3% | 5 | 8,365 |
+| `MU` | A2_CONTAINER | 48 | 43 | 89.6% | 43 | 408 |
+| `ZSTD` | A1_GENERAL | 102 | 0 | 0.0% | 0 | 0 |
+| `uRAW` | A0_STORE | 102 | 0 | 0.0% | 0 | 0 |
+| `BG` | A3_BWT | 6 | 0 | 0.0% | 0 | 0 |
+
+⚠ marks a DETECTOR (a two-letter format magic that chose to fire) which fires often and is usually wrong. On this corpus that is **`MY`** alone: its trigger is "indented text", not YAML, so it runs on HTML, CSS and source and loses there. Every other specialised detector is at least 60% precise. **But narrowing it is NOT free** — MY still wins 10 files and is load-bearing on all 10 (30,425 B). A narrowed trigger has to keep those, so this is a speed lever with a correctness constraint, not a deletion.
+
+`ZSTD` and `uRAW` show 0% but are deliberately NOT flagged: they are offered unconditionally on every input rather than detected, so 0% means "never the smallest", not "fired when it should not have". uRAW in particular is the anti-expansion floor — worth 0 bytes here only because this corpus contains nothing incompressible enough to need it.
+
 
 ## Families that never fire, and families that fire but never matter
 

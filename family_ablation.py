@@ -35,6 +35,7 @@ inner call has returned. This takes the final block and cross-checks its candida
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -103,6 +104,8 @@ def main() -> int:
     ap.add_argument("--verify", default="", help="family name; re-run with it masked off")
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--receipts", default="", help="write per-file CompressionReceipt JSONL here")
+    ap.add_argument("--from-receipts", default="",
+                    help="rebuild the report from an existing receipts.jsonl and run NO encoder")
     a = ap.parse_args()
 
     ents = [(t, f, real, dom) for t, f, real, dom in bc.entries()]
@@ -131,7 +134,28 @@ def main() -> int:
 
     rows = []
     failures = []
-    for i, (t, f, real, dom) in enumerate(ents, 1):
+
+    # Rebuild from stored receipts and run NOTHING. Same discipline as bench_report.py reading only
+    # the matrix: a report should be a pure function of recorded evidence, so adding a statistic
+    # costs seconds instead of a full re-measurement — and re-measuring to add a table is precisely
+    # where a corpus quietly changes under a claim.
+    if a.from_receipts:
+        for rec in (json.loads(l) for l in open(a.from_receipts, encoding="utf-8")):
+            cands = [(c["magic"], c["family"],
+                      c["bytes"] if c["bytes"] is not None else 0,
+                      c["status"]) for c in rec["candidates"]]
+            base = rec["archive"]["bytes"]
+            cf = rec["counterfactual_without_family"]
+            rows.append(dict(type=rec["input"]["type"], file=rec["input"]["path"],
+                             real=1 if rec["input"]["real"] else 0, domain=rec["input"]["domain"],
+                             orig=rec["input"]["bytes"], archive=base, base=base,
+                             winner_magic=rec["archive"]["ships_as"],
+                             winner_fam=rec["archive"]["family"],
+                             costs={f: cf[f] - base for f in FAMILIES}, _cands=cands,
+                             avail={fam for _m, fam, _s, st in cands if st == "avail"}))
+        print(f"rebuilt {len(rows)} rows from {a.from_receipts} (no encoder run)", file=sys.stderr)
+
+    for i, (t, f, real, dom) in enumerate([] if a.from_receipts else ents, 1):
         print(f"[{i}/{len(ents)}] {f}", file=sys.stderr, flush=True)
         try:
             cands, arch = candidates_for(a.exe, f)
@@ -227,6 +251,62 @@ def main() -> int:
         wtxt = (f"`{os.path.basename(worst['file'])}` +{worst['costs'][fam]:,}"
                 if worst and worst["costs"][fam] > 0 else "—")
         W(f"| {fam} | {fires} | {wins} | {len(lb)} | {tot:,} | {wtxt} |")
+
+    # ------------------------------------------------------------------------------------------
+    # PER-MAGIC. The family table AGGREGATES, and aggregation hid the most important thing on this
+    # corpus: A8_FILTER's 645 KB is almost entirely MI, while MY inside the same family fires seven
+    # times as often for 5% of the bytes. Grouping by structural hypothesis is right for ablation
+    # and wrong for judging a DETECTOR, so both are reported.
+    # ------------------------------------------------------------------------------------------
+    W("\n## Per-magic: detector precision\n")
+    W("`fires` = the detector produced a candidate. `wins` = that candidate shipped. **precision "
+      "= wins/fires** is how often firing was justified; the rest is search time spent for nothing. "
+      "`cost` here is per-MAGIC (what the archive would grow by without that one candidate), so it "
+      "does not sum to the family totals when two magics share a family.\n")
+    W("| magic | family | fires | wins | precision | load-bearing | cost (B) |")
+    W("|---|---|---|---|---|---|---|")
+    m_fire, m_win, m_cost, m_lb, m_fam = (defaultdict(int), defaultdict(int), defaultdict(int),
+                                          defaultdict(int), {})
+    for r in rows:
+        base = r["base"]
+        avail = [(sz, mg) for mg, _f, sz, st in r["_cands"] if st == "avail"]
+        for mg, f, _sz, st in r["_cands"]:
+            m_fam[mg] = f
+            if st == "avail":
+                m_fire[mg] += 1
+        if not avail:
+            continue
+        m_win[min(avail)[1]] += 1
+        for sz, mg in avail:
+            others = [x[0] for x in avail if x[1] != mg]
+            if not others:
+                continue
+            d = min(others) - base
+            if d > 0:
+                m_cost[mg] += d
+                m_lb[mg] += 1
+    for mg in sorted(m_fire, key=lambda x: -m_cost[x]):
+        if mg == "BLOCKS":
+            continue
+        p = m_win[mg] / m_fire[mg] * 100 if m_fire[mg] else 0.0
+        # Flag only DETECTORS — a two-letter format magic that decided to fire. ZSTD and uRAW are
+        # not detectors: they are offered unconditionally on every input (the general backstop and
+        # the anti-expansion floor), so 0% precision there means "never the smallest", which is a
+        # different statement from "fired when it should not have".
+        is_detector = len(mg) == 2
+        mark = " ⚠" if (is_detector and m_fire[mg] >= 10 and p < 50) else ""
+        W(f"| `{mg}` | {m_fam[mg]} | {m_fire[mg]} | {m_win[mg]} | {p:.1f}%{mark} | {m_lb[mg]} | "
+          f"{m_cost[mg]:,} |")
+    W("\n⚠ marks a DETECTOR (a two-letter format magic that chose to fire) which fires often and is "
+      "usually wrong. On this corpus that is **`MY`** alone: its trigger is \"indented text\", not "
+      "YAML, so it runs on HTML, CSS and source and loses there. Every other specialised detector "
+      "is at least 60% precise. **But narrowing it is NOT free** — MY still wins 10 files and is "
+      "load-bearing on all 10 (30,425 B). A narrowed trigger has to keep those, so this is a speed "
+      "lever with a correctness constraint, not a deletion.\n")
+    W("`ZSTD` and `uRAW` show 0% but are deliberately NOT flagged: they are offered unconditionally "
+      "on every input rather than detected, so 0% means \"never the smallest\", not \"fired when it "
+      "should not have\". uRAW in particular is the anti-expansion floor — worth 0 bytes here only "
+      "because this corpus contains nothing incompressible enough to need it.\n")
 
     W("\n## Families that never fire, and families that fire but never matter\n")
     dead = [f for f in FAMILIES if not any(f in r["avail"] for r in rows)]
