@@ -183,6 +183,35 @@ inline uint64_t mz_xz_memlimit() {
 }
 
 // ---------------------------------------------------------------------------------------------
+// ZSTD DECLARED-SIZE POLICY. ZSTD_getFrameContentSize() returns the size a frame's HEADER CLAIMS,
+// read WITHOUT decompressing anything. Several decode sites allocate that claim directly, so ~15
+// bytes of attacker input can name any 64-bit allocation — the same defect class as the 12.2 GB
+// commit fixed in 4376580, at sites that fix did not reach.
+//
+// Unlike the xz memlimit there is NO encoder invariant to bound this against: a whole-archive zstd
+// passthrough may legitimately be any size, so the encoder promises nothing useful here. The bound
+// is therefore derived from the FORMAT instead — weaker than an encoder invariant, but still a
+// fact rather than a guess, and the difference is stated rather than blurred:
+//
+//   every zstd block emits at most ZSTD_BLOCKSIZE_MAX bytes and costs at least a 3-byte block
+//   header, so a frame of N compressed bytes cannot produce more than (N/3 + 1) * ZSTD_BLOCKSIZE_MAX.
+//
+// ZSTD_decompressBound() would be tighter but lives behind ZSTD_STATIC_LINKING_ONLY (zstd.h:1196)
+// and is unavailable in this build; ZSTD_BLOCKSIZE_MAX is public (zstd.h:143), so this needs no
+// build change.
+//
+// ⚠ This is a LOOSE bound — the implied expansion ceiling is ~43,690x. It does not stop a
+// determined amplification, it stops the ABSURD ones: a 15-byte frame claiming 2^64 now faces a
+// 640 KB ceiling instead of none. Tightening needs the static API or a per-block walk. Recorded as
+// a known limit rather than presented as a solution.
+inline uint64_t mz_zstd_max_output(size_t comp_size) {
+    const uint64_t blocks = (uint64_t)(comp_size / 3) + 1;        // +1 covers frames under 3 bytes
+    const uint64_t per    = (uint64_t)ZSTD_BLOCKSIZE_MAX;
+    if (blocks > UINT64_MAX / per) return UINT64_MAX;             // saturate, never wrap
+    return blocks * per;
+}
+
+// ---------------------------------------------------------------------------------------------
 // CANDIDATE FAMILIES (A0..A8) — telemetry and ablation. Encoder behaviour is UNCHANGED by default.
 //
 // The top-level encoder is a search: it builds a set of candidate encodings of the whole input and
@@ -18346,6 +18375,12 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
             if (result) *result = res;
             return {};
         }
+        // The size above is the frame HEADER's CLAIM, not a measurement — see mz_zstd_max_output.
+        if (original_size > mz_zstd_max_output(size)) {
+            res.error = "zstd frame declares more output than its compressed size can produce";
+            if (result) *result = res;
+            return {};
+        }
 
         std::vector<uint8_t> output(original_size);
         size_t decompressed = ZSTD_decompress(output.data(), output.size(), data, size);
@@ -18371,6 +18406,12 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
         unsigned long long original_size = ZSTD_getFrameContentSize(zstd_data, zstd_size);
         if (original_size == ZSTD_CONTENTSIZE_ERROR || original_size == ZSTD_CONTENTSIZE_UNKNOWN) {
             res.error = "Cannot determine decompressed size from lite format";
+            if (result) *result = res;
+            return {};
+        }
+        // Same claim-not-measurement hazard as the bare-zstd path above.
+        if (original_size > mz_zstd_max_output(zstd_size)) {
+            res.error = "lite-format zstd frame declares more output than it can produce";
             if (result) *result = res;
             return {};
         }

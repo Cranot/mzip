@@ -796,6 +796,47 @@ TEST(xz_decode_memlimit_is_bounded_and_sufficient) {
     ASSERT(std::memcmp(back.data(), src.data(), src.size()) == 0);
 }
 
+TEST(zstd_declared_size_is_bounded_by_the_frame) {
+    // ZSTD_getFrameContentSize() returns what the frame HEADER CLAIMS, without decompressing.
+    // Two decode sites allocated that claim directly, so a ~13-byte input could name any 64-bit
+    // allocation. The bound is format-derived: (N/3 + 1) * ZSTD_BLOCKSIZE_MAX.
+
+    // (1) The bound scales with the compressed size and never wraps.
+    ASSERT(mzip::mz_zstd_max_output(0) > 0);
+    ASSERT(mzip::mz_zstd_max_output(15) < (1ull << 21));          // ~13 B frame -> sub-2 MiB ceiling
+    ASSERT(mzip::mz_zstd_max_output(SIZE_MAX) == UINT64_MAX);     // saturates instead of wrapping
+    ASSERT(mzip::mz_zstd_max_output(1 << 20) > mzip::mz_zstd_max_output(1 << 10));
+
+    // (2) A hand-built zstd frame header that DECLARES 2^40 bytes in 13 bytes of input.
+    //     magic 28 B5 2F FD | FHD 0xE0 (FCS_flag=3 -> 8-byte size, Single_Segment=1) | FCS LE64.
+    {
+        std::vector<uint8_t> hostile = {0x28, 0xB5, 0x2F, 0xFD, 0xE0};
+        uint64_t claim = 1ull << 40;                               // 1 TiB claimed from 13 bytes
+        for (int i = 0; i < 8; i++) hostile.push_back((uint8_t)(claim >> (8 * i)));
+        ASSERT(hostile.size() == 13);
+        // liblzma-style sanity: zstd itself must agree the header declares that size, otherwise
+        // this test would pass for the wrong reason (a malformed header rejected on other grounds).
+        unsigned long long fcs = ZSTD_getFrameContentSize(hostile.data(), hostile.size());
+        ASSERT(fcs == claim);
+        ASSERT(claim > mzip::mz_zstd_max_output(hostile.size()));  // the bound must actually bite
+        auto d = mzip::decompress(hostile.data(), hostile.size());
+        ASSERT(d.empty());                                         // rejected, not allocated
+    }
+
+    // (3) SUFFICIENCY: a real zstd frame must still decode. A bound that rejected legitimate
+    //     archives would be a losslessness bug that passes a security-only test perfectly.
+    {
+        std::vector<uint8_t> src;
+        for (int i = 0; i < 20000; i++) src.push_back((uint8_t)('a' + (i % 26)));
+        std::vector<uint8_t> zbuf(ZSTD_compressBound(src.size()));
+        size_t zn = ZSTD_compress(zbuf.data(), zbuf.size(), src.data(), src.size(), 19);
+        ASSERT(!ZSTD_isError(zn));
+        unsigned long long fcs = ZSTD_getFrameContentSize(zbuf.data(), zn);
+        ASSERT(fcs == src.size());
+        ASSERT(fcs <= mzip::mz_zstd_max_output(zn));   // a REAL frame is inside the bound
+    }
+}
+
 TEST(mwg_invert_rejects_bad_framing) {
     // k=3 grid claiming header longer than the payload -> must reject, no OOB read
     std::vector<uint8_t> bad = {0xFF, 0xFF, 0xFF, 0xFF, 0x0F};  // huge varint header length
@@ -895,6 +936,7 @@ int main() {
     RUN_TEST(mwg_invert_rejects_bad_framing);
     RUN_TEST(mi_decode_rejects_malformed_stream);
     RUN_TEST(xz_decode_memlimit_is_bounded_and_sufficient);
+    RUN_TEST(zstd_declared_size_is_bounded_by_the_frame);
     RUN_TEST(decompress_nested_magic_no_stack_overflow);
 
     printf("\nCOMPREHENSIVE:\n");
