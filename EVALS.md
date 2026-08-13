@@ -2,11 +2,39 @@
 
 # Type-stratified compression benchmark — mzip+CM vs standard compressors
 
+> ## ⚠ SUPERSEDED (2026-08-13). Current source of truth: **[bench_report_v3.md](bench_report_v3.md)**.
+>
+> This file is a **committed historical snapshot** of the 48-type / 92-file corpus, produced by
+> `benchmark_types.py`. It is kept because the numbers in it are real and were quoted; it is no
+> longer the headline, for two reasons.
+>
+> **1. The harness that produced it failed OPEN.** It used `0` to mean "this tool failed" at seven
+> sites. Zeros were filtered out of the per-file verdict, so the win/tie/loss table below is sound —
+> but the **aggregate ratio row added those zeros unconditionally**, so a crashed comparator would
+> have posted a *better* ratio than a working one, and a file where every comparator failed left the
+> denominator silently. Nothing indicates that happened here; nothing would have indicated it if it
+> had.
+>
+> **2. It cannot name the binaries it measured.** Look at the Versions line below: it records
+> `gzip: unknown option -- version` **as gzip's version**, and BusyBox as bzip2's. The old probe took
+> the first line of output whatever it was, so a failed probe became a version string. The gzip and
+> bzip2 columns here were produced by **BusyBox applets**, which nobody knew at the time. (Re-measured
+> 2026-08-13: BusyBox bzip2 -9 is byte-identical to reference libbz2 -9, and BusyBox gzip is 0.05%
+> *smaller* than zlib-9 — so the numbers were sound and only the attribution was missing. That is a
+> lucky outcome, not a reason to keep the practice.)
+>
+> The replacement splits measurement from reporting: `bench_run.py` writes an append-only observation
+> matrix where a failure is `INVALID` and never a number, and `bench_report.py` derives every figure
+> from that matrix alone. **Every comparator is now roundtrip-verified, not just mzip.** Current
+> standing on 52 types / 102 files (93 real): **70 wins · 23 ties · 0 losses**, micro 5.14×,
+> +28.5% vs brotli. It reads lower than the 7.27× below only because 9 poorly-compressing files were
+> *added* — excluding exactly those reproduces 7.27× to the digit.
+
 **48 content types, 92 files.** Every compressor at max settings; mzip output roundtrip-verified (0 failures). Sizes are TOTAL bytes per type. **R** = real files (GitHub source, real datasets, real binaries); **syn** = generated/labeled samples.
 
 ## Methodology & fairness (read this before quoting numbers)
 
-- **Held-out corpus.** Files are held-out test data; mzip's trained dictionaries were built on a SEPARATE `train_corpus/` with no overlap. Never benchmarked on training data.
+- **Held out from DICTIONARY training — not blind.** mzip's trained dictionaries were built on a SEPARATE `train_corpus/` with no overlap, and mzip is never benchmarked on that training data. But mzip's *encoders* were built, tuned and debugged against these exact files, so this is a development corpus, not a blind evaluation set. Those are different claims and the earlier wording ("held-out test data") blurred them.
 - **Dictionaries — two dict-equipped comparators.** mzip uses trained dictionaries; so does **brotli-11** (a ~120 KB built-in dictionary), and **zstd-19+dict** here is handed **mzip's OWN pre-trained code dictionary** (`train_corpus/code_dict.bin`, the exact one mzip's ZSTD_DICT encoder uses). So both **mzip-vs-brotli and mzip-vs-zstd+dict are dict-vs-dict** — even given its own dictionary, zstd loses to mzip (which layers CM + structural transforms + xz/brotli backstops on top). Plain zstd-19/22 and xz are run WITHOUT a dictionary, so mzip's margin over *those* includes a dictionary advantage.
 - **Archive framing.** mzip is a self-describing archive (~5–14 B/file header) vs the standards' raw streams. A per-file **tie** = mzip within 32 B of the best standard (i.e. equal payload, lost only to the container header).
 - **Losslessness.** Every mzip result is compress→decompress→compare verified; a failure falls back to a raw store and is counted as a failure (0 here).
