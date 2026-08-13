@@ -66,6 +66,9 @@ ziptest/
 !bench_corpus.py
 !bench_run.py
 !bench_report.py
+# Phase 1b: candidate-family ablation. Reads MZCAND telemetry, computes leave-one-family-out, and
+# emits CompressionReceipt sidecars.
+!family_ablation.py
 # but DO track the README/bench helpers
 !generate_readme_tables.py
 !summarize_real_bench.py

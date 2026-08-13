@@ -20021,6 +20021,81 @@ constexpr size_t MAX_BLOCK_SIZE = 16 * 1024 * 1024; // 16MB maximum
 // a 2.1 GB allocation (measured under ASan 2026-08-12).
 constexpr size_t MU_MAX_SIZE = 65536;
 
+// ---------------------------------------------------------------------------------------------
+// CANDIDATE FAMILIES (A0..A8) — telemetry and ablation. Encoder behaviour is UNCHANGED by default.
+//
+// The top-level encoder is a search: it builds a set of candidate encodings of the whole input and
+// ships the smallest. Until now nothing recorded what the LOSING candidates proposed, so the only
+// answerable question was "what shipped" -- never "what did this family contribute", "what would
+// ship without it", or "is this family ever load-bearing". Those are the questions that decide
+// whether a family earns its place in the archive format.
+//
+// Families group candidates by the STRUCTURAL HYPOTHESIS they make about the input, not by magic
+// letter, because that is the axis an ablation is about:
+//   A0 STORE     uRAW                 -- no model at all; the floor
+//   A1 GENERAL   zstd passthrough     -- general-purpose LZ, no structure assumed
+//   A2 CONTAINER MC, CL, MU           -- framing only; a smaller wrapper around someone else's stream
+//   A3 BWT       BG                   -- block-sorting on the whole input
+//   A4 NUMERIC   MS                   -- fixed-width numeric lanes (SoA de-interleave)
+//   A5 GRID      MT, MM               -- 2-D delimited/whitespace grids (column transpose)
+//   A6 RECORD    MQ, MF               -- repeating record tuples (SQL INSERT rows, FASTQ 4-line)
+//   A7 TEMPORAL  ML                   -- monotone timestamp sequences (delta+zigzag)
+//   A8 FILTER    MB, MI, MY           -- reversible byte-level pre-filters (BCJ, scanline, de-indent)
+//
+// format 0 -- the multi-block mzip path -- is deliberately NOT a family and NOT maskable. It is the
+// always-available fallback, and the invariant that a raw fallback always exists must not be
+// something an env var can switch off.
+//
+//   MZIP_CANDIDATES=1      emit one MZCAND line per candidate CONSIDERED, winner or not.
+//   MZIP_FAMILY_MASK=0x1FF bitmask of enabled families; unset == all enabled == today's behaviour.
+//
+// Masking can only REMOVE candidates from a keep-the-smallest comparison, so a masked run's archive
+// is never smaller than an unmasked one. That direction is what makes the ablation sound.
+// ---------------------------------------------------------------------------------------------
+enum MzFamily {
+    MZF_STORE = 0, MZF_GENERAL = 1, MZF_CONTAINER = 2, MZF_BWT = 3, MZF_NUMERIC = 4,
+    MZF_GRID = 5, MZF_RECORD = 6, MZF_TEMPORAL = 7, MZF_FILTER = 8, MZF_COUNT = 9
+};
+constexpr uint32_t MZF_ALL = (1u << MZF_COUNT) - 1u;   // 0x1FF
+
+inline const char* mz_family_name(int f) {
+    static const char* n[MZF_COUNT] = { "A0_STORE", "A1_GENERAL", "A2_CONTAINER", "A3_BWT",
+                                        "A4_NUMERIC", "A5_GRID", "A6_RECORD", "A7_TEMPORAL",
+                                        "A8_FILTER" };
+    if (f == -1) return "--FALLBACK";   // format 0, the multi-block path: not a family, not maskable
+    return (f >= 0 && f < MZF_COUNT) ? n[f] : "?";
+}
+
+inline uint32_t mz_family_mask() {
+    static const uint32_t m = []() -> uint32_t {
+        const char* e = std::getenv("MZIP_FAMILY_MASK");
+        if (!e || !*e) return MZF_ALL;
+        // A malformed mask must not silently disable everything: strtoul returns 0 on garbage,
+        // and a 0 mask would look like "every specialized family lost" in the telemetry rather
+        // than like a configuration error.
+        char* end = nullptr;
+        unsigned long v = std::strtoul(e, &end, 0);
+        if (end == e) {
+            std::fprintf(stderr, "mzip: MZIP_FAMILY_MASK=%s is not a number; using ALL\n", e);
+            return MZF_ALL;
+        }
+        return (uint32_t)(v & MZF_ALL);
+    }();
+    return m;
+}
+inline bool mz_family_on(int fam) { return (mz_family_mask() >> fam) & 1u; }
+
+// One line per candidate considered. `avail` distinguishes "this family produced no candidate for
+// this input" (its detector did not fire) from "it produced one that lost" -- collapsing those two
+// into a single absence is how a detector that never fires gets mistaken for an encoder that is
+// merely unlucky.
+inline void mz_candidate(const char* magic, int fam, size_t sz, bool avail, bool masked) {
+    static const bool on = std::getenv("MZIP_CANDIDATES") != nullptr;
+    if (!on) return;
+    std::fprintf(stderr, "MZCAND\t%s\t%s\t%s\t%zu\n", magic, mz_family_name(fam),
+                 masked ? "masked" : (avail ? "avail" : "absent"), avail ? sz : (size_t)0);
+}
+
 // Reading an int32/int64 out of an arbitrary byte buffer via reinterpret_cast is a MISALIGNED LOAD:
 // `data` is whatever the caller passed, frequently an interior offset of a std::vector<uint8_t>, so
 // the pointer is not guaranteed to meet the type's alignment. That is UB per the standard even
@@ -37068,68 +37143,89 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
     size_t best_size = out_pos;  // mzip format
     int best_format = 0;  // 0=mzip, 1=zstd, 2=µRAW, 3=MC, 4=CL, 6=BG, 7=MS, 8=MT, 9=MB, 10=MQ, 11=ML
 
-    if (!ZSTD_isError(zstd_size) && zstd_size < best_size) {
+    // Phase 1b: every candidate is now RECORDED before it is compared, winner or loser, and each
+    // is gated on its family. With MZIP_CANDIDATES unset and MZIP_FAMILY_MASK unset this block is
+    // byte-for-byte the same search it always was -- mz_family_on() is constant-true and
+    // mz_candidate() returns immediately.
+    mz_candidate("BLOCKS", -1, out_pos, true, false);   // format 0: the unmaskable fallback
+    mz_candidate("ZSTD",  MZF_GENERAL,   zstd_size, !ZSTD_isError(zstd_size), !mz_family_on(MZF_GENERAL));
+    mz_candidate("uRAW",  MZF_STORE,     uraw_size, true,                     !mz_family_on(MZF_STORE));
+    mz_candidate("MC",    MZF_CONTAINER, mc_size,   !mc_format.empty(),       !mz_family_on(MZF_CONTAINER));
+    mz_candidate("CL",    MZF_CONTAINER, cl_format.size(), !cl_format.empty(), !mz_family_on(MZF_CONTAINER));
+    mz_candidate("MU",    MZF_CONTAINER, mu_format.size(), !mu_format.empty(), !mz_family_on(MZF_CONTAINER));
+    mz_candidate("BG",    MZF_BWT,       bg_format.size(), !bg_format.empty(), !mz_family_on(MZF_BWT));
+    mz_candidate("MS",    MZF_NUMERIC,   ms_format.size(), !ms_format.empty(), !mz_family_on(MZF_NUMERIC));
+    mz_candidate("MT",    MZF_GRID,      mt_format.size(), !mt_format.empty(), !mz_family_on(MZF_GRID));
+    mz_candidate("MM",    MZF_GRID,      mm_format.size(), !mm_format.empty(), !mz_family_on(MZF_GRID));
+    mz_candidate("MQ",    MZF_RECORD,    mq_format.size(), !mq_format.empty(), !mz_family_on(MZF_RECORD));
+    mz_candidate("MF",    MZF_RECORD,    mf_format.size(), !mf_format.empty(), !mz_family_on(MZF_RECORD));
+    mz_candidate("ML",    MZF_TEMPORAL,  ml_format.size(), !ml_format.empty(), !mz_family_on(MZF_TEMPORAL));
+    mz_candidate("MB",    MZF_FILTER,    mb_format.size(), !mb_format.empty(), !mz_family_on(MZF_FILTER));
+    mz_candidate("MY",    MZF_FILTER,    my_format.size(), !my_format.empty(), !mz_family_on(MZF_FILTER));
+    mz_candidate("MI",    MZF_FILTER,    mi_format.size(), !mi_format.empty(), !mz_family_on(MZF_FILTER));
+
+    if (mz_family_on(MZF_GENERAL) && !ZSTD_isError(zstd_size) && zstd_size < best_size) {
         best_size = zstd_size;
         best_format = 1;
     }
 
-    if (uraw_size < best_size) {
+    if (mz_family_on(MZF_STORE) && uraw_size < best_size) {
         best_size = uraw_size;
         best_format = 2;
     }
 
-    if (!mc_format.empty() && mc_size < best_size) {
+    if (mz_family_on(MZF_CONTAINER) && !mc_format.empty() && mc_size < best_size) {
         best_size = mc_size;
         best_format = 3;
     }
 
-    if (!cl_format.empty() && cl_format.size() < best_size) {
+    if (mz_family_on(MZF_CONTAINER) && !cl_format.empty() && cl_format.size() < best_size) {
         best_size = cl_format.size();
         best_format = 4;
     }
 
-    if (!mu_format.empty() && mu_format.size() < best_size) {
+    if (mz_family_on(MZF_CONTAINER) && !mu_format.empty() && mu_format.size() < best_size) {
         best_size = mu_format.size();
         best_format = 5;  // MU format
     }
 
-    if (!bg_format.empty() && bg_format.size() < best_size) {
+    if (mz_family_on(MZF_BWT) && !bg_format.empty() && bg_format.size() < best_size) {
         best_size = bg_format.size();
         best_format = 6;  // BG (BWT-Big single-block) format
     }
-    if (!ms_format.empty() && ms_format.size() < best_size) {
+    if (mz_family_on(MZF_NUMERIC) && !ms_format.empty() && ms_format.size() < best_size) {
         best_size = ms_format.size();
         best_format = 7;  // MS (SoA structural transform) format
     }
-    if (!mt_format.empty() && mt_format.size() < best_size) {
+    if (mz_family_on(MZF_GRID) && !mt_format.empty() && mt_format.size() < best_size) {
         best_size = mt_format.size();
         best_format = 8;  // MT (tabular column-transpose) format
     }
-    if (!mb_format.empty() && mb_format.size() < best_size) {
+    if (mz_family_on(MZF_FILTER) && !mb_format.empty() && mb_format.size() < best_size) {
         best_size = mb_format.size();
         best_format = 9;  // MB (x86 BCJ pre-filter) format
     }
-    if (!mq_format.empty() && mq_format.size() < best_size) {
+    if (mz_family_on(MZF_RECORD) && !mq_format.empty() && mq_format.size() < best_size) {
         best_size = mq_format.size();
         best_format = 10;  // MQ (SQL-INSERT-tuple transpose) format
     }
-    if (!ml_format.empty() && ml_format.size() < best_size) {
+    if (mz_family_on(MZF_TEMPORAL) && !ml_format.empty() && ml_format.size() < best_size) {
         best_size = ml_format.size();
         best_format = 11;  // ML (log timestamp-delta) format
     }
-    if (!my_format.empty() && my_format.size() < best_size) {
+    if (mz_family_on(MZF_FILTER) && !my_format.empty() && my_format.size() < best_size) {
         best_size = my_format.size();
         best_format = 12;  // MY (YAML de-indent) format
     }
-    if (!mf_format.empty() && mf_format.size() < best_size) {
+    if (mz_family_on(MZF_RECORD) && !mf_format.empty() && mf_format.size() < best_size) {
         best_size = mf_format.size();
         best_format = 13;  // MF (FASTQ 4-line de-interleave) format
     }
-    if (!mm_format.empty() && mm_format.size() < best_size) {
+    if (mz_family_on(MZF_GRID) && !mm_format.empty() && mm_format.size() < best_size) {
         best_size = mm_format.size();
         best_format = 14;  // MM (whitespace numeric grid) format
     }
-    if (!mi_format.empty() && mi_format.size() < best_size) {
+    if (mz_family_on(MZF_FILTER) && !mi_format.empty() && mi_format.size() < best_size) {
         best_size = mi_format.size();
         best_format = 15;  // MI (raster scanline filter) format
     }
