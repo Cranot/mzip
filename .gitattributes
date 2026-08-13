@@ -1,0 +1,18 @@
+# Line-ending policy.
+#
+# This repo is developed on Windows with core.autocrlf=true and had NO .gitattributes, so every
+# tracked shell script would be checked out with CRLF. That is not cosmetic: a hook or script whose
+# shebang line ends in \r fails with "bad interpreter", and git runs .git/hooks/* directly. The
+# pre-commit gate would therefore have silently not run on any fresh clone — the same failure mode
+# (a gate that exists but never fires) that made the gate necessary in the first place.
+#
+# Force LF for everything executed by a POSIX shell or interpreter, regardless of platform.
+*.sh        text eol=lf
+*.py        text eol=lf
+hooks/*     text eol=lf
+
+# Batch files are executed by cmd.exe and want CRLF.
+*.bat       text eol=crlf
+
+# The observation matrix is line-oriented evidence; keep it diffable and stable across platforms.
+*.jsonl     text eol=lf

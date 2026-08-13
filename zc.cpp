@@ -21,6 +21,12 @@ static std::vector<char> rd(const char* p){
   if(n>0){ b.resize(n); if((long)fread(b.data(),1,n,f)!=n) b.clear(); } fclose(f); return b;
 }
 int main(int argc,char**argv){
+  // --version: pin WHICH zstd produced the benchmark's zstd column. Without this the zstd rows were
+  // the only comparator in the matrix with no version at all, and zstd's level-19/22 output has
+  // changed across releases -- so "zstd-19" alone did not identify a measurement.
+  if(argc>=2 && (strcmp(argv[1],"--version")==0 || strcmp(argv[1],"-V")==0)){
+    printf("zc (zstd sizer) linked against zstd %s\n", ZSTD_versionString()); return 0;
+  }
   if(argc>=5 && strcmp(argv[1],"train")==0){
     const char* outdict=argv[2]; size_t cap=(size_t)strtoul(argv[3],0,10);
     std::vector<char> samples; std::vector<size_t> sizes;

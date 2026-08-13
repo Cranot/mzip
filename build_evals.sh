@@ -10,6 +10,10 @@
 set -e
 export PATH="/d/Safe/Tools/w64devkit/bin:$PATH"
 cd "$(dirname "$0")"
+# Arm the consistency gates. .git/hooks is not version-controlled, so a tracked hook protects
+# nobody until it is copied in — and check_amalgam.sh proved that by existing while the header
+# went stale anyway. The first build in a fresh clone installs it.
+bash install_hooks.sh || true
 INC=zstd_release/zstd-v1.5.6-win64/include
 LIB=zstd_release/zstd-v1.5.6-win64/static/libzstd_static.lib
 # brotli + liblzma have no import libs here — link the local DLL copies (found at runtime from the exe's dir)

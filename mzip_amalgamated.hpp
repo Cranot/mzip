@@ -37134,6 +37134,28 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
         best_format = 15;  // MI (raster scanline filter) format
     }
 
+    // Diagnostic telemetry, part 2 — the MAGIC-DISPATCHED formats. (2026-08-12)
+    // The per-block MZSTATS line above names `analysis.type`, a BlockType, and is emitted inside the
+    // block loop. But if one of the wrappers below wins, that whole block-loop output is DISCARDED
+    // and the wrapper ships instead — so the only line the tools ever saw described a stream that
+    // was never written. Every file shipping as MT/MQ/ML/MB/MS/MM/MY/MF/MI was therefore attributed
+    // to whatever inner BlockType the recursive compress happened to pick, which is why a CSV that
+    // demonstrably ships as 'MT' reported as BWT_TEXT. diagnose_encoders.py classifies by encoder
+    // name, so its MISSED-SPECIAL / BACKSTOP-RELIANT verdicts — and the "0 losses corpus-wide"
+    // standing derived from them — were computed from mislabelled data.
+    // The names below are transcribed from the best_format ASSIGNMENTS, not from memory: a first
+    // draft of this table was written from recall and was wrong -- shifted by one, MQ/MB swapped,
+    // and carrying a format that does not exist. It would have mislabelled every line, i.e.
+    // reproduced the very defect this telemetry exists to fix.
+    if (best_format >= 5 && std::getenv("MZIP_STATS")) {
+        static const char* kMagicName[16] = {
+            nullptr, nullptr, nullptr, nullptr, nullptr,
+            "MU", "BG", "MS", "MT", "MB", "MQ", "ML", "MY", "MF", "MM", "MI"
+        };
+        const char* nm = kMagicName[best_format & 15];
+        if (nm) std::fprintf(stderr, "MZSTATS\t%s\t%zu\t%zu\n", nm, (size_t)size, (size_t)best_size);
+    }
+
     if (best_format == 1) {
         // Pure zstd is smallest
         zstd_buf.resize(zstd_size);

@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# pre-commit — run the repo's cheap consistency gates BEFORE a commit can land.
+#
+# WHY THIS EXISTS. check_amalgam.sh was written on 2026-08-12 precisely to stop the shipped single
+# header going stale. It then went stale AGAIN at 1155b45, and nobody noticed for four commits —
+# because the gate existed but nothing ever RAN it. That is the whole failure: a gate that depends
+# on someone remembering to invoke it is a gate that protects nothing. The same is true of
+# check_tracked_deps.sh, which was itself written after the THIRD instance of a tracked script
+# referencing an untracked file.
+#
+# It does NOT auto-fix. A hook that silently regenerates and stages a shipped artefact commits code
+# the author never looked at; it reports and refuses instead.
+#
+# install:  bash install_hooks.sh      (build_evals.sh does this for you)
+# bypass:   there is none. Per CLAUDE.md: never --no-verify — fix the cause or report it.
+set -u
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+fail=0
+ran=0
+run() {
+  local name="$1" script="$2"
+  # Check the SCRIPT exists — an earlier version of this function shifted first and then tested
+  # "$1", which by then was the string `bash`. No file named `bash` exists here, so the guard was
+  # always true and EVERY gate was skipped: the hook returned 0 unconditionally and a deliberately
+  # corrupted header sailed straight through. Found only because the hook was tested against a
+  # known-bad tree instead of being assumed to work. A gate is not installed until it has been
+  # SEEN to refuse something.
+  if [ ! -f "$script" ]; then
+    echo "pre-commit: $name — gate script '$script' not present, SKIPPED (not passed)"
+    return 0
+  fi
+  ran=$((ran+1))
+  out=$(bash "$script" 2>&1); rc=$?
+  if [ $rc -ne 0 ]; then
+    echo ""
+    echo "pre-commit: $name FAILED"
+    printf '%s\n' "$out" | sed 's/^/    /'
+    fail=1
+  fi
+}
+
+run "amalgamated header"  check_amalgam.sh
+run "tracked deps"        check_tracked_deps.sh
+
+if [ "$ran" -eq 0 ]; then
+  echo "pre-commit: no gates ran. Refusing rather than passing vacuously."
+  exit 1
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo ""
+  echo "pre-commit: REFUSING the commit. Fix the cause above, then commit again."
+  exit 1
+fi
+exit 0

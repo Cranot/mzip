@@ -20,6 +20,13 @@ _tmp*
 _debug/
 debug_*
 bench_*
+# ...but the published report and the matrix it was computed from are EVIDENCE, not scratch.
+# bench_report.py's central claim is that every figure is a pure function of the matrix; that claim
+# is only checkable by someone who has the matrix. Keeping the report and dropping its inputs would
+# republish exactly the unverifiable-number problem this pipeline was built to remove.
+!bench_report_v3.md
+!bench_report_v3_real.md
+!bench_matrix.jsonl
 compare_*
 abc
 abc.*
@@ -52,7 +59,13 @@ ziptest/
 # ...but amalgamate.py GENERATES the tracked mzip_amalgamated.hpp; excluding it made the
 # shipped single header unreproducible from a fresh clone. (2026-08-12)
 !amalgamate.py
+# The measurement pipeline: corpus (data) -> bench_run (measure) -> bench_report (report).
+# All four are load-bearing; the blanket *.py above would swallow them silently, which is the
+# failure check_tracked_deps.sh exists to make visible.
 !bench_core.py
+!bench_corpus.py
+!bench_run.py
+!bench_report.py
 # but DO track the README/bench helpers
 !generate_readme_tables.py
 !summarize_real_bench.py

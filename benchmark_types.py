@@ -71,56 +71,12 @@ def size_of(tool,f):
     if tool=="zstd-19+dict": return _zstd_dict(f)
     return 0
 
-RB="real_bench/"; SM="samples/64k/input/"; EX="corpus_extra/"
-OTHER=[RB+f for f in ("clojure_core.clj","csharp_list.cs","elixir_genserver.ex","julia_base.jl",
-  "kotlin_stdlib.kt","lua_neovim.lua","php_laravel.php","ruby_rails.rb","rust_lib.rs","scala_list.scala",
-  "swift_stdlib.swift","zig_std.zig")]
-TYPES = {
- "HTML":([RB+"dashboard.html"],1), "CSS":([RB+"bootstrap.css",RB+"styles.css"],1),
- "JavaScript":([RB+"lodash.js",RB+"webpack.config.js"],1),
- "TypeScript":([RB+"handlers.ts",RB+"vscode_main.ts"]+sorted(glob.glob(EX+"ts/*")),1),  # +real type-def files (representative)
- "JSON":([RB+"users.json",RB+"json_github_api.json"],1), "XML":([RB+"xml_maven.xml"],1),
- "YAML":([RB+"k8s_deployments.yaml",RB+"docker-compose.yml",RB+".github_workflows_ci.yml"],1),
- "SQL":([RB+"sql_schema.sql",RB+"users_dump.sql"],1), "CSV":([RB+"events.csv"],1),
- "Markdown":([RB+"api_docs.md",RB+"contributing.md",RB+"readme_large.md"],1),
- "Log":([RB+"apache_log_sample.log",RB+"app.log",RB+"nginx_access.log"],1),
- "C/C++":([RB+"linux_kernel.c",RB+"cpp_vector.hpp"],1),
- "Python":([RB+"django_models.py",RB+"flask_app.py",RB+"services.py"],1), "Java":([RB+"java_arraylist.java"],1),
- "Go":([RB+"go_http.go",RB+"handlers.go"],1), "Other-langs":(OTHER,1),
- "Dockerfile":([RB+"Dockerfile"],1), "Makefile":([RB+"Makefile",RB+"linux_makefile"],1),
- "Terraform":([RB+"terraform_main.tf"],1), "Env/dotfiles":([RB+".env.example",RB+".gitignore"],1),
- "Metrics":([RB+"metrics.prom"],1),
- "Shell":(sorted(glob.glob(EX+"shell/*")),1),
- "Numeric-temp":([EX+"citytemp_float.bin"],1), "Numeric-gyro":([EX+"phonegyro_sensor.bin"],1),
- "Numeric-gas":([EX+"tsgas_series.bin"],1), "Numeric-taxi":([EX+"nyctaxi_cols.bin"],1),
- # real x86-64 PE binaries -> 'MB' Bra86 BCJ filter. Permissive only (brotli MIT / liblzma public-domain /
- # winpthread MIT-Zlib); gzip.exe is GPL so it is EXCLUDED from the released corpus.
- "Binary-x86":([EX+"bin/"+b for b in ("libbrotlienc.dll","libbrotlidec.dll","libbrotlicommon.dll","liblzma-5.dll","libwinpthread-1.dll")],1),
- "TOML(synth)":([SM+"toml_config.toml"],0), "INI(synth)":([SM+"ini_config.ini"],0),
- "GraphQL(synth)":([SM+"graphql.graphql"],0), "Email(synth)":([SM+"email_headers.txt"],0),
- "Protobuf(synth)":([SM+"protobuf_like.bin"],0), "Base64(synth)":([SM+"base64.txt"],0),
- # NEW real types (#13)
- "Protobuf-schema":([EX+"misc/descriptor.proto"],1), "reStructuredText":([EX+"misc/cpython_intro.rst"],1),
- "TSV":([EX+"misc/events.tsv"],1), "SVG":([EX+"misc/example.svg"],1),
- "NDJSON":([EX+"misc/users.ndjson"],1), "Diff/patch":([EX+"misc/changes.patch"],1),
- # NEW real classes (2026-08-08) — fill the corpus blind spots the gap-analysis sweeps exposed; each
- # exercises a specialized encoder shipped this cycle. Fetched permissively by build_evals.sh (skipped
- # cleanly if absent). REAL where the source is real data; generated syslog/BigInt are labeled (syn).
- "YAML-CRD (k8s, large nested)":([EX+"yaml/prom_bundle.yaml",EX+"yaml/certmgr.yaml"],1),  # -> 'MY' de-indent
- "FASTQ (genomics)":([EX+"fastq/reads_10k.fastq"],1),                                      # -> 'MF' de-interleave
- "WASM":([EX+"wasm/sql-wasm.wasm",EX+"wasm/resvg_bg.wasm"],1),                              # -> XZLIB/BWT
- "Binary-ARM/PPC":(sorted(glob.glob(EX+"binarm/*")),1),                                    # -> arch BCJ (ripgrep MIT)
- "Minified-JS":(sorted(glob.glob(EX+"minified/*.min.js")),1),                              # -> PPMd
- "Minified-CSS":(sorted(glob.glob(EX+"minified/*.min.css")),1),                            # -> PPMd
- "SourceMap":(sorted(glob.glob(EX+"minified/*.map")),1),                                   # -> PPMd
- "Syslog":(sorted(glob.glob(EX+"syslog/*")),0),                                            # -> CHAR_TEMPLATE/backstop (generated)
- "SQL-BigIntUnsigned":(sorted(glob.glob(EX+"sqlbig/*")),0),                                # -> NUMERIC (was a 65-139x uRAW pathology, fixed)
- "Audio (WAV/PCM)":([EX+"audio/test1.wav"],1),                                             # -> BWT_TEXT (mzip beats GENERAL tools -30%; the specialist FLAC still wins -- see EVALS.md audio note)
- "Scientific-Matrix (sparse)":([EX+"grids/synthetic_fem.mtx"],0),                          # -> 'MM' skeleton+column-transpose (generated CC0; real .mtx win -20 to -59% -- see EVALS.md)
- "Raster (BMP/PPM/TGA uncompressed)":([EX+"raster/baboon.bmp",EX+"raster/baboon.ppm",EX+"raster/baboon.tga",
-                                       EX+"raster/board.bmp",EX+"raster/board.tga",EX+"raster/fruits.pgm"],1),  # -> 'MI' scanline filter (real OpenCV photos; also beats PNG-opt)
- "Delimited (semicolon/pipe CSV)":([EX+"delim/stocks_semi.csv",EX+"delim/stocks_pipe.csv"],1),                   # -> 'MT' (real OHLCV re-delimited; European/HL7-style exports)
-}
+# The corpus lives in bench_corpus.py — ONE definition, importable without side effects.
+# It used to be inline here, which meant no second tool could reuse it: this file has no
+# `if __name__ == "__main__"` guard, so importing it runs the entire benchmark. A copied
+# corpus table is a corpus that silently diverges from the one the reports describe.
+# Verified identical at extraction: 52 types / 102 file entries, same real/synth flags.
+from bench_corpus import RB, SM, EX, OTHER, TYPES, CORPUS_LABEL, CORPUS_NOTE
 
 def ratio(o,c): return f"{o/c:.2f}x" if c>0 else "-"
 def pct(a,b):   return f"{(a-b)/a*100:+.2f}%" if a>0 else "n/a"
