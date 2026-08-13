@@ -42,6 +42,7 @@ run() {
 
 run "amalgamated header"  check_amalgam.sh
 run "tracked deps"        check_tracked_deps.sh
+run "fuzz magic coverage" check_magic_coverage.sh
 
 if [ "$ran" -eq 0 ]; then
   echo "pre-commit: no gates ran. Refusing rather than passing vacuously."
