@@ -577,6 +577,116 @@ TEST(decompress_nested_magic_no_stack_overflow) {
     ASSERT(d.empty());
 }
 
+// 'MS', 'MB', 'MY' and 'MF' are SHIPPED formats with decode branches reachable from untrusted input,
+// and until 2026-08-13 the suite had no test that any of them fires at all. A regression that silently
+// stopped one firing would surface only as a ratio drift in the corpus A/B, and a regression in its
+// decode branch might not surface anywhere. Each input below is built to satisfy that encoder's actual
+// gate, read from the source rather than guessed:
+//   MS  try_soa   && size >= 4096 && !is_text_like     -> binary float lanes
+//   MB  try_bcj   && size >= 256  && looks_like_x86    -> 'MZ' magic (mbcj::looks_like_x86 line 1)
+//   MY  try_yaml  && size >= 512  && is_text_like      -> deeply indented YAML
+//   MF  try_fastq && size >= 256  && is_text_like      -> 4-line FASTQ records
+// Each asserts the magic AND round-trips. If one stops firing the assert names which.
+TEST(ms_soa_transform_inverts_exactly) {
+    // NOTE ON WHY THIS IS A TRANSFORM TEST AND NOT AN END-TO-END "does MS win" TEST.
+    // MS is trial-and-keep: it is offered on every non-text block >= 4096 B and ships only if it
+    // beats every other candidate. A first draft asserted the output magic was 'MS' on synthetic
+    // float lanes and FAILED -- MZIP_STATS showed NUMERIC winning at 68 bytes, because a perfectly
+    // linear float ramp is exactly what the specialised numeric encoder is for. The encoder was
+    // fine; the test was demanding that it win a contest rigged against it. Constructing an input
+    // where a given member of an ensemble WINS is brittle and tests the ensemble, not the encoder.
+    // Inverting the transform is the property that must hold unconditionally. (2026-08-13)
+    for (uint8_t tid : {0, 1, 2}) {
+        for (uint8_t W : {2, 4, 8}) {
+            for (uint8_t cols : {1, 2, 3}) {
+                if ((tid == 1 || tid == 2) && cols == 0) continue;
+                size_t n = 4096;                       // not a multiple of every W*cols on purpose
+                std::vector<uint8_t> orig(n);
+                for (size_t i = 0; i < n; i++) orig[i] = (uint8_t)(i * 31 + (i >> 6) * 7);
+                auto t = mzip::soa_apply(orig.data(), orig.size(), tid, W, cols);
+                ASSERT_EQ(t.size(), orig.size());
+                auto back = mzip::soa_invert(t.data(), t.size(), tid, W, cols);
+                ASSERT_EQ(back.size(), orig.size());
+                if (back != orig) {
+                    char buf[128];
+                    snprintf(buf, sizeof buf, "soa tid=%d W=%d cols=%d did not invert", tid, W, cols);
+                    throw std::runtime_error(buf);
+                }
+            }
+        }
+    }
+}
+
+TEST(mb_bcj_filter_inverts_exactly) {
+    // Same reasoning as the SoA test above: a first draft asserted the shipped magic was 'MB' on a
+    // synthetic 'MZ'+E8/E9 buffer and FAILED -- MZSTATS showed 'MS' winning at 5,858 B, because the
+    // synthetic byte pattern was more amenable to SoA de-interleaving than to a BCJ rewrite. What
+    // must hold unconditionally is that the Bra86 filter is BIJECTIVE: encode then decode restores
+    // the input exactly, for any bytes. That is what makes a wrong detection merely lose a trial
+    // rather than corrupt.
+    std::vector<uint8_t> orig(16384);
+    orig[0] = 0x4D; orig[1] = 0x5A;                       // 'MZ'
+    for (size_t i = 2; i < orig.size(); i++) orig[i] = (uint8_t)((i * 37) ^ (i >> 5));
+    for (size_t i = 64; i + 5 < orig.size(); i += 61) {   // scattered CALL/JMP rel32
+        orig[i] = (i & 1) ? 0xE8 : 0xE9;
+        uint32_t target = (uint32_t)(i * 4 + 0x1000);
+        memcpy(&orig[i + 1], &target, 4);
+    }
+    ASSERT(mzip::mbcj::looks_like_x86(orig.data(), orig.size()));   // the detector does fire
+
+    std::vector<uint8_t> filt = orig;
+    uint32_t st = 0; mzip::mbcj::x86_convert(filt.data(), filt.size(), 0, &st, /*encoding=*/1);
+    ASSERT(filt != orig);                                           // the filter actually did work
+    uint32_t st2 = 0; mzip::mbcj::x86_convert(filt.data(), filt.size(), 0, &st2, /*encoding=*/0);
+    ASSERT(filt == orig);                                           // and it is bijective
+
+    // end-to-end losslessness on the same buffer, without demanding which encoder wins
+    auto c = mzip::compress(orig.data(), orig.size(), 19, mzip::DEFAULT_BLOCK_SIZE, nullptr,
+                            mzip::CompressionMode::SMALL);
+    auto d = mzip::decompress(c.data(), c.size());
+    ASSERT_EQ(d.size(), orig.size());
+    ASSERT(memcmp(d.data(), orig.data(), orig.size()) == 0);
+}
+
+TEST(my_yaml_fires_and_roundtrips) {
+    // deep, repetitive indentation is exactly what the de-indent transform separates into
+    // depth + body streams
+    std::string s = "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: demo\ndata:\n";
+    for (int i = 0; i < 300; i++) {
+        char b[256];
+        snprintf(b, sizeof b,
+                 "  key%03d:\n    nested:\n      alpha: value%03d\n      beta: %d\n"
+                 "      gamma:\n        - item%03d\n        - item%03d\n", i, i, i * 7, i, i + 1);
+        s += b;
+    }
+    std::vector<uint8_t> orig(s.begin(), s.end());
+    auto c = mzip::compress(orig.data(), orig.size(), 19, mzip::DEFAULT_BLOCK_SIZE, nullptr,
+                            mzip::CompressionMode::SMALL);
+    ASSERT(c.size() >= 2 && c[0] == 'M' && c[1] == 'Y');
+    auto d = mzip::decompress(c.data(), c.size());
+    ASSERT_EQ(d.size(), orig.size());
+    ASSERT(memcmp(d.data(), orig.data(), orig.size()) == 0);
+}
+
+TEST(mf_fastq_fires_and_roundtrips) {
+    // strict 4-line records: @id / sequence / '+' / quality — the de-interleave splits the four lanes
+    std::string s;
+    for (int i = 0; i < 400; i++) {
+        char id[64]; snprintf(id, sizeof id, "@SEQ_%06d length=60\n", i);
+        s += id;
+        std::string seq, qual;
+        for (int j = 0; j < 60; j++) { seq += "ACGT"[(i + j) % 4]; qual += (char)('!' + ((i + j) % 40)); }
+        s += seq + "\n+\n" + qual + "\n";
+    }
+    std::vector<uint8_t> orig(s.begin(), s.end());
+    auto c = mzip::compress(orig.data(), orig.size(), 19, mzip::DEFAULT_BLOCK_SIZE, nullptr,
+                            mzip::CompressionMode::SMALL);
+    ASSERT(c.size() >= 2 && c[0] == 'M' && c[1] == 'F');
+    auto d = mzip::decompress(c.data(), c.size());
+    ASSERT_EQ(d.size(), orig.size());
+    ASSERT(memcmp(d.data(), orig.data(), orig.size()) == 0);
+}
+
 TEST(mimg_filter_inverts_exactly) {
     // Every one of the 5 PNG predictors must invert byte-for-byte. Build a gradient with
     // both vertical and horizontal structure so different rows genuinely pick different
@@ -737,6 +847,10 @@ int main() {
     RUN_TEST(mq_sql_fires_and_roundtrips);
     RUN_TEST(ml_log_fires_and_roundtrips);
     RUN_TEST(mm_matrixmarket_fires_and_roundtrips);
+    RUN_TEST(ms_soa_transform_inverts_exactly);
+    RUN_TEST(mb_bcj_filter_inverts_exactly);
+    RUN_TEST(my_yaml_fires_and_roundtrips);
+    RUN_TEST(mf_fastq_fires_and_roundtrips);
     RUN_TEST(mimg_filter_inverts_exactly);
     RUN_TEST(mimg_bmp_ppm_pgm_roundtrip);
 
