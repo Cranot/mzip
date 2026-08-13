@@ -54,8 +54,24 @@ alp_sota/
 test_files/
 ziptest/
 
+# ---------------------------------------------------------------------------------------------
+# PRIVATE WORKING DOCS — this repository is PUBLIC.
+#
+# internal/ holds the development record (design notes, defect inventories, compliance audits,
+# roadmaps). Fifteen of those documents were once committed here by accident and had to be PURGED
+# FROM PUBLIC HISTORY. After that they were protected by .git/info/exclude — which is per-clone and
+# is NEVER pushed, so the protection existed on exactly one machine and any other clone had none.
+# That is the same shape as the original accident. The rule belongs somewhere that travels with the
+# repository, so it lives here.
+#
+# Listing the directory name publicly is the intended trade: a visible ignore rule is much cheaper
+# than a second leak. Nothing about the CONTENTS is disclosed by the name.
+internal/
+/CLAUDE.md
+
 # Python scripts (experimental)
 *.py
+__pycache__/
 # ...but amalgamate.py GENERATES the tracked mzip_amalgamated.hpp; excluding it made the
 # shipped single header unreproducible from a fresh clone. (2026-08-12)
 !amalgamate.py
