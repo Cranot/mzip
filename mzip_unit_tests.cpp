@@ -766,6 +766,36 @@ TEST(mi_decode_rejects_malformed_stream) {
     }
 }
 
+TEST(xz_decode_memlimit_is_bounded_and_sufficient) {
+    // REGRESSION GUARD. Three sites passed liblzma a memlimit of UINT64_MAX / ~0ULL, i.e. "allocate
+    // whatever the .xz header asks for". Two were on the DECODE path, where that header is
+    // attacker-controlled. The sanitizers never reached this one because the allocation happens
+    // inside liblzma, not in one of our own resize() calls.
+    const uint64_t lim = mzip::mz_xz_memlimit();
+
+    // (1) BOUNDED. The whole point: an archive must not be able to name its own allocation.
+    ASSERT(lim != UINT64_MAX);
+    ASSERT(lim < (4ull << 30));            // sane absolute ceiling; today it is ~80 MiB
+
+    // (2) SUFFICIENT. A bound that rejects our OWN streams would be a losslessness bug dressed as
+    // a security fix, so it must cover what the encoder can actually emit. The encoder uses
+    // preset 9|EXTREME and nothing else, so liblzma's own answer for that preset is the floor.
+    const uint64_t need = lzma_easy_decoder_memusage(9u | MZ_LZMA_PRESET_EXTREME);
+    if (need != UINT64_MAX && need != 0) ASSERT(lim >= need);
+
+    // (3) A REAL xz-BACKSTOP ROUNDTRIP still works end to end. Highly repetitive input so the
+    // XZLIB backstop is a live candidate; the assertion is losslessness, not which encoder won.
+    std::vector<uint8_t> src;
+    for (int i = 0; i < 4000; i++) {
+        const char* s = "INSERT INTO t VALUES (1,'aaaaaaaaaaaaaaaaaaaaaaaa','bbbbbbbbbbbbbbbb');\n";
+        while (*s) src.push_back((uint8_t)*s++);
+    }
+    auto comp = mzip::compress(src.data(), src.size());
+    auto back = mzip::decompress(comp.data(), comp.size());
+    ASSERT(back.size() == src.size());
+    ASSERT(std::memcmp(back.data(), src.data(), src.size()) == 0);
+}
+
 TEST(mwg_invert_rejects_bad_framing) {
     // k=3 grid claiming header longer than the payload -> must reject, no OOB read
     std::vector<uint8_t> bad = {0xFF, 0xFF, 0xFF, 0xFF, 0x0F};  // huge varint header length
@@ -864,6 +894,7 @@ int main() {
     RUN_TEST(mltsd_invert_rejects_overflow_number);
     RUN_TEST(mwg_invert_rejects_bad_framing);
     RUN_TEST(mi_decode_rejects_malformed_stream);
+    RUN_TEST(xz_decode_memlimit_is_bounded_and_sufficient);
     RUN_TEST(decompress_nested_magic_no_stack_overflow);
 
     printf("\nCOMPREHENSIVE:\n");

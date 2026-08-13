@@ -22,6 +22,10 @@ extern "C" {
     // Fills an lzma_options_lzma from a preset. Returns lzma_bool: nonzero = ERROR, 0 = OK.
     // Caller passes a byte buffer >= sizeof(lzma_options_lzma) (~112 B on x64; we over-allocate 256).
     unsigned char lzma_lzma_preset(void* options, uint32_t preset);
+    // Decoder memory required for streams produced at a given preset. This is what lets the DECODE
+    // memlimit be derived from the ENCODER's own configuration instead of guessed — see
+    // mz_xz_memlimit(). Returns UINT64_MAX on error.
+    uint64_t lzma_easy_decoder_memusage(uint32_t preset);
 }
 #define MZ_LZMA_PRESET_EXTREME 0x80000000u
 #define MZ_LZMA_CHECK_NONE 0

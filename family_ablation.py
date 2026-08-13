@@ -196,13 +196,20 @@ def main() -> int:
 
     W("\n## Are these counterfactuals real?\n")
     W("The costs below are computed from logged candidate sizes, so they are a PREDICTION about "
-      "what would ship if a family did not exist. That prediction has been confronted with "
-      "reality: **`--verify A5_GRID` re-ran the encoder over all 102 files with "
-      "`MZIP_FAMILY_MASK=0x1DF` (GRID actually disabled) and the real archive size equalled the "
-      "predicted one on 102 of 102 files, 0 mismatches** (2026-08-13). The masking path is "
-      "family-agnostic — one `mz_family_on()` guard per candidate — so the same code is exercised "
-      "for every family; but strictly, A5_GRID is the family that was re-run, and the others rest "
-      "on that shared mechanism rather than on their own re-run.\n")
+      "what would ship if a family did not exist. Predictions here get confronted with reality: "
+      "`--verify F` re-runs the encoder over every file with F actually masked off and compares "
+      "the REAL archive size against the predicted one. Three families have been through it "
+      "(2026-08-13):\n")
+    W("| family | mask | files agreeing | mismatches |")
+    W("|---|---|---|---|")
+    W("| A5_GRID | `0x1DF` | **102 / 102** | 0 |")
+    W("| A8_FILTER | `0x0FF` | **102 / 102** | 0 |")
+    W("| A4_NUMERIC | `0x1EF` | **102 / 102** | 0 |")
+    W("\nThose three are the largest contributors (418,875 + 645,475 + 384,417 B), i.e. **1.45 MB "
+      "of the 1.50 MB total is now confirmed against real masked runs, not just derived.** The "
+      "remaining six rest on the same `mz_family_on()` guard — one line per candidate, the same "
+      "code path all three exercised — but have not individually been re-run, and that distinction "
+      "is kept rather than rounded away.\n")
 
     W("\n## What each family is worth\n")
     W("`cost` = bytes the archive would GROW by if the family did not exist "

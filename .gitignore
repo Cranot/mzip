@@ -37,6 +37,8 @@ verify_*
 # agree). Keeping the claim and discarding its confirmation is how a prediction quietly becomes
 # quoted as a measurement.
 !verify_grid.log
+!verify_filter.log
+!verify_numeric.log
 rand_*
 repro_*
 trace_*

@@ -155,6 +155,34 @@ constexpr size_t MAX_BLOCK_SIZE = 16 * 1024 * 1024; // 16MB maximum
 constexpr size_t MU_MAX_SIZE = 65536;
 
 // ---------------------------------------------------------------------------------------------
+// XZ DECODE MEMORY POLICY. Three call sites passed UINT64_MAX / ~0ULL as liblzma's `memlimit`,
+// i.e. "allocate whatever the stream asks for". Two of those are on the DECODE path, where the
+// stream is attacker-controlled: the .xz header carries a dictionary size, and an unbounded
+// memlimit lets a small hostile archive name a huge one. That is the same shape as the three
+// unbounded allocations ASan found on 2026-08-12 (16.25 GB, 24.6 GB from a 490-byte input,
+// 2.1 GB from 378 bytes), and it is the one the sanitizers could not reach because it lives
+// inside liblzma rather than in our own resize().
+//
+// The bound is DERIVED FROM AN ENCODER INVARIANT, not guessed — the standing rule in this project
+// after MU_MAX_SIZE. mzip emits xz at preset 9|EXTREME and nowhere else: `lzma_easy_buffer_encode`
+// for the plain trial, and `lzma_lzma_preset(lzopt, 9|EXTREME)` for the BCJ filter chain. So
+// liblzma itself can state exactly how much a stream WE produced can need. A stream demanding more
+// was not produced by this encoder, and rejecting it costs nothing real.
+//
+// ⚠ Finding this took two passes: a grep for UINT64_MAX returned two sites, and the third spells
+// the same value `~0ULL`. A hand-written search for a constant finds spellings, not values.
+inline uint64_t mz_xz_memlimit() {
+    static const uint64_t lim = []() -> uint64_t {
+        uint64_t m = lzma_easy_decoder_memusage(9u | MZ_LZMA_PRESET_EXTREME);
+        // Fail CLOSED to a fixed cap if liblzma cannot answer, rather than falling back to
+        // "unlimited" — a failed probe must never re-open the hole it was added to close.
+        if (m == UINT64_MAX || m == 0) return 512ull << 20;
+        return m + (16ull << 20);   // margin: BCJ filter state + .xz container overhead
+    }();
+    return lim;
+}
+
+// ---------------------------------------------------------------------------------------------
 // CANDIDATE FAMILIES (A0..A8) — telemetry and ablation. Encoder behaviour is UNCHANGED by default.
 //
 // The top-level encoder is a search: it builds a set of candidate encodings of the whole input and
@@ -16455,7 +16483,7 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
                                                       block_data, this_block, xb.data(), &xpos, xbound) == MZ_LZMA_OK
                             && xpos < cur && xpos <= cap) {
                             // per-block roundtrip-verify (new encoder path): decode the .xz, compare to source
-                            uint64_t memlim = ~0ULL; size_t inpos = 0, outpos = 0;
+                            uint64_t memlim = mz_xz_memlimit(); size_t inpos = 0, outpos = 0;
                             std::vector<uint8_t> chk(this_block);
                             if (lzma_stream_buffer_decode(&memlim, 0, nullptr, xb.data(), &inpos, xpos,
                                                           chk.data(), &outpos, this_block) == MZ_LZMA_OK
@@ -17998,7 +18026,7 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
             case BlockType::XZLIB: {
                 // backstop xz (liblzma) stream stored whole
                 output.resize(orig_size);
-                uint64_t memlimit = UINT64_MAX;
+                uint64_t memlimit = mz_xz_memlimit();   // was UINT64_MAX: attacker-named allocation
                 size_t in_pos = 0, out_pos2 = 0;
                 if (lzma_stream_buffer_decode(&memlimit, 0, nullptr, comp_data, &in_pos, comp_size,
                                               output.data(), &out_pos2, output.size()) != MZ_LZMA_OK
@@ -19089,7 +19117,7 @@ inline std::vector<uint8_t> decompress_impl(const uint8_t* data, size_t size,
         } else if (type == BlockType::XZLIB) {
             // xz (liblzma) backstop decode
             std::vector<uint8_t> decoded(block_original_size ? block_original_size : 1);
-            uint64_t memlimit = UINT64_MAX;
+            uint64_t memlimit = mz_xz_memlimit();   // was UINT64_MAX: attacker-named allocation
             size_t in_pos = 0, out_pos2 = 0;
             if (lzma_stream_buffer_decode(&memlimit, 0, nullptr, block_data, &in_pos, block_size,
                                           decoded.data(), &out_pos2, decoded.size()) != MZ_LZMA_OK
