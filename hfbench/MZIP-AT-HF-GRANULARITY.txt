@@ -3456,3 +3456,32 @@ Llama-3-8B (15 perturbed), Pythia (19), Qwen3 2560 (52) -- may be genuine fine-t
 re-casts at 25%. lineage3.py is being extended to name cluster members so pertcost can price a pair
 from each of three other clusters; the population figure waits for that. What IS established: the
 lever exists, it is cheap where it exists, and the Hub's tags do not see it.
+
+RESULT 105 — third publisher: the recipe survives a change of TOOL, and a mistagged parent is what a non-match looks like [M]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, findcands.py, recipe4.py (argv[3] outtypes, argv[4] parent), recipe7.py. Two publishers
+from the week's census, neither mradermacher nor bartowski, small enough to run in minutes.
+
+spelunk-cloud/F2LLM-v2-330M-Q8_0-GGUF (qwen3, parent codefuse-ai/F2LLM-v2-330M, bf16 0.68 GB):
+    the published GGUF names its tensors model.layers.N.mlp.up_proj.weight -- HuggingFace names. It
+    was NOT written by convert_hf_to_gguf; some other exporter produced it (transformers' GGUF writer
+    or a custom script). recipe4's comparator found zero common tensor names and reported nothing,
+    which was correct and uninformative. Mapped through namemap.py and compared tensor by tensor:
+        name-mapped 113 of 178 (the 65 unmapped are F32 norms the map does not cover)
+        byte-identical 113 / 113;  Q8_0 blocks identical 10,447,360 / 10,447,360   (100.00%)
+    Q8_0 is a closed form -- d = amax/127 per 32 weights, q = round(x/d) -- and two independent
+    implementations produced the same bytes from the same bf16. The recipe does not depend on which
+    program ran it, only on the format's definition. That is a stronger statement than RESULTs 99/101.
+
+PocketWeights/PocketWeights-Qwen2.5-0.5B-GGUF (Q4_K_M, tag: quantized from Qwen/Qwen2.5-0.5B):
+    from bf16: 0 of 289 tensors identical, 0.06% of superblocks. Every F32 norm differs too, and norms
+    are exact upcasts -- so the WEIGHTS are not the declared base's weights. The model card says why:
+    "by fusing the instruct and base models". It is a MERGE, tagged as a quantisation of the base.
+    Not a recipe failure: a mistagged parent, the RESULT 86 caveat made concrete. A store would
+    detect this in one step (norms differ -> not this parent) and fall back to storing the file.
+    For the population figure it means the 41-66% resolution rate includes some fraction of
+    resolvable-but-wrong parents; the norm check is the cheap filter that separates them.
+
+STATE OF THE RECIPE CLAIM after this: exact on three publishers (mradermacher static, bartowski
+imatrix, spelunk non-llama.cpp Q8_0), three architectures (OLMo dense, hybrid-SSM, Qwen3), two
+quant types (Q4_K_M, Q8_0), two toolchains. MoE is RESULT 106.

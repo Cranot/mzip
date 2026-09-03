@@ -67,6 +67,8 @@ def main():
         for x in ((tags.get(rid) or {}).get("tags") or []):
             p = x.split(":")
             if x.startswith("base_model:") and len(p) >= 3: src = ":".join(p[2:]); break
+    # repos outside the census carry no tag here; argv[4] names the parent explicitly
+    if len(sys.argv) > 4 and sys.argv[4]: src = sys.argv[4]
     if not src: print("  no parent found"); return
     print(f"  parent {src}")
     sf = tree(src)
@@ -80,7 +82,11 @@ def main():
         if not dl(src, f, f"{W}/src/{f}"): print("  fetch failed", f); return
     print("  parent downloaded")
     results = {}
-    for ot in ("f32", "bf16", "f16"):
+    # a bf16 source is exactly representable in f32, so quantising from either gives identical bytes;
+    # converting a large parent at all three precisions would triple the disk for nothing. Caller may
+    # restrict: argv[3] = comma-separated outtypes.
+    outtypes = tuple(sys.argv[3].split(",")) if len(sys.argv) > 3 else ("f32", "bf16", "f16")
+    for ot in outtypes:
         conv = f"{W}/conv_{ot}.gguf"; out = f"{W}/q_{ot}.gguf"
         r = subprocess.run([PY, CV, f"{W}/src", "--outtype", ot, "--outfile", conv], capture_output=True, text=True, timeout=3600)
         if r.returncode != 0: print(f"  convert {ot} failed: {r.stderr[-300:]}"); continue
