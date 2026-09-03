@@ -3795,3 +3795,32 @@ asserts opt_num_mtp_layers != 0; these merges dropped the multi-token-prediction
 refuses rather than proceeding without it. Real rejections, fixable upstream with a guard. So of 69: 2
 rejected by the converter, 2 my fetch, 2 the --vocab-only proxy -- true acceptance 67/69 = 97.1%; the
 page keeps the measured 91.3%.
+
+RESULT 113 — a real coder pays 1.3x the bound on twin deltas: ~30% of Xet, not 22% [M]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, pertcode.py. RESULTs 104/111 priced undeclared twins at h0(delta) -- an order-0 entropy
+bound on the integer bf16 difference. A store needs a coder that reaches it. Measured on three of the
+priced pairs, one full tensor each (2-8M weights), bits per weight; Xet holds the twin whole at ~14.0:
+
+    pair                                  raw zstd-19   delta zstd-19   planes zstd   h0 bound   coded / Xet
+    Affine (albedo ~ isomsom)                 13.14          4.62           4.49        3.47        32%
+    fiveflow rq_8b_32 ~ rq_8b_224             12.53          1.20           1.48        0.86         9%
+    AX-3.1-Light ~ AX-3.1-Light-sft           12.47          4.42           4.68        3.39        32%
+
+Three things. (1) zstd on the RAW twin gets 12.5-13.1 -- the same ~1.1x the Hub gets today; the twin
+alone is incompressible, exactly as RESULT 79 found for BF16. (2) zstd on the DELTA gets 1.20-4.62,
+which is 1.3-1.4x the h0 bound: an LZ coder on integer differences leaves a third on the table, because
+the delta's structure is a per-weight symbol distribution (one ulp, two ulps, zero), not repeats.
+(3) Splitting the delta into byte planes helps on the sparse pair and slightly hurts on the dense ones;
+neither is the right coder. The right coder is an order-0 entropy coder on the delta symbols -- which is
+what Fano IS, applied to a difference rather than a weight -- and would sit at the bound.
+
+WHAT GOES ON THE PAGE: the coded number, not the bound. With zstd on the delta, twins cost ~30% of
+today's storage (range 9-32%), the lever saves ~41 TB/week instead of 46, and row C is 25.0% instead of
+25.4%. The bound stays in the record as what a purpose-built coder would recover: +5 TB/week.
+
+    row C, coded (zstd on delta, ~30%):     1,082.3 TB   25.0%   18.8 PB/yr
+    row C, at the bound (~22%):             1,077.4 TB   25.4%   19.1 PB/yr
+
+This closes the twin lever's cost side at a number a store can achieve today with a tool it already
+ships. The difference between coded and bound is a Fano-shaped opportunity, small in aggregate.
