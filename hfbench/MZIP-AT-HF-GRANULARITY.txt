@@ -3924,3 +3924,36 @@ The prediction was 1.45-1.55x median with a tail of harder tensors above 12 bits
 the tail does not exist. Trained bf16 weights are more uniform in their compressibility than I expected,
 which is good for the lever and says the class-level number needs no spread bar -- the spread is smaller
 than the rounding on the page.
+
+RESULT 117 — four curiosities: embeddings obey the same constant; F32 joint coding is not worth it; sparsity is rare and structured [M]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, curios.py.
+
+1. JOINT ALPHABET ON F32 (RESULT 115's 1.5% BF16 gain, tried on the wider plane):
+    openai-community/gpt2  c_attn      planes 26.94   joint16 26.86   gain 0.3%   (raw 32)
+    all-MiniLM-L6-v2       LayerNorm   planes 22.77   joint16 22.10   gain 3.0%   -- a norm vector,
+                                        not a projection; the selector caught it. Not representative.
+   On a real F32 projection the exponent-to-mantissa dependence is worth 0.3%. Not a coder change.
+
+2. SPARSITY across RESULT 116's 23 tensors: zero fraction median 0.000%; three above 1%:
+    logic65/whittle-next                  100.0% zeros   (an all-zero tensor: placeholder or pruned dead)
+    cosmos1030/gmp-kd3e-1-s50pct x2        50.0% zeros   (name says s50pct: 50% structured sparsity)
+   Structured-sparse models exist on the Hub and are rare. INSTRUMENT NOTE: the Fano-cost proxy used
+   in RESULT 116 charges the low mantissa byte at 8 bits raw; on a 50%-sparse tensor that byte is zero
+   half the time and Fano's per-plane k-selection would code it, so the proxy UNDER-credits sparse
+   tensors (10.62 quoted; ~6 achievable). Affects 2 of 23 tensors; the median and IQR stand.
+
+3./4. EMBEDDING TABLES, which every layering result skipped:
+    model                        embed cost   proj cost   12/4 L1   joint SUM   embed share of bytes
+    Qwen/Qwen2.5-0.5B               10.64       10.69       6.49      10.49           27.6%
+    HuggingFaceTB/SmolLM2-360M      10.74       10.74       6.50      10.50           13.0%
+    Qwen/Qwen2.5-7B                 10.81       10.99       6.59      10.59           14.3%
+   Embeddings cost the same as projections to two decimals; the exponent-entropy constant of RESULT
+   116 holds for the one tensor class it had not been checked on. The 12-bit joint alphabet gains
+   1.5-3.6% there (largest on the 7B). Embeddings are 13-28% of a model's bytes -- a quarter of a
+   small model -- so both the flat and the progressive results now cover the whole file, not the
+   projections alone.
+
+Prediction score: embeddings-cost-more MISSED (they cost the same); F32 gain under 2% HIT; embedding
+share 10-30% HIT; sparsity outlier ~50% zeros HIT (and one at 100%), nothing else above 1% MISSED by
+two structured-sparse tensors from one repo.

@@ -3,7 +3,7 @@
 Everything here measures one question: on the bytes people actually upload to Hugging Face, what does
 mzip save over what Xet stores today, and at what cost in time?
 
-**Start with `MZIP-AT-HF-GRANULARITY.txt`.** It is the measurement record: every numbered RESULT, in
+**Start with `MZIP-AT-HF-GRANULARITY.txt`.** For what the same numbers say about models rather than storage, read `MODELS-WHAT-THE-BYTES-SAY.md` -- seven claims, each tied to its RESULT and marked measured or inferred. It is the measurement record: every numbered RESULT, in
 order, with the script that produced it, the exact figures, and what was predicted before the run.
 Every number quoted anywhere else traces to a RESULT there. `LEARNINGS.md` holds the transferable
 lessons — the thesis by elimination, the ideas that died, and the method traps that cost real time.
