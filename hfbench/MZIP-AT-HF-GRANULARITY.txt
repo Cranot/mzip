@@ -3485,3 +3485,38 @@ PocketWeights/PocketWeights-Qwen2.5-0.5B-GGUF (Q4_K_M, tag: quantized from Qwen/
 STATE OF THE RECIPE CLAIM after this: exact on three publishers (mradermacher static, bartowski
 imatrix, spelunk non-llama.cpp Q8_0), three architectures (OLMo dense, hybrid-SSM, Qwen3), two
 quant types (Q4_K_M, Q8_0), two toolchains. MoE is RESULT 106.
+
+RESULT 104 ADDENDUM — twins price the same across three communities; the census overcounts them [M]
+--------------------------------------------------------------------------------------------------------------
+pertcost2.py on member lists from the re-run census (lineage4.out), one pair per cluster, one full
+tensor each, integer bf16 delta against the sibling:
+
+    cluster                      pair                                    ident   |d|<=2   h(d)    vs Xet   twin?
+    qwen3 2560/36/32             agurung/cobalt-seeded-rl variants       52.2%   86.7%   2.715    19.3%   yes
+    llama 4096/32/32 (L3-8B)     AmberYifan/capsd-final ~ capsd-less     50.8%   88.5%   2.639    18.8%   yes
+    qwen3_5 5120/64/24           AMAImedia ~ vikingL08/Affine           100.0%  100.0%   0.000     0.0%   exact (dedup's)
+    qwen3_5 4096/32/16           violetxi/qwen35-9b ~ FLs-AI/FL-9B       24.6%   51.6%   5.651    40.3%   NO  r=0.963
+    gpt_neox 4096/32/32 (Pythia) yuhengtu/sfm_u ~ sfm_b                   0.1%    0.4%  11.687    83.3%   NO  r=0.001
+    (RESULT 104, Affine Qwen3.5-MoE)                                      7-47%   68-76%  3.5-3.7  25-26%   yes
+
+CONFIRMED: where a pair IS a twin, the delta costs 19-26% of Xet's BF16 storage, across three unrelated
+communities (a Bittensor subnet, an RL research account, a Llama-3-8B fine-tuning account). The
+signature is the same everywhere -- half the weights identical, 87-89% within two ulps -- which is a
+re-cast or an extremely light update, not training. The lever is real and is not one community's habit.
+
+CORRECTED: two of six pairs the census called "perturbed twins" are NOT twins on a second tensor.
+lineage3.py classified on ONE 64 KiB slice of ONE tensor (the first 2D non-embedding weight in the
+first shard). A single tensor can be shared between models that are otherwise independent -- an
+identical initialisation, a frozen adapter layer, a common projection -- and r>0.99 on it says nothing
+about the rest. Pythia pair: r=0.001 on the second tensor. So RESULT 103's 7.7% is an UPPER bound on
+the perturbed-twin pool; with 4 of 6 sampled pairs confirmed (two twins, one exact, one Affine) the
+crude discount is ~2/3, putting the pool near 5% of weight bytes. lineage3.py is being extended to
+require two tensors to agree before classifying a pair; that number replaces 7.7%.
+
+WHAT IT MEANS FOR THE HEADLINE, still provisional until the two-tensor census lands: ~5% of weight
+bytes at ~78% saving is ~34 TB a week, about +2.4 points -- rather than RESULT 104's +3.5. It stays
+out of the artifact until the pool is re-measured with the tighter classifier.
+
+METHOD: a one-tensor fingerprint finds candidates; it does not confirm them. The same fault as the
+day's earlier "one tensor called the model" -- in the other direction: one tensor called two models
+the same.
