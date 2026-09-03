@@ -269,3 +269,41 @@ itself, and the store never needs a residual coder for it. Aggregate: half a poi
 arithmetic route had already taken most of the GGUF class and the headline is bounded by resolution
 and by the classes nothing reaches. Write both numbers next to each other or the reader will pick
 the one that flatters.
+
+## 2026-09-03, late — the number belonged to a different route
+
+The headline moved from 18.4% to 22.2% in one evening with no new compression result. Every point of
+it came from re-reading which measurement a factor actually came from.
+
+**A rate is a property of the path that produced it.** The 41.4% resolution rate was measured through a
+hand-written GGUF→HF tensor-name map. That map exists to serve the arithmetic route, which pairs tensors
+by name. The recipe route converts the parent with the same converter that made the published file, so
+names agree by construction and the map is never consulted. Its rate is "parent exists, has weights,
+architecture supported" — 94.3% by bytes. For three results the recipe was priced with the arithmetic
+route's bottleneck. Ask of every carried factor: *what did the instrument that produced this actually
+touch?* If the new path does not touch it, the factor does not transfer.
+
+**"Resolves" is three things, and each one needs its own measurement.** A parent that resolves by name can
+be the wrong model (a merge tagged as a quantisation — 3 of 54, caught by one F32 norm). A parent that is
+the right model can be an architecture the converter does not know (9 of 140, all newer than the tool). A
+supported architecture can still refuse to convert (up to 6 of 69). 0.943 × 0.944 × 0.913 = 0.814. Any
+one of those at 1.0 would have been an assumption; the page carried the three explicitly.
+
+**A regex that finds nothing is a broken regex before it is a finding.** The converter-registry parser
+read two files and found zero registered architectures; llama.cpp had moved them to `conversion/*.py`.
+The census dutifully reported 0.0% resolvable. The breakdown beside it said 117 of 140 parents had weights
+and a config — the number and its own denominator disagreed, and the denominator was right.
+
+**Version skew reads as rejection.** 55% converter acceptance, sixteen identical AttributeErrors on one
+model family, traceback ending inside transformers: the converter never ran. Two minutes to upgrade, the
+newest model converts, the rate is 91%. When a failure count clusters on one family with one message, it
+is the environment until proven otherwise.
+
+**Pairing is part of the measurement.** Two census "twins" were declared not twins because they were
+priced against an arbitrary cluster-mate instead of the member they correlated with. The census was right;
+the check was wrong. When a classification is relational, the verification has to use the same relation.
+
+**Close the coder side and say so.** The exponent plane is memoryless to three decimals; untagged GGUFs
+carry no parent in any header; parquet has no derivative structure and no uncompressed text. Three clean
+negatives in an hour, each one ending a line of inquiry that would otherwise have stayed on the list
+forever. Everything left in this programme is metadata, and the page now says that in as many words.

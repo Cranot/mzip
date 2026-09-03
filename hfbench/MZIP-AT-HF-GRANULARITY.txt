@@ -3788,3 +3788,10 @@ METHOD: the day's tenth instance of an instrument reporting a confident number a
 acceptance rate with 16 identical errors on one model family is a version skew, not a finding, and the
 one-line test (does the newest model convert at all?) took two minutes. Read the failure taxonomy before
 the rate.
+
+RESULT 112 ADDENDUM — the two assertions are genuine converter rejections
+OliviaRossi/DAOS-Fusion and UltiMerge (Qwen3_5MoeForCausalLM, mergekit outputs): conversion/qwen.py:303
+asserts opt_num_mtp_layers != 0; these merges dropped the multi-token-prediction head, and the converter
+refuses rather than proceeding without it. Real rejections, fixable upstream with a guard. So of 69: 2
+rejected by the converter, 2 my fetch, 2 the --vocab-only proxy -- true acceptance 67/69 = 97.1%; the
+page keeps the measured 91.3%.
