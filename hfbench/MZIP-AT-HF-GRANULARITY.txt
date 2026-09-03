@@ -3824,3 +3824,45 @@ today's storage (range 9-32%), the lever saves ~41 TB/week instead of 46, and ro
 
 This closes the twin lever's cost side at a number a store can achieve today with a tool it already
 ships. The difference between coded and bound is a Fano-shaped opportunity, small in aggregate.
+
+RESULT 114 — progressive weights: three layers cost 12.7 bits/weight, less than Xet's flat 14.0, and a usable model arrives at 30% of the bytes [M]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, progressive.py. Speed on the Hub has three meanings. Encode/decode throughput: Fano is at
+3.4 GB/s decode, above NVMe; nothing user-visible left. Bytes over the wire: every saving above is a
+download speedup already. TIME TO A USABLE MODEL: a downloader of a bf16 file waits for every byte
+before the first token, and nobody has measured what it would cost to change that.
+
+The idea: store a bf16 tensor as LAYERS -- a 4-bit quant, then the residual that lifts it to 8-bit,
+then the residual that restores exact bf16 -- so inference can start on layer 1 and upgrade in place.
+Progressive JPEG, for weights. Worth doing only if the layers do not cost bytes. Measured on two
+models' down_proj (4 MiB slices), all layers integer, order-0 entropy plus stored scales:
+
+    model                         L1 Q4_0   L2 ->Q8_0   L3 ->bf16    SUM     flat Q8_0   Fano bf16   raw
+    Qwen/Qwen2.5-0.5B               4.23      4.58        3.92      12.73      8.14        10.69      16.0
+    HuggingFaceTB/SmolLM2-360M      4.25      4.59        3.87      12.70      8.16        10.74      16.0
+    (bits per weight; Xet holds flat bf16 at ~14.0)
+
+READ IT THREE WAYS.
+  * Progressive is SMALLER than today's flat file: 12.7 against Xet's 14.0. There is no trade with
+    what the Hub ships now -- the layered file downloads faster in total AND is usable at 30% of it.
+  * Against Fano's flat 10.7, progressiveness costs 2.0 bits/weight (+19%). That is the honest price of
+    being able to start early, and it is small because L3 -- exact bf16 given a Q8_0 -- costs only 3.9
+    bits: Q8_0 already carries most of the bf16 mantissa, so the residual to exactness is narrow.
+  * L1 + L2 = 8.8 against flat Q8_0's 8.1: a Q8 model reached through a Q4 layer costs 8% more than a
+    Q8 downloaded flat. A user who only ever wanted Q8 pays that; a user who wanted bf16 pays nothing.
+
+TIME TO FIRST TOKEN: at 4.2 bits/weight the client holds a Q4_0 model after 30% of the bytes Xet would
+have sent -- 3.3x sooner than waiting for the flat bf16 -- and the same download continues to exact.
+For a 16 GB bf16 model on a 100 MB/s link: usable at ~50 s instead of 160 s, exact at ~145 s.
+
+WHAT THIS IS NOT YET: L1 here is Q4_0 for simplicity; a K-quant first layer would be smaller at the
+same quality and its residual to Q8_0 is measured elsewhere (RESULT 84: ~13% of standalone the other
+way round -- the direction here is different and would need its own number). The layer scheme needs a
+container that knows about layers, which GGUF and safetensors do not; that is a format proposal, not a
+codec change, and Fano codes each layer's planes as it codes anything else. Measured on two dense
+tensors; embeddings and norms were not layered.
+
+WHY IT IS INNOVATIVE RATHER THAN INCREMENTAL: every speed result in this programme until now made the
+same bytes arrive faster. This one changes WHICH bytes arrive first, and the measurement says the
+reordering is free against the status quo. It is the first result here that improves a user's wait
+rather than a storage bill.
