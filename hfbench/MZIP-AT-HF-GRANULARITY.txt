@@ -3627,3 +3627,85 @@ Remaining caveats, both stated on the page: a re-cast at one ulp is cheap to cod
 step is not, and the census does not distinguish them -- the three priced clusters were all re-casts;
 and the sibling must be held, which for twins (unlike quantised recipes) it already is, because the
 sibling is itself a Hub upload.
+
+RESULT 109 — the recipe route resolves 94% of declared-parent GGUF bytes; the name map was the bottleneck [M]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, resolverate4.py, qgq/resolverate4.json. RESULTs 91-92 measured resolution through a
+hand-written GGUF->HF tensor-name map: 27.9%, then 41.4% after MoE fusion and DeepSeek naming were
+added, and every headline since has carried that 41.4% as the floor. The map exists to serve the
+ARITHMETIC route (RESULTs 84-95), which must pair tensors by name. The RECIPE route (RESULTs 99-106)
+converts the parent with the same converter that produced the published file, so names agree by
+construction and no map is consulted. What decides resolution for a recipe is only:
+    (1) the declared parent exists and is readable;
+    (2) it ships weight files (safetensors, or .bin the converter also reads);
+    (3) its config.json names an architecture the converter registers.
+All header-and-config reads. Same 140 pairs as RESULT 92:
+
+    RESOLVABLE BY RECIPE:  108 / 140  =  77.1% by pair,  94.3% by GGUF bytes
+    (name-map route, RESULT 92:        41.4% by pair,  36.7% by elements)
+    why the rest do not resolve:
+        17  parent config.json missing or has no "architectures" (the parent is a GGUF-only or
+            bare-weights repo; some of these are RESULT 96's pickle-only cases)
+         9  architecture not registered by the converter at d30500b: Spark2_5 x4, Ministral3,
+            Glm5Next, LLMjpVL, OpsColQwen3, Pebble10M -- families newer than the tool, not unmappable
+         6  parent has no weight files at all (RESULT 96's empty repos)
+
+By BYTES the rate is 94.3% because the unresolved parents are small models; the large ones -- Qwen3.5,
+Qwen4Exp, Gemma4, Llama, Mistral -- all convert.
+
+INSTRUMENT NOTE: the first run reported 0.0% because the registry parser read only the entry script
+and base.py, and llama.cpp now registers architectures in conversion/<family>.py (226 register calls,
+275 class names). A regex that finds nothing must be treated as a broken regex before it is treated as
+a finding; the failure-reason breakdown (117 parents with weights and config) said so immediately.
+
+EFFECT ON THE HEADLINE. The class model multiplies parent-declaring GGUF bytes by the resolution rate,
+so the BYTE rate is the operative one: rho moves from 0.414 / 0.656 to 0.943.
+    GGUF class held:   92.8 TB (name map, binary)  ->  ~19.7 TB (recipe route)
+    week held:         1,178.9 TB (18.4%)           ->  ~1,105.8 TB (23.4%)
+    with undeclared twins (RESULT 108):             ->  ~1,059.5 TB (26.6%)
+Two qualifications still attached and measured in flight: (a) resolvable is not the same as CORRECT --
+RESULT 105 found a mapped parent that was a merge; resolverate3.py's norm check on the same pairs
+prices that and its factor multiplies rho; (b) resolvable is not the same as CONVERTED -- 7 of 7 recipe
+runs converted, but a population rate of converter failures has not been measured. Both are stated on
+the page rather than assumed away.
+
+RESULT 109 ADDENDUM — untagged GGUF repos carry no parent in their headers either [M, negative]
+ggufsrc.py, 37 of the sample's 38 untagged GGUF repos (2.92 TB, the multi-file and single-file no-parent
+buckets). Header KV read for general.source.url / base_model.*.repo_url / base_model.0.name: 0 of 37
+name a parent. These are not quantisations with a missing tag -- they are custom architectures
+(Trellis2 DINO vision models, bespoke research nets) with no Hub parent to resolve to. The 19.5% of
+GGUF bytes outside the declared-parent bucket stays priced at the sibling model (25.2%) or raw (97%).
+Only content fingerprinting could move it, and RESULT 108's census suggests little lineage there.
+Instrument note: the script printed 31 "header unreadable" because an empty dict is falsy; every header
+was readable and simply had no parent key. Label fixed in the record, not in the code that ran.
+
+RESULT 110 — correct-parent factor 94.4%; the measured headline becomes 22.9% (26.1% with undeclared twins) [M]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, resolverate3.py, finalnum8.py, qgq/resolverate3.json. RESULT 105 showed a declared parent
+can map perfectly and be WRONG (a merge tagged as a quantisation), so resolution had to be discounted
+by how often the parent is actually the parent. One F32 norm tensor per resolved pair, compared with
+the base's bf16 upcast (and with w+1 for the Gemma family, whose norms llama.cpp stores offset):
+    resolved by names 56 of 140;  norm CORRECT 51;  WRONG 3;  not comparable 2
+    correct-parent factor = 51 / (51 + 3) = 0.944
+The three wrong: mradermacher/SomaliLM-150M-Instruct (rel 8.2e-2), reaperdoesntknow/SMOLM2Prover
+(1.36), mradermacher/Solar-Dawn-31B (16.9) -- fine-tunes or merges tagged base_model:quantized of
+their ancestor. A store detects each in one request and stores the file whole.
+
+THE HEADLINE, three rows, each one measured assumption further along:
+    row                                                        held        less    PB/yr   GGUF held
+    A  name-map resolution 41.4% (every earlier headline)    1,179.0 TB   18.4%   13.78    92.9 TB
+    B  recipe-route 94.3% by bytes x correct 0.944           1,113.0 TB   22.9%   17.21    26.9 TB
+    C  B + undeclared perturbed twins against siblings       1,066.7 TB   26.1%   19.62    26.9 TB
+       ceiling: every parent resolves, + twins               1,051.6 TB   27.2%   20.40    11.8 TB
+Row B is the MEASURED headline from here on: every factor in it is a measurement on the week's own
+files (RESULTs 79, 84-89, 93, 99-106, 109, 110). Row C adds RESULT 108's pool (two-tensor census,
+725 repos) at RESULT 104's cost (three communities); it is labelled as the add-on it is.
+
+WHAT MOVED THE NUMBER FROM 18.4% TO 22.9% was not a new compression result. It was noticing that the
+41.4% resolution rate belonged to a tensor-name map the recipe route never consults (RESULT 109), and
+then subtracting the parents that resolve to the wrong model (this result). Both are metadata
+measurements. The coder side of this programme has been closed since RESULT 107.
+
+WHAT REMAINS UNMEASURED and is stated as such: a population rate of converter FAILURES on parents that
+resolve (7 of 7 recipe runs converted; the census counts architecture support, not conversion
+success); and the twin cost outside the three priced communities.

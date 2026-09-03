@@ -19,11 +19,14 @@ from hfget import get_json
 B = "/root/mzip-hfbench"; H = "https://huggingface.co"
 
 def converter_registry():
+    """HF architecture class names the converter registers. They live in conversion/*.py now, one
+    module per family (226 @ModelBase.register calls); the first version read only the entry script
+    and base.py, found zero, and called every parent unsupported."""
+    import glob
     src = open("/root/llama.cpp/convert_hf_to_gguf.py").read()
-    try:
-        src += open("/root/llama.cpp/conversion/base.py").read()
-    except OSError:
-        pass
+    for f in glob.glob("/root/llama.cpp/conversion/*.py"):
+        try: src += open(f).read()
+        except OSError: pass
     names = set()
     for m in re.finditer(r"@ModelBase\.register\(([^)]*)\)", src):
         for s in re.findall(r"\"([A-Za-z0-9_]+)\"", m.group(1)):

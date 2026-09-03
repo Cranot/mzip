@@ -1,0 +1,13 @@
+{
+ "att": 140,
+ "resolved": 56,
+ "correct": 51,
+ "wrong": 3,
+ "unknown": 2,
+ "why": {
+  "base no safetensors": 16,
+  "no gguf": 4,
+  "no shard map": 7,
+  "gguf header": 1
+ }
+}

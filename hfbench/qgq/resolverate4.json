@@ -1,0 +1,20 @@
+{
+ "att": 140,
+ "ok": 108,
+ "ok_b": 1475653121632.0,
+ "all_b": 1564098540960.0,
+ "why": {
+  "parent has no weight files": 6,
+  "pytorch .bin only (converter reads it; slower path)": 0,
+  "parent config.json missing or has no architectures": 17,
+  "architecture not in converter registry": 9
+ },
+ "unknown": {
+  "Spark2_5ForCausalLM": 4,
+  "Ministral3Model": 1,
+  "Glm5NextForConditionalGeneration": 1,
+  "LLMjpVLModel": 1,
+  "OpsColQwen3Model": 1,
+  "Pebble10MLM": 1
+ }
+}
