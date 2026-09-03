@@ -1,0 +1,107 @@
+MZIP HEADROOM — where the remaining bytes are on HF wikitext
+=============================================================
+measured 2026-09-01, Hetzner box (i5-12500), /root/mzip-hfbench/
+input:   assets/wikitext-2-raw-train.txt  10,914,845 bytes
+         sha256 fc1dd2874bf42e945db9bd38e856ae18010f5c088e7446c706c5ba2f39310ee3
+baseline: mzip HEAD e5fe7e8 shipped output = 2,454,799 B (4.4463x, 1.7992 bpb)
+all probes built from the repo's own sources; every stream round-trip verified.
+
+THE LEVER TABLE (text input, ranked by size won)
+-------------------------------------------------
+lever                          |    bytes  | vs mzip | time   | verdict
+-------------------------------|-----------|---------|--------|------------------
+lpaq1  (lpaq_x.cpp, IN REPO)   | 2,243,668 |  -8.60% |  15.0s | WINS, blocked (GPL)
+zpaq -m5 (external, v7.15)     | 2,261,249 |  -7.89% |  17.6s | confirms headroom
+7z PPMd o=16 mem>=256m         | 2,425,560 |  -1.19% |   1.9s | needs >mzip's cap
+mzip SHIPPED (BG -> bwt9)      | 2,454,799 |    ----  | 165.8s | baseline
+cm_backend BWT+CM              | 2,454,790 |  -0.000% |   3.0s | tied, 55x faster
+bwt9 alone                     | 2,454,793 |  -0.000% |  20.9s | tied,  8x faster
+PPMd at mzip's own 64 MiB cap  | 2,565,073 |  +4.50% |      - | correctly rejected
+cm_backend CM ALONE (no BWT)   | 5,270,863 | +114.7% |   1.3s | far worse
+CompressionMode::SMALL         | no change |   0.00% |      - | ELIMINATED, see below
+
+FINDING 1 — mzip's BWT family has CONVERGED; there is no unfired backend
+-------------------------------------------------------------------------
+bwt9 alone (2,454,793), cm_backend BWT+CM (2,454,790) and the shipped output
+(2,454,799) agree to within SIX BYTES. They are not three options; mzip.hpp:15862
+says so outright -- "cm_compressed = cm_block(); // memoised; bwt9_block() above
+computed this same stream". The BWT text path is at its ceiling at 1.7992 bpb.
+Conclusion: no amount of routing, gating or level-tuning inside the existing
+encoder set will find another byte. The earlier hypothesis that CM_TEXT was a
+suppressed winner is FALSE -- it is the same stream.
+
+FINDING 2 — the 8.6% is only reachable with a DIRECT context model
+--------------------------------------------------------------------
+Two independent context mixers agree on where the floor actually is:
+    lpaq1     2,243,668   1.6445 bpb
+    zpaq -m5  2,261,249   1.6574 bpb
+    mzip      2,454,799   1.7992 bpb
+That is ~0.155 bpb of headroom, ~8% of the file, confirmed by two instruments
+rather than one. It is NOT a better BWT -- it is a different architecture.
+
+The gap is precisely located. mzip's own CM, run without its BWT front end,
+scores 3.8633 bpb against lpaq's 1.6445 -- a 2.35x gap. mzip's cm_backend is a
+weak post-BWT coder, not a general context model; it lacks lpaq's match model
+and its APM/SSE refinement chain. That is the concrete engineering target.
+
+FINDING 3 — THE BLOCKER IS LICENSING, NOT CAPABILITY
+------------------------------------------------------
+lpaq_x.cpp and lpaq_iso.cpp are ALREADY IN THE REPO and already beat the shipped
+encoder, but `grep -c lpaq mzip.hpp` = 0 -- they are unlinked probes.
+    lpaq1  = GPL-2.0-OR-LATER (Matt Mahoney, 2007)
+    mzip   = AGPL-3.0 OR commercial (dual)
+GPLv2-or-later can be taken to GPLv3 and combined with the AGPL-3 arm, so the
+open arm is legally fine. The COMMERCIAL arm is not: Cranot cannot sublicense
+Mahoney's code. Shipping lpaq as-is forfeits the commercial option.
+=> The adoption path is a clean-room lpaq-class model written for mzip, not a
+   vendoring of lpaq_x.cpp. mzip's trial-and-keep + self-verify infrastructure
+   already exists to adopt such a block type safely.
+Memory is NOT an obstacle: lpaq_x measured 304 MB peak RSS, against bwt9's own
+212 MB. (Its N=0..9 flag is INERT -- byte-identical output and identical RSS at
+every level; MEM is parsed at lpaq_x.cpp:1354 but the tables are fixed size, so
+the "using 1539 MB" banner is cosmetic. Do not quote that number.)
+
+FINDING 4 — 87% OF MZIP'S RUNTIME BUYS NOTHING ON THIS INPUT (free 8x)
+------------------------------------------------------------------------
+The winning path costs 20.9 s (bwt9) or 3.0 s (cm_backend, same stream).
+The shipped CLI takes 165.8 s to emit that same stream. MZIP_STATS shows why:
+bwt9 is recomputed across the per-block path, the PERIODIC_APPROX split trial
+and the BG path, and the brotli/xz/PPMd backstops all run and all lose.
+An early-out for large text-like inputs is a 8x-55x speedup at ZERO size cost.
+This is the cheapest real win available and it carries no licensing question.
+
+FINDING 5 — CompressionMode::SMALL is ELIMINATED for this size class
+----------------------------------------------------------------------
+Its ONLY effect in the codebase (mzip.hpp:17019) is raising BG_MAX_SIZE from
+256 MB to 1 GB. The input is 10.9 MB, far under both. SMALL cannot change this
+result and the unreachable-CLI-parameter finding, while still true as a fact
+about the CLI, is worth NOTHING on inputs below 256 MB. Prior sessions listed
+it as the cheapest lever; on this size class that is wrong.
+
+FINDING 6 — PPMd memory raise is a dead end at the format ceiling
+-------------------------------------------------------------------
+64 MiB -> 2,565,073 (worse than bwt9) ; 128 MiB -> 2,494,216 (still worse) ;
+256 MiB -> 2,425,560 (wins, but unreachable: the stored memMiB byte clamps to
+[1,128]). Raising MZIP_PPMD_MEM to its maximum 128 does NOT flip adoption here.
+Reaching PPMd's winning budget requires a container change, and even then it
+lands 8% ABOVE lpaq -- so it is the wrong target to spend a format break on.
+
+PARQUET INPUT (6,357,543 B) — mzip 4,788,333 baseline
+-------------------------------------------------------
+lpaq1 N=4: 4,768,051 (1.3334x), roundtrip VERIFIED -- beats mzip by 0.42%.
+The margin is small because SNAPPY has already removed the long matches; what
+remains is mostly literal residue where the two coders are close.
+
+UNKNOWN (measured nothing; do not infer)
+------------------------------------------
+- Whether BWT + an lpaq-class CM beats lpaq-class CM alone. Not tested; it
+  decides whether the BWT front end survives an upgrade, so it should be the
+  FIRST experiment before any implementation work.
+- A reversible detokenizer transform. The corpus is 19.0% space characters
+  (2,075,726 of 10,914,845) with ' , ' x99,912, ' . ' x73,380, ' @-@ ' x16,906
+  -- WikiText's space-tokenized form. Whether removing that redundancy ahead of
+  the coder wins anything AFTER entropy coding is UNTESTED and plausibly zero.
+- Generalization beyond one corpus. wikitext is clean prose; C4/FineWeb scrape,
+  code and multilingual data may rank differently.
+- bsc/libbsc and cmix were not in the field.
+- lpaq on other HF shapes (safetensors, arrow) untested.

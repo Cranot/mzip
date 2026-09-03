@@ -194,3 +194,26 @@ tags cover 27.7% of weight bytes and 80.5% of GGUF bytes. Given a public parent,
 itself and a Q5_K or Q6_K reproduces EXACTLY, leaving only its scales. The remaining question is not
 whether the arithmetic works but how often the parent resolves -- which is a metadata question, not a
 compression one.
+
+## 2026-09-03, evening — "landed" is verified by `git ls-files`, never by the add succeeding
+
+The commit that homed this directory reported 298 files. It landed 75. The repository's `.gitignore`
+carries `*.py` and `*.txt` for its own reasons, `git add hfbench` obeyed them silently, and the
+commit message, written from the copy count rather than the index, said otherwise. The measurement
+record itself -- the one file everything else here cites -- was among the 223 left on one disk.
+
+Found by accident: a later copy of the record into the tree produced no diff, which made no sense
+until `git check-ignore -v` named the pattern. Fixed with `!hfbench/**` and a second commit.
+
+Three things worth keeping from it:
+
+- **A directory add is not a file add.** `git add dir/` stages the subset of `dir/` that survives
+  every ignore rule, and reports success either way. The only count that means anything is
+  `git ls-files dir/ | wc -l` afterwards, compared to `find dir/ -type f | wc -l`.
+- **Inherited ignore rules are invisible from inside the subtree.** `hfbench/` had no `.gitignore`
+  of its own; the exclusion came from the repo root, 100 lines up, written months earlier for
+  unrelated scratch. Anyone auditing the subtree would have found nothing wrong with it.
+- **This is the day's sixth instance of the same shape** -- a proxy (files copied) accepted in
+  place of the thing (files tracked). The others were file counts for checkpoints, extensions for
+  archive contents, sampled bytes for tar weights, tensor size for tensor kind, and a blank column
+  for a refutation. Every one was corrected by looking at the actual object instead of its shadow.

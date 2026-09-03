@@ -1,0 +1,101 @@
+NUM_EXTRACT: ROOT-CAUSED, GUARDED, VALIDATED
+=============================================
+2026-09-01, /root/mzip HEAD e5fe7e8 + one local patch (uncommitted).
+Artifacts: build/mzip_fixed (patched), build/mzip_cli (stock), build/ne_probe,
+build/bisect, minimal475.bin, minimal_numextract.bin, small2/ (289 real HF files).
+
+ROOT CAUSE -- TWO FAILURE MODES, MINIMAL REPRODUCER IS TWO BYTES
+------------------------------------------------------------------
+encode_num_extract (mzip.hpp:10376) parses each digit run with
+    num = num * 10 + (data[i] - '0')
+into a uint32_t, and the decoder re-emits the VALUE. Two things are therefore
+unrepresentable, both measured with build/ne_probe:
+
+  MODE 1 -- LEADING ZEROS DESTROYED
+    "2" OK | "02" LOSSY | "007" LOSSY | "0" OK | "00" LOSSY | "x01y" LOSSY
+    A zero-padded run decodes back shorter. Minimal reproducer: the two bytes "02"
+    (encodes to 36 B, decodes to 1 B).
+  MODE 2 -- UINT32 OVERFLOW
+    "4294967295" OK | "4294967296" LOSSY | "99999999999" LOSSY
+    Any value >= 2^32 wraps and decodes wrong.
+
+Both are everywhere in real config data: zero-padded versions/dates/ids, and
+nanosecond timestamps or token counts above 4.29e9.
+
+SOURCE FIX (NOT YET APPLIED -- the guard below is what shipped)
+----------------------------------------------------------------
+detect_num_extract must refuse a digit run that (a) has a leading '0' and length
+> 1, or (b) exceeds UINT32_MAX. Refusing to encode what cannot be reproduced is
+the cure; the adoption guard is defence in depth.
+
+WHAT WAS ACTUALLY CHANGED
+---------------------------
+mzip.hpp:16195, NUM_EXTRACT adoption branch: added a roundtrip verify mirroring
+PHRASE_PARTITION (16211) and CHAR_TEMPLATE (16046) -- decode, compare, else
+`analysis.type = BlockType::TEXT` so the block flows to the backstop ensemble.
++25/-4 lines. Backup: mzip.hpp.bak-numextract. NOT committed, NOT pushed.
+
+VALIDATION -- ALL MEASURED
+----------------------------
+1. Losslessness suite (mzip_unit_tests.cpp): 49 passed, 0 failed.
+2. Reproducer (real HF file, 58,110 B):
+       before  58,115 B  (uRAW, 0.999914x -- LARGER than input)
+       after    1,924 B  (30.20x), roundtrip VERIFIED
+       brotli   2,050 B  -> mzip now BEATS brotli by 6.1% on this file
+   Telemetry confirms the intended path: NUM_EXTRACT rejected -> TEXT ->
+   backstop ensemble picks PPMD (1,918 B).
+3. 144 held-out real HF config/tokenizer files (736,705 B):
+       mzip before  116,456 B   (-83.31% vs brotli)
+       mzip after    60,265 B   (+5.14% vs brotli)   = 48.25% smaller
+       brotli        63,528 B
+       files where the patched build is WORSE than stock: 0
+4. Pipeline reproducer threshold (prefixes of the real file):
+       <= 14,336 B  identical on both builds (NUM_EXTRACT not selected)
+          16,384 B  OLD 16,389 (uRAW)  NEW 1,203
+       The detector gate is `mid_entropy_text && n >= 1024 && n <= 2097152`
+       (mzip.hpp:13556), so a 16 KB prefix is the smallest compact fixture.
+
+REGRESSION TEST -- NOT YET WRITTEN, AND THE FIRST ATTEMPT WAS VACUOUS
+-----------------------------------------------------------------------
+The suite already has a `uRAW-BLOAT PATHOLOGY GUARDS` section with
+no_uraw_bloat_bigint_unsigned_sql and no_uraw_bloat_repetitive_syslog, i.e. the
+right home and idiom already exist (is_uraw_wholefile() + a ratio assert +
+roundtrip). A third guard belongs there.
+A first synthetic candidate (400 lines of JSON with "04"/"007"/>2^32 values,
+25,615 B) was FALSIFIED AGAINST THE STOCK BUILD and did NOT reproduce -- stock
+and patched both returned 167 B, because the input was so repetitive a template
+encoder won at 153x before NUM_EXTRACT was ever considered. That test would have
+passed on broken code and proved nothing. It was discarded rather than shipped.
+A valid fixture must be >= ~16 KB, mid-entropy, and varied enough not to be
+captured by an earlier detector. The real file's 16 KB prefix satisfies this and
+is the recommended fixture.
+Separately, a CODEC-level test over {"02","007","00","x01y","4294967296",
+"99999999999"} fails on BOTH builds today and is the correct test to add
+alongside the source fix.
+
+TWO CORRECTIONS TO EARLIER CLAIMS IN THIS SESSION
+---------------------------------------------------
+- "ASan found a heap-buffer-overflow in encode_num_extract." WRONG, and the bug
+  was MINE. bisect.cpp:44 computed `end - start - step` in size_t with
+  step=4096 > end=475, underflowing to ~1.8e19, so the harness asked the encoder
+  to read 18 exabytes. With the bounds fixed the same ASan build runs to
+  completion, exit 0, no error. mzip is clean here.
+- "87% of runtime is wasted; a free 8-55x speedup is available." WRONG. The
+  bwt9 backstop is already memo-guarded (`if (!bwt9_memo_valid)`) and carries a
+  deliberate comment on why a CAPPED result must not be cached. Its 0 hits mean
+  it is a genuine trial that LOSES on HF data, not duplicated work, and the
+  families owning that time are load-bearing elsewhere (ablation.md: GRID
+  418,875 B, FILTER 645,475 B). A speed win must come from MZIP_FAMILY_MASK
+  ablation measuring time-cost vs byte-win per family, not from deleting trials.
+
+STILL OPEN
+-----------
+- encode_num_extract itself is unfixed; the guard routes around it. Fixing the
+  source would let the genuine 36x encoding be used instead of PPMd's fallback.
+- Six sibling branches still adopt without a roundtrip verify: LINE_TEMPLATE
+  (16203), SORTED_DICT (16276), KV_CONFIG (16292), CODE_STREAM (16350),
+  REFERENCE (16356, cross-block), DBF_CONSTCOL (15766). None OBSERVED failing.
+- The 8-corpus size regression (stock vs patched) had not finished at time of
+  writing. The small-file result does not stand alone until it does.
+- The size-capped ratio-regression sweep over the wider HF corpus was killed
+  (718 MB, ~3.4 h projected) and not re-run.

@@ -1,0 +1,5 @@
+Qwen2.5-0.5B.slice raw=8388608 base=5526346 maxratio=5526346 delta=0 rt_base=OK rt_max=OK xdecode_stock=OK
+pct=0.00000
+--- base MZSTATS ---
+--- max MZSTATS ---
+QWENDONE

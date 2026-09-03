@@ -1,0 +1,143 @@
+MZIP vs THE FIELD — HuggingFace wikitext-2-raw
+==============================================
+measured 2026-09-01, Hetzner box (12th Gen i5-12500), /root/mzip-hfbench/
+subject:  mzip at /root/mzip HEAD e5fe7e8 (2026-08-13), clean tree, built on
+          Linux with the FULL backstop set (zstd + brotlienc/dec + liblzma +
+          PPMd var.H compiled in). build script: build_mzip_linux.sh — the
+          repo's own build_evals.sh is w64devkit-only and does not run here.
+all runs single-threaded; every row round-trip verified by sha256 (24/24 OK).
+
+WHY THIS FILE
+-------------
+"Most common HuggingFace data" was resolved by measurement, not taste: the
+Hub API sorted by downloads puts Salesforce/wikitext at #4 overall
+(1,498,576 downloads) and it is the highest-ranked genuine text corpus — the
+three above it are a log archive, a docs-image bucket and a tokenizer cache.
+Chosen split: wikitext-2-raw-v1/train-00000-of-00001.parquet, 6,357,543 bytes
+— small enough to iterate on, and the exact bytes HF serves.
+
+TWO INPUTS FROM ONE FILE, AND WHY BOTH ARE NEEDED
+-------------------------------------------------
+The parquet is ALREADY COMPRESSED: 37 row groups, SNAPPY pages,
+11,056,006 uncompressed -> 6,326,303 compressed = 1.7476x already applied.
+Benchmarking only the container measures recompression of somebody else's
+LZ77 output. Benchmarking only the payload ignores what HF actually ships.
+So both were run:
+
+  A  wikitext-2-raw-train.parquet   6,357,543 B  sha256 e83889ba...c9f7
+  B  wikitext-2-raw-train.txt      10,914,845 B  sha256 fc1dd287...0ee3
+     (B = the "text" column decoded with pyarrow, concatenated verbatim)
+
+
+RESULTS — B: THE TEXT PAYLOAD (10,914,845 bytes)
+-------------------------------------------------
+tool                        | compressed | ratio   | bits/byte | comp s | dec s
+----------------------------|------------|---------|-----------|--------|------
+7z PPMd o=16 mem=1024m      |  2,425,560 | 4.4999x |    1.7778 |   1.92 |  2.00
+mzip L1 = L19 = L22         |  2,454,799 | 4.4463x |    1.7992 | 165.83 |  0.93
+7z LZMA2 -mx=9              |  2,908,354 | 3.7529x |    2.1316 |   4.49 |  0.11
+brotli -q 11                |  2,910,600 | 3.7500x |    2.1332 |  14.24 |  0.03
+brotli -q 11 -w 30          |  2,910,601 | 3.7500x |    2.1332 |  14.52 |  0.03
+xz -9e -T1                  |  2,913,420 | 3.7464x |    2.1353 |   4.82 |  0.11
+zstd -22 --ultra --long=27  |  2,940,445 | 3.7120x |    2.1551 |   4.68 |  0.01
+zstd -19 -T1                |  2,942,598 | 3.7093x |    2.1567 |   4.38 |  0.01
+bzip2 -9                    |  3,047,173 | 3.5820x |    2.2334 |   0.61 |  0.27
+gzip -9                     |  3,857,560 | 2.8295x |    2.8272 |   0.70 |  0.06
+
+mzip beats every general-purpose compressor, and not narrowly:
+  vs 7z LZMA2  -15.60%    vs brotli:11  -15.66%    vs xz -9e   -15.74%
+  vs zstd -22  -16.52%    vs bzip2 -9   -19.44%    vs gzip -9  -36.36%
+mzip LOSES to 7z PPMd by 29,239 bytes = 1.19%.
+
+THE PPMd LOSS IS A MEMORY BUDGET, NOT AN ALGORITHM
+---------------------------------------------------
+mzip.hpp:16593 hardcodes MZIP_PPMD_MEM = 64 (MiB), and the decoder clamps the
+stored memMiB byte to [1,128] — so 128 MiB is the ceiling reachable without a
+format change. 7z above was given 1024 MiB. Sweeping 7z PPMd at matched
+budgets (o=16, same input):
+
+    mem=  64m  ->  2,565,073     (mzip's actual budget: 4.5% WORSE than mzip)
+    mem= 128m  ->  2,494,216     (mzip's format ceiling: 1.6% WORSE than mzip)
+    mem= 256m  ->  2,425,560     (saturates here)
+    mem=1024m  ->  2,425,560     (identical to 256m)
+
+At equal memory mzip's BWT pipeline WINS. PPMd only overtakes it when handed
+4x more model memory than mzip's format can address.
+Order was swept too, so PPMd was given its best shot, not a strawman:
+o=16 -> 2,425,560 ; o=24 -> 2,453,815 ; o=32 -> 2,462,391. o=16 is optimal.
+
+Corollary: mzip's trial-and-keep was RIGHT to reject its own PPMd backstop
+here. At 64 MiB PPMd would have produced 2,565,073 against BWT_TEXT's
+2,454,799 — the ensemble correctly kept the smaller. The defect is the
+constant, not the decision logic.
+
+
+RESULTS — A: THE PARQUET AS HUGGINGFACE SERVES IT (6,357,543 bytes)
+--------------------------------------------------------------------
+tool                        | compressed | ratio   | comp s | dec s
+----------------------------|------------|---------|--------|------
+mzip L1 = L19 = L22         |  4,788,333 | 1.3277x |  32.14 |  0.75
+7z PPMd o=16 mem=1024m      |  4,957,102 | 1.2825x |   1.66 |  1.75
+brotli -q 11                |  5,251,143 | 1.2107x |  12.56 |  0.07
+xz -9e -T1                  |  5,281,748 | 1.2037x |   1.54 |  0.23
+7z LZMA2 -mx=9              |  5,288,968 | 1.2020x |   1.30 |  0.20
+zstd -22 --ultra --long=27  |  5,312,216 | 1.1968x |   1.25 |  0.01
+zstd -19 -T1                |  5,312,234 | 1.1968x |   1.08 |  0.01
+bzip2 -9                    |  5,353,499 | 1.1875x |   0.39 |  0.30
+gzip -9                     |  5,583,750 | 1.1386x |   0.21 |  0.05
+
+Here mzip wins OUTRIGHT — 3.40% smaller than the next best (7z PPMd), 8.81%
+smaller than brotli, 9.34% smaller than xz. This was NOT expected: the
+prediction on record was that mzip would not win on pre-compressed input.
+Why it wins anyway: SNAPPY is LZ77 with NO entropy coding — its literals ride
+as raw bytes — so a strong context model still finds a great deal to remove.
+That is also why PPMd is second here and the LZ77 family bunches at ~1.20x.
+
+CONTAINER COST (the practically useful number)
+-----------------------------------------------
+Storing this corpus as the shipped parquet, recompressed:  4,788,333
+Storing it as raw text, recompressed:                      2,454,799
+The parquet container costs 95% MORE for the same content. If the objective
+is archival size rather than columnar random access, unwrap before storing.
+
+
+WHAT MZIP ACTUALLY DID (MZIP_STATS=1)
+--------------------------------------
+Both inputs route to the SAME encoder: BWT_TEXT (0x26), mzip's BWT pipeline.
+  parquet:  MZSTATS BWT_TEXT 6357543 4788313      (single block)
+  text:     MZSTATS BWT_TEXT 10914845 2454793     (whole-file, and it wins)
+            MZSTATS PERIODIC_APPROX 23768 12      (a split trial: 23,768 B
+            MZSTATS BWT_TEXT 10891078 2455080      of periodic data found and
+            MZSTATS BG ... 2455086 / 2454799       encoded to 12 bytes, but the
+            split's total 2,455,086 LOST to the unsplit 2,454,799, so it was
+            correctly discarded.)
+Neither CM_TEXT nor PPMD nor the brotli/xz backstops fired on this data.
+
+THE LEVEL KNOB IS INERT ON BOTH INPUTS — verified by sha256, not by size:
+  parquet L1/L19/L22 all 7e2157d6...cf5f ; text L1/L19/L22 all fe5da1c0...a3e0
+Note this differs from the 2026-08-27 audio race, where L1 DID differ from L19.
+mzip L1 also costs the full 157 s — there is no fast escape hatch.
+
+COSTS, STATED PLAINLY
+----------------------
+mzip is 86x slower than 7z PPMd to compress the text (165.8 s vs 1.92 s) and
+12x slower than brotli, while landing between them on size. Decompression is
+cheap and asymmetric (0.93 s), as the audio race also found. On the parquet it
+is 31x slower than xz for a 9.3% size win.
+
+STILL UNREACHABLE (carried from the 2026-08-27 baseline, re-confirmed here)
+---------------------------------------------------------------------------
+mzip_cli.cpp:73 calls compress(data, size, level, 0, &res) and never passes
+the 6th CompressionMode parameter, so every number above is the BALANCED
+default. CompressionMode::SMALL ("minimize size, allow high logical depth")
+remains unreachable through the shipped CLI at any level. Untouched here.
+
+UNKNOWN (not measured, do not infer)
+-------------------------------------
+- safetensors / model weights, which dominate the Hub by bytes, were not tested.
+- Only one dataset was tested. wikitext is clean English prose; C4/FineWeb web
+  scrape, code datasets, and multilingual corpora may order differently.
+- Whether raising MZIP_PPMD_MEM to 128 would change any ADOPTION decision was
+  not tested — at 128 MiB PPMd is still worse than BWT_TEXT here, so on this
+  input it would not, but that is one input.
+- zpaq / cmix / other high-end context mixers were not in the field.

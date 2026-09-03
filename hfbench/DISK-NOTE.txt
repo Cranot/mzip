@@ -1,0 +1,5 @@
+DISK NOTE 2026-09-02 23:10 CEST: removed regenerable caches to give the box headroom (freed ~6 GB):
+  convert/quant-repro/src/model.safetensors (Qwen/Qwen2.5-1.5B-Instruct model.safetensors, 3.1 GB, re-download: huggingface.co/Qwen/Qwen2.5-1.5B-Instruct/resolve/main/model.safetensors)
+  convert/quant-repro/venv, llama.cpp/build, llama-b3772/build, llama-b3772/build-nocontract (pip_setup.log / build.log record the exact steps)
+  agents/parquet-transcode/outbig (transcode outputs; results in its REPORT.md) and its four venvs
+Every measurement in MZIP-AT-HF-GRANULARITY.txt / NEW-AXES.md / convert/*/REPORT.md is recorded in logs and JSON; nothing unique was removed. The quant pipeline generated ~40 GB of GGUFs at its peak (df 96%) and its janitor removed them at completion (22:03 CEST).

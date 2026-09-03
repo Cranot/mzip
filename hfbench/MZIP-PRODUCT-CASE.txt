@@ -1,0 +1,113 @@
+WHAT TO OFFER DEVELOPERS — the measured case
+=============================================
+measured 2026-09-01, Hetzner box, /root/mzip-hfbench/
+three real HF datasets, every number produced here, mzip HEAD e5fe7e8.
+
+THE OFFERING IN ONE LINE
+-------------------------
+Unwrap the parquet, compress the payload with mzip: 2.6-2.7x smaller than
+what HuggingFace ships you, consistently, across three unrelated datasets.
+
+                        | HF ships  | unwrap+mzip | vs HF  | unwrap+zstd19 | mzip edge
+------------------------|-----------|-------------|--------|---------------|----------
+wikitext-2-raw (prose)  | 6,357,543 |   2,454,799 | 2.590x |     2,942,598 |  +16.6%
+gsm8k main   (2 cols)   | 2,306,545 |     848,507 | 2.718x |     1,043,844 |  +18.7%
+ai2_arc easy (5 cols)   |   330,598 |     123,227 | 2.683x |       152,762 |  +19.3%
+
+TWO INDEPENDENT LEVERS, AND THE BIGGER ONE IS NOT THE CODER
+------------------------------------------------------------
+1. UNWRAPPING is worth ~2x, and it is remarkably consistent:
+     wikitext 1.95x | gsm8k 2.04x | ai2_arc 2.11x
+   (mzip on the shipped parquet vs mzip on the unwrapped payload.)
+   This lever is CODER-INDEPENDENT. Any developer recompressing HF parquet
+   without unwrapping it first is leaving half the win on the floor. It is
+   also the easiest thing to explain and the easiest to trust.
+2. THE CODER is worth a further 1.20-1.24x over zstd-19, i.e. +16.6% to
+   +19.3%. Real, but the second-order term.
+Sell the product on lever 1; sell mzip on lever 2. Conflating them overclaims.
+
+COMPETITIVE POSITION, STATED HONESTLY
+---------------------------------------
+vs what developers actually use, mzip wins everywhere:
+   zstd-19  +16.6% / +18.7% / +19.3%     brotli-11, xz-9e, gzip: larger margins
+vs 7z PPMd it is a SPLIT and depends on size and shape:
+   wikitext 10.9MB prose  mzip 2,454,799  PPMd 2,425,560   PPMd +1.19%
+   gsm8k     3.96MB mixed mzip   848,507  PPMd   873,874   mzip +2.90%
+   ai2_arc   0.62MB mixed mzip   124,272  PPMd   119,943   PPMd +3.48%
+   => mzip wins at scale, loses on small payloads. Matches its own README.
+   PPMd is not a real competitor for adoption (no modern library binding,
+   7-Zip CLI only), but it IS the honest ceiling reference and should not be
+   hidden from any published table.
+
+PER-COLUMN SPLITTING: ADAPTIVE, NOT ALWAYS
+--------------------------------------------
+Tested like-for-like (same bytes, only granularity differs):
+   ai2_arc  per-column BEATS monolithic by  +0.84%   (5 heterogeneous columns)
+   gsm8k    per-column LOSES to monolithic by -2.12% (2 similar prose columns)
+   zstd loses from splitting in BOTH cases (-3.21%, -4.56%)
+Splitting isolates structure but destroys shared dictionary context. Where it
+wins, it wins hugely at the column level -- mzip on ai2_arc:
+   choices.label   54,014 ->   244   221.37x
+   answerKey       11,255 ->   729    15.44x
+   id              44,715 -> 6,671     6.70x
+   question       259,185 -> 59,607    4.35x
+=> Design: trial both groupings and keep the smaller. That is mzip's existing
+   trial-and-keep philosophy applied one level up, and it is why this belongs
+   in mzip rather than in a generic wrapper.
+
+THE GUARANTEE WE CAN ACTUALLY MAKE (measured, and it is a limit)
+-----------------------------------------------------------------
+Byte-exact parquet reconstruction FAILS and is not worth chasing. Re-encoding
+with pyarrow diverges at OFFSET 5-7 -- immediately after the PAR1 magic, in
+the first page header -- with a 134-144 KB size delta, because HF's file was
+written by parquet-cpp-arrow 12.0.0 and page layout differs throughout. A
+"recipe + diff" would be large, not small.
+Semantic reconstruction IS exact: tables compare equal, payload sha256
+matches byte-for-byte (fc1dd287... on wikitext).
+=> Ship a ROW-EXACT dataset cache/transfer format. Say plainly that it is not
+   a byte-exact Hub mirror: content-addressed mirroring by parquet sha WILL
+   break. For training/eval consumers, who want rows, this is a non-issue.
+
+WHO IT IS FOR, AND WHERE IT MUST NOT BE SOLD
+----------------------------------------------
+FOR: mirroring/caching HF datasets, CI fixtures, bandwidth-bound transfer,
+     cold archival. Write once, read seldom.
+NOT FOR: the hot training read path. mzip decompresses this corpus at ~11.7
+     MB/s (0.93 s for 10.9 MB) against zstd's ~1 GB/s. That is ~100x and it is
+     disqualifying for a dataloader. mzip's own README already says this;
+     the product must repeat it rather than bury it.
+GATE BY SIZE: below ~1 MB of payload mzip loses (ai2_arc). Route small
+     payloads to brotli/zstd and say so.
+
+BUILD ORDER
+-----------
+1. THE EARLY-OUT. Precondition for everything else. 165.8 s to compress 10.9 MB
+   is unshippable; the winning stream is reached in 3.0-20.9 s. 8-55x, free, no
+   licensing question, no format change. Nothing should ship before this.
+2. THE UNWRAP LAYER. The actual product; worth ~2x; coder-independent, so it
+   can be validated and trusted independently of any mzip change.
+3. ADAPTIVE COLUMN GROUPING. Trial monolithic vs per-column, keep smaller.
+   Measured to matter in both directions, so it cannot be a fixed choice.
+4. THE CLEAN-ROOM CM (the 8.6% from MZIP-HEADROOM.txt). Largest remaining size
+   win, but it is real research work and it is gated by the licensing analysis;
+   it should not block 1-3.
+
+OPEN DECISION FOR THE OWNER (not mine to take)
+------------------------------------------------
+Steps 2-3 are NEW CODE and need a home. Per the estate's standing rule a new
+top-level repo is a decision, never a reflex. Candidates: inside mzip as a
+subcommand/tooling dir; inside compile-code; or a decided new repo. Ask before
+creating one.
+
+UNKNOWN (not measured; do not infer)
+--------------------------------------
+- Only three datasets, all English text-ish. No image/audio/multimodal HF
+  dataset, no safetensors, no arrow/webdataset shard was tested.
+- The serialization used for the per-column test is a length-prefixed
+  representation chosen to be identical across both arms. A real format would
+  use arrow buffers; the ratios should be re-measured on that representation
+  before publication.
+- Decompress speed was measured only on the wikitext payload.
+- Whether restoring to arrow (skipping parquet re-encode entirely) is faster
+  end-to-end than parquet+zstd was not measured, and it is the number a
+  dataloader user would actually ask for.

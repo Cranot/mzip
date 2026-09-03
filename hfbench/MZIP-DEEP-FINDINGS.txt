@@ -1,0 +1,150 @@
+MZIP — DEEP WIN/LOSS INVESTIGATION ON REAL HUGGINGFACE DATA
+============================================================
+measured 2026-09-01, Hetzner box (i5-12500, 12c/62GB), /root/mzip-hfbench/
+subject: /root/mzip HEAD e5fe7e8 (2026-08-13), clean tree, full backstops
+         (zstd + brotlienc/dec + liblzma + PPMd) built via build_mzip_linux.sh.
+all runs single-threaded; every mzip/lpaq row sha256 round-trip VERIFIED.
+raw data: run2/matrix.json, run2/headroom.json, run2/bigladder.json
+
+=============================================================================
+1. SHAPE MATRIX — mzip wins 7 of 8 real HF data shapes
+=============================================================================
+8MB-capped payloads from real HF datasets. "best rival" = smallest of
+gzip-9/bzip2-9/xz-9e/zstd-19/brotli-11/7z-PPMd(256MiB).
+
+corpus            |    orig    |   mzip    | best rival | verdict     | vs zstd
+------------------|------------|-----------|------------|-------------|--------
+tabular-numeric   |  8,388,604 | 1,034,164 |  1,097,580 | WIN  +5.78% | +29.15%
+tweets-jsonl      |  3,633,338 |   728,468 |    741,044 | WIN  +1.70% | +24.67%
+alpaca-instruct   |  8,388,417 | 1,652,011 |  1,686,099 | WIN  +2.02% | +21.95%
+qa-gsm8k          |  3,963,202 |   848,507 |    873,874 | WIN  +2.90% | +18.71%
+dialogue-csv      |  8,388,522 | 1,439,491 |  1,463,981 | WIN  +1.67% | +18.45%
+prose-wikitext    |  8,388,051 | 1,908,380 |  1,928,088 | WIN  +1.02% | +16.31%
+code-python       |  8,388,591 | 1,343,486 |  1,366,411 | WIN  +1.68% | +12.89%
+qa-arc            |    619,001 |   124,272 |    119,943 | LOSE -3.50% | +18.65%
+
+The best rival is 7z PPMd in EVERY row. Against what developers actually use
+(zstd/brotli/xz/gzip) mzip wins by 12.9-29.2% everywhere, no exceptions.
+tabular-numeric reaches 0.9863 bpb -- under one bit per byte.
+Note bzip2 beats xz/zstd/brotli on tabular-numeric (1,287,388): BWT suits
+numeric CSV, which is also why mzip's GRID path does so well there.
+
+=============================================================================
+2. THE ROUTING MAP — every win and loss traced to a named gate
+=============================================================================
+Telemetry via MZIP_STATS=1. Container families compete whole-file
+(MU/BG/MS/MT/MB/MQ/ML/MY/MF/MM/MI); block types compete per block.
+
+input size          | container | encoder    | outcome
+--------------------|-----------|------------|---------------------------
+<= 64 KB            | MU (lite) | wraps      | LOSES to brotli by 0.10%
+  (MU_MAX_SIZE)     |           | BROTLI     | -- it IS brotli + framing
+64 KB - 1 MB        | standard  | PPMD       | WINS
+  (MC_THRESHOLD=1MB)|           |            |
+1 MB - 16 MB        | BG/MT/MY  | BWT_TEXT   | WINS
+> 16 MB             | multi-blk | BWT_TEXT   | WINS, and margin GROWS
+  (DEFAULT_BLOCK_SIZE=16MB)
+
+Which family won, by corpus: BG (prose, dialogue, alpaca, tweets, gsm8k),
+MT = GRID (tabular-numeric), MY = FILTER (code). This corroborates
+ablation.md's load-bearing families (A5_GRID 418,875 B, A8_FILTER 645,475 B,
+A4_NUMERIC 384,417 B) on independent data.
+
+THE TWO LOSSES, AND THEY ARE DIFFERENT ANIMALS
+- Tiny (<=64KB): mzip SELECTS brotli and pays container overhead on top. It
+  cannot win by construction. Not worth fixing; gate by size and route small
+  payloads to brotli directly.
+- qa-arc (619 KB): -3.50% vs PPMd. This is the length-prefixed binary framing
+  used for the per-column test, not the dataset. RE-TEST on arrow buffers
+  before publishing any per-column claim.
+
+=============================================================================
+3. SCALE BEHAVIOUR — the fear was wrong, mzip IMPROVES with size
+=============================================================================
+wikitext-103 slices, all three mutually comparable (same corpus).
+PREDICTION ON RECORD: mzip's deficit would GROW past the 16MB block boundary
+because it must split while a CM streams. That prediction is FALSIFIED.
+
+slice     |  zstd -19 |  7z PPMd  |  lpaq1    |  mzip     | mzip bpb
+----------|-----------|-----------|-----------|-----------|----------
+16,776,925| 4,469,626 | 3,755,068 | 3,401,669 | 3,693,778 | 1.7614
+25,165,395| 6,650,084 | 5,588,922 | 5,034,963 | 5,426,460 | 1.7251
+33,553,232| 8,825,021 | 7,439,250 | 6,660,576 | 7,126,277 | 1.6991
+
+mzip vs 7z PPMd : +1.63% -> +2.91% -> +4.21%   (mzip pulls AWAY)
+mzip vs zstd-19 : +17.36% -> +18.40% -> +19.25% (widening)
+lpaq1 vs mzip   :  7.91% ->  7.22% ->  6.54%   (CM gap CLOSING)
+mzip bpb        : monotonically improving through the block boundary.
+
+=> Multi-block splitting costs nothing measurable. mzip is a SCALE-UP story:
+   the bigger the shard, the better it looks against everything.
+
+=============================================================================
+4. THE UNIVERSAL CEILING — a direct CM beats mzip on 8 of 8 shapes
+=============================================================================
+corpus            |   mzip    |  lpaq1    | zpaq -m5  | best CM beats mzip by
+------------------|-----------|-----------|-----------|----------------------
+code-python       | 1,343,486 | 1,145,107 | 1,154,465 | +14.77%
+qa-arc            |   124,272 |   111,810 |   115,293 | +10.03%
+qa-gsm8k          |   848,507 |   770,645 |   788,499 |  +9.18%
+prose-wikitext    | 1,908,380 | 1,737,041 | 1,751,054 |  +8.98%
+dialogue-csv      | 1,439,491 | 1,322,501 | 1,358,469 |  +8.13%
+alpaca-instruct   | 1,652,011 | 1,570,410 | 1,601,396 |  +4.94%
+tweets-jsonl      |   728,468 |   710,649 |   712,432 |  +2.45%
+tabular-numeric   | 1,034,164 | 1,010,576 | 1,023,434 |  +2.28%
+
+Two independent context mixers agree, so this is not an lpaq artifact. The
+headroom is UNIVERSAL, not prose-specific -- 2.28% to 14.77%.
+CRITICALLY, this INVERTS internal/MZIP_APPLY.md's priority ranking, which puts
+numeric/predictor residuals first: measured headroom is SMALLEST on
+tabular-numeric (2.28%) and LARGEST on text/code (8.98%/14.77%). Re-derive that
+list against measurement before spending engineering on it.
+
+=============================================================================
+5. THE COST — this is the real productization blocker, not ratio
+=============================================================================
+compress throughput, 32 MiB slice:
+   7z PPMd  0.18 s/MB    lpaq1 1.5 s/MB    mzip 17.4 s/MB (557.9 s total)
+mzip is 93x slower than PPMd and 11.6x slower than lpaq to land BETWEEN them.
+Decompression: ~11.7 MB/s vs zstd's ~1 GB/s (~100x), disqualifying for a
+dataloader hot path but fine for cold archival.
+
+AND MOST OF IT IS WASTE: on wikitext the winning stream is produced by bwt9 in
+20.9 s (or cm_backend in 3.0 s) while the CLI takes 165.8 s -- ~87% of runtime
+recomputes bwt9 across the per-block, split-trial and BG paths and runs
+brotli/xz/PPMd backstops that all lose. An early-out on large text-like input
+is 8-55x, free, no format change, no licensing question. THIS IS THE #1 FIX.
+
+=============================================================================
+6. WHAT IS ALREADY KNOWN vs WHAT IS NEW
+=============================================================================
+ALREADY KNOWN (found by reading the repo's own record, do not re-derive):
+- internal/MZIP_APPLY.md already names the CM entropy backend as "the single
+  biggest product lever" and records CM beating zstd/order-0 by 9-14% on text.
+  My 8-shape HF measurement independently corroborates (8.98% prose, 14.77%
+  code) and extends it: the gain is universal across shapes.
+- internal/CM_SAUCE.md documents bwtcm.cpp reaching 164,159,478 B on full
+  enwik9 = #3 non-neural, beating bzip3 by 3.4%.
+NEW HERE:
+- The 8-shape HF win/loss map and the two named loss edges.
+- The scale-up result (deficit shrinks, not grows, past 16 MB).
+- The stale published numbers (see MZIP-README-STALE.txt): README says 2,671,197
+  for enwik9 10 MiB; measured 2,427,140, a 9.14% self-understatement, because
+  the CM sauce shipped and the table was never updated. Rig validated by
+  reproducing CM_SAUCE.md's own 2,427,131 byte-for-byte.
+- cm_backend/bwt9/bwtcm/shipped agree within 9 bytes: they have CONVERGED
+  because the CM win is already banked. Do NOT read that near-tie as "the CM
+  trial is redundant" and delete it.
+
+=============================================================================
+UNKNOWN (measured nothing; do not infer)
+=============================================================================
+- No image/audio/multimodal HF dataset, no safetensors, no arrow/webdataset.
+- qa-arc's loss may be an artifact of the length-prefixed test serialization.
+- The project's own benchmark_types.py and diagnose_encoders.py were NOT run
+  against these HF corpora; doing so would use their tooling instead of mine
+  and is the cheapest next validation.
+- Whether raising MZIP_PPMD_MEM past its 128 format cap flips adoption at any
+  size was tested only at 10.9 MB (it does not there).
+- Decompress speed measured on wikitext only.
+- Every corpus here is English text-ish; multilingual untested.

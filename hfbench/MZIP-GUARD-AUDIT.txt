@@ -1,0 +1,86 @@
+AUDIT: SEVEN ENCODER-ADOPTION PATHS SHIP WITHOUT A ROUNDTRIP VERIFY
+====================================================================
+audited 2026-09-01 against /root/mzip HEAD e5fe7e8, mzip.hpp.
+Prompted by a MEASURED failure (see MZIP-NUM-EXTRACT-BUG.txt): a lossy
+specialist encoder was adopted unchecked, failed the top-level verify, and the
+whole 58 KB file fell to uRAW -- 28x worse than brotli on real HF data.
+
+THE PATTERN THE CODEBASE ALREADY RECOGNISES
+---------------------------------------------
+Three branches were hardened after incidents of exactly this class, and their
+comments state the rule plainly:
+- PHRASE_PARTITION (16211, 2026-08-04): "...shipped for a long time with an
+  `encoded.empty()` guard as its ONLY check, and an empty guard cannot detect a
+  well-formed stream that simply decodes to the wrong thing."
+- CHAR_TEMPLATE (16046, 2026-08-08): added after a lossy encode_char_template
+  sent a 225 KB file to uRAW -- "225 KB raw vs xz 9.7 KB = 22x blowup".
+- COLUMNAR / CSV_COLUMNAR: cited by both of the above as the pattern to mirror.
+So the fix shape is settled and already present in-tree. It simply was not
+applied to every branch of the same shape.
+
+UNGUARDED ADOPTION PATHS (hand-verified by reading each branch)
+----------------------------------------------------------------
+line   | branch          | guard present      | status
+-------|-----------------|--------------------|----------------------------------
+16195  | NUM_EXTRACT     | NONE (not even     | *** MEASURED FAILING ***
+       |                 | encoded.empty())   | 58,110 -> 58,115 uRAW vs brotli 2,050
+16203  | LINE_TEMPLATE   | NONE               | latent, same shape
+16276  | SORTED_DICT     | encoded.empty()    | latent, the exact pre-fix state
+       |                 | only               | PHRASE_PARTITION warns about
+16292  | KV_CONFIG       | encoded.empty()    | latent; documented as "beats brotli
+       |                 | only               | by 7% on 16KB config files", i.e. it
+       |                 |                    | FIRES on the HF-config file shape
+16350  | CODE_STREAM     | NONE               | latent
+16356  | REFERENCE       | NONE               | latent; CROSS-BLOCK delta, so a
+       |                 |                    | failure depends on a previous block
+       |                 |                    | -- hardest class to reproduce
+15766  | DBF_CONSTCOL    | empty + size cmp,  | latent
+       |                 | no roundtrip       |
+
+METHOD, AND ITS LIMIT (stated so the list is not over-trusted)
+---------------------------------------------------------------
+A scripted pass over every `use_generator = true` site (audit_guards.py, 47
+sites) was used only to ENUMERATE candidates; its guard/no-guard labels are NOT
+reliable. With a 45-line lookback it reported NUM_EXTRACT as guarded because it
+picked up the PRECEDING branch's CSV_COLUMNAR verify -- a false clean on the one
+branch already proven broken. Every row in the table above was therefore
+hand-read. The list is a LOWER BOUND: 25 sites were flagged by the script and
+only the specialist-encoder ones were hand-checked; the standard-codec
+adoptions (BWT_TEXT, XZLIB, BROTLI, ZSTD_DICT, CM_TEXT, LZMA_*) were not, on the
+judgement that library codecs are far better tested -- that judgement is
+UNVERIFIED and is the obvious place for this audit to be wrong.
+
+WHY THE EXISTING TEST SUITE CANNOT SEE ANY OF THIS
+----------------------------------------------------
+The top-level end-to-end verify means no corrupt archive is ever emitted -- the
+file round-trips perfectly, as uRAW. CLAUDE.md records that the fuzzers' oracle
+is "only crashed? / round-tripped?, and that is their ceiling". A lossy encoder
+absorbed by the uRAW fallback satisfies that oracle completely. This bug class
+is invisible by construction and can only be caught by a RATIO oracle.
+
+RECOMMENDED FIXES, IN ORDER
+-----------------------------
+1. Guard NUM_EXTRACT (16195) exactly as PHRASE_PARTITION does: decode, compare,
+   else `analysis.type = BlockType::TEXT` so the block flows to the backstop
+   ensemble. Then fix encode_num_extract at source -- the guard is defence in
+   depth, not a cure (it currently loses 5 bytes on the reproducer).
+2. Apply the same guard to the six latent paths. Cost is one decode per adopted
+   block on paths that already ran a full encode; PHRASE_PARTITION and
+   CHAR_TEMPLATE already pay it.
+3. Add a RATIO-REGRESSION oracle to diagnose_encoders.py's LOSS category:
+   flag any file where mzip output >= input size, or where mzip loses to the
+   best standard codec by more than 2x. A single assertion -- "mzip never ships
+   uRAW for a file brotli compresses more than 2x" -- catches this whole class.
+4. Consider making the adopt-with-verify a helper so a new specialist encoder
+   cannot be added without one. Six repetitions of the same fix is a signal that
+   the shape, not the instances, is the defect.
+
+WHAT THIS AUDIT DOES *NOT* CLAIM
+----------------------------------
+- Only NUM_EXTRACT is MEASURED to be lossy. The other six are unguarded, which
+  is a risk, NOT a demonstrated defect. Do not report them as bugs.
+- No claim that the standard-codec adoption paths are safe; they were not
+  examined.
+- No claim about how often each latent path fires in practice. LINE_TEMPLATE
+  was not observed firing on any corpus tested here (checked via MZIP_STATS
+  across the 8 shape corpora: zero occurrences).

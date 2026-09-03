@@ -1,0 +1,94 @@
+MZIP vs WHAT HUGGINGFACE ACTUALLY RUNS
+=======================================
+measured 2026-09-01, Hetzner i5-12500, single-threaded, /root/mzip-hfbench/
+subject: /root/mzip HEAD e5fe7e8 + the NUM_EXTRACT guard (this session).
+data: 8 MiB slices taken 4 MB into the tensor region of six real model files,
+      fetched by HTTP range request. Every arm round-trip verified (ALL OK).
+raw: weights/xet_full.json
+
+WHAT HF ACTUALLY USES -- ESTABLISHED FROM SOURCE, NOT ASSUMED
+---------------------------------------------------------------
+xet-core/xet_core_structures/src/xorb_object/compression_scheme.rs:
+    pub enum CompressionScheme { None = 0, LZ4 = 1, ByteGrouping4LZ4 = 2, Auto = 99 }
+plus a sibling module `byte_grouping` implementing bg4_split / bg4_regroup.
+So the Hub stores chunks as 4-byte-grouped + LZ4. Comparisons against RAW or
+against zstd-19 are therefore NOT valid savings claims -- HF does neither.
+lz4_flex's FrameEncoder defaults to FAST mode, so `lz4` at default level is the
+faithful simulation; `-9` is included as the strongest the scheme could reach.
+NOTE: Xet ALSO does chunk-level DEDUPLICATION across repos. Nothing here
+measures that. These numbers are per-file compression only and would apply to
+whatever survives dedup, not to gross uploads.
+
+TOTALS -- 6 model slices, 50,331,648 B raw
+--------------------------------------------
+scheme            |      bytes | ratio  | comp s | dec s | MB/s c | MB/s d
+------------------|------------|--------|--------|-------|--------|-------
+lz4 (plain)       | 49,831,206 | 1.010x |    0.1 |   0.1 |  499.8 |  811.3
+bg4-lz4  <-- HF   | 42,269,122 | 1.191x |    0.2 |   0.2 |  236.6 |  316.2
+bg4-lz4 -9        | 39,084,131 | 1.288x |    3.9 |   0.2 |   12.5 |  287.3
+zstd-19 (ref)     | 40,704,479 | 1.237x |   17.7 |   0.1 |    2.7 |  407.3
+mzip              | 35,572,346 | 1.415x |  292.4 |   3.7 |    0.2 |   13.0
+
+  mzip vs Xet bg4-lz4 : +15.84% SMALLER
+  compress            : 1,441x SLOWER than Xet
+  decompress          : 24x slower than Xet (but see bimodality below)
+
+PER MODEL (mzip vs bg4-lz4)
+----------------------------
+model           dtype   bg4-lz4     mzip    smaller   comp    decomp
+bge-small       F32   5,081,977  3,507,514  +30.98%  1435x     40x
+SmolLM2-135M    BF16  7,135,282  5,579,936  +21.80%  1376x     52x
+Qwen2.5-0.5B    BF16  7,000,122  5,526,346  +21.05%  1556x     55x
+MiniLM-L6-v2    F32   (see json)  6,155,434  ~+13%   ~1400x    ~40x
+gpt2            F32   7,771,436  7,041,468   +9.39%  1923x      1x
+bert-base       F32   7,588,009  6,919,467   +8.81%  1420x      1x
+
+Spread is LARGE (8.8% to 31.0%). A single mean hides that; show the range.
+
+THREE FINDINGS WORTH STATING
+------------------------------
+1. PLAIN LZ4 DOES ALMOST NOTHING ON WEIGHTS: 1.010x. Xet's entire win on this
+   data (1.191x) comes from the BG4 byte grouping, not from LZ4. Their design
+   choice is the right one and it is doing ~95% of the work.
+2. MZIP'S DECOMPRESS COST IS BIMODAL and the total conceals it. On gpt2 and
+   bert-base mzip decompresses in 0.03 s -- the SAME as Xet. On SmolLM2, Qwen
+   and bge-small it is 1.1-1.3 s (40-55x). It depends which encoder wins the
+   trial. "24x slower" is the aggregate, not a universal property.
+3. HF CAN HAVE ~8% FOR FREE WITHOUT US. bg4-lz4 at -9 reaches 1.288x against
+   their current 1.191x, still at 12.5 MB/s compress and unchanged decompress
+   (287 MB/s). That is a one-line config change on their side and it is worth
+   saying out loud rather than hiding.
+
+EXTRAPOLATION TO "4 PB UPLOADED LAST WEEK" -- WITH ITS ASSUMPTIONS NAMED
+-------------------------------------------------------------------------
+IF the 4 PB were all model weights resembling these six, and IF the figure is
+logical (pre-compression) volume, and IGNORING dedup:
+    stored today at 1.191x : 4 PB / 1.191 = 3.359 PB
+    stored with mzip 1.415x: 4 PB / 1.415 = 2.827 PB
+    difference             : ~0.53 PB per week  (~530 TB), ~27.7 PB per year
+    = the 15.84% figure, restated in petabytes.
+
+EVERY ONE OF THOSE "IF"s IS LOAD-BEARING:
+ - The 4 PB is "models AND datasets". The dataset half is parquet, already
+   SNAPPY-compressed internally, and behaves completely differently. No
+   measured models:datasets split exists, so a single blended percentage across
+   all 4 PB would be fabricated.
+ - Xet deduplicates across repos BEFORE storage. Compression savings apply to
+   post-dedup bytes. The real figure is therefore LOWER than 530 TB, by however
+   much dedup already removes -- which is unmeasured here.
+ - Six 8 MiB slices is a small sample, and the per-model spread is 8.8-31.0%.
+ - Slices are from the middle of each file, not whole files.
+
+THE COST, WHICH MUST BE STATED ALONGSIDE THE SAVING
+-----------------------------------------------------
+mzip compresses at 0.164 MiB/s/core on this data. Sustaining 4 PB/week of
+ingest would need roughly 38,000 cores running continuously -- versus Xet's
+current ~237 MB/s, which needs a rounding error of one machine.
+That single fact settles the framing: this is a COLD-TIER / ARCHIVAL argument
+(write once, read rarely, keep forever), not a proposal to replace the upload
+path. Decompression at 13 MB/s aggregate is likewise unfit for a hot serving
+path, though the bimodality above means some model families decompress at
+Xet-comparable speed.
+Storage saved ACCUMULATES while compute is paid once per upload, so the trade
+improves over a long retention horizon -- but that economics case is not
+measured here and should not be asserted.

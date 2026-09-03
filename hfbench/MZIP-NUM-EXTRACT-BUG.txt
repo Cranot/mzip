@@ -1,0 +1,110 @@
+DEFECT: NUM_EXTRACT is LOSSY and UNGUARDED -- 28x blowup on real HF data
+=========================================================================
+found 2026-09-01 on real HuggingFace files, /root/mzip-hfbench/small2/
+subject: /root/mzip HEAD e5fe7e8. Reproducer and probe kept.
+
+REPRODUCER
+----------
+file: /root/mzip-hfbench/small2/nvidia__Qwen3.6-35B-A3B-NVFP4__config.json
+      58,110 bytes, ordinary JSON model config, fetched from
+      https://huggingface.co/nvidia/Qwen3.6-35B-A3B-NVFP4/resolve/main/config.json
+
+  mzip_cli c <file> out 19   ->  58,115 bytes  (0.999914x -- LARGER than input)
+  brotli -q 11               ->   2,050 bytes
+  xz -9e                     ->   2,092 bytes
+  zstd -19                   ->   2,514 bytes
+  gzip -9                    ->   3,246 bytes
+mzip is 28x worse than brotli on a file every other codec handles easily.
+
+ROOT CAUSE -- MEASURED, NOT INFERRED
+--------------------------------------
+Built a direct probe against the codec pair (numextract_probe.cpp, binary at
+build/ne_probe) rather than reasoning from telemetry:
+
+  input   : 58,110 bytes
+  encoded : 1,600 bytes  (36.32x)   <- encode_num_extract, mzip.hpp:10376
+  decoded : 58,105 bytes            <- decode_num_extract, mzip.hpp:10462
+  VERDICT : LOSSY -- decode returns 5 BYTES SHORT
+
+So `encode_num_extract` is NOT lossless on this input. That is defect #1.
+
+DEFECT #2 -- THE ADOPTION BRANCH HAS NO VERIFY
+------------------------------------------------
+mzip.hpp:16195, the NUM_EXTRACT branch, adopts the encoder output with NO
+roundtrip check and not even an `encoded.empty()` guard:
+
+    } else if (analysis.type == BlockType::NUM_EXTRACT) {
+        auto encoded = MZ_TIMED("encode_num_extract", encode_num_extract(...));
+        memcpy(preprocess_data, encoded.data(), encoded.size());   // adopted blind
+        preprocess_size = encoded.size();
+        use_generator = true;
+
+The corrupt block then fails the TOP-LEVEL end-to-end verify, and the WHOLE
+FILE falls to the uRAW store. Telemetry shows exactly this:
+    MZSTATS NUM_EXTRACT  58110 -> 1600
+    MZSTATS MU           58110 -> 1606      <- a 1,606-byte container existed
+    58110 -> 58115                          <- and uRAW shipped instead
+
+THE FIX PATTERN IS ALREADY IN THIS FILE, TWICE
+------------------------------------------------
+Sibling branches were hardened against precisely this failure class:
+- PHRASE_PARTITION (mzip.hpp:16211, added 2026-08-04): full roundtrip verify.
+  Its own comment: "an empty guard cannot detect a well-formed stream that
+  simply decodes to the wrong thing."
+- CHAR_TEMPLATE (mzip.hpp:16046, added 2026-08-08): roundtrip verify, added
+  after an identical incident -- "the block then failed the top-level
+  end-to-end verify and the WHOLE 225 KB file fell to the uRAW store
+  (225 KB raw vs xz 9.7 KB = 22x blowup)."
+NUM_EXTRACT never got the same treatment. Fix: verify, else set
+analysis.type = BlockType::TEXT so the block flows to the backstop ensemble
+(PPMD/XZLIB/BROTLI/bwt9), exactly as the two siblings do.
+Fix the encoder at source too -- the verify is defence in depth, not a cure.
+
+STILL UNGUARDED -- SAME SHAPE, NOT YET OBSERVED FAILING
+---------------------------------------------------------
+LINE_TEMPLATE (mzip.hpp:16203) adopts encode_line_template output with no
+verify and no empty guard, identical in shape to the NUM_EXTRACT branch. It
+has NOT been observed failing here; flagged as the same latent risk, not as a
+measured defect. An audit of every `use_generator = true` adoption for a
+missing verify is the general form of this fix.
+
+WHY THIS SURVIVED THE TEST SUITE -- AN ORACLE GAP, NOT NEGLIGENCE
+-------------------------------------------------------------------
+The top-level verify does its job: no corrupt archive is ever emitted, and the
+file round-trips perfectly (as uRAW). CLAUDE.md states the fuzzers' oracle is
+"only crashed? / round-tripped?, and that is their ceiling". A lossy encoder
+whose damage is absorbed by the uRAW fallback ROUND-TRIPS CLEANLY, so it is
+structurally invisible to that oracle. It can only be caught by a
+RATIO-REGRESSION oracle -- e.g. flag any file where mzip output >= input size,
+or where mzip loses to a standard codec by more than some factor.
+Recommend adding that check to diagnose_encoders.py's LOSS category, which is
+already the right home for it. A single assertion -- "mzip never ships uRAW for
+a file brotli compresses more than 2x" -- would have caught this.
+
+SCOPE -- HOW MUCH DOES THIS COST IN PRACTICE?
+-----------------------------------------------
+Across 144 held-out real HF config/tokenizer JSON files (736,705 B total):
+    brotli -q11        63,528
+    mzip L19          116,456
+That LOOKS like mzip being 83% worse, and it was reported that way at first.
+It is not: ONE file contributes +56,065 of the +52,928 total gap. Excluding it,
+mzip is within a few bytes of brotli per file (60/144 worse, typically +2..+7 B
+of container framing; several files favour mzip by 6-18 B). The aggregate was
+dominated by a single pathological case -- a reminder to look at the
+DISTRIBUTION before characterising a corpus-level number.
+So: the systematic small-file story is "parity with brotli, modulo framing".
+The real defect is the outlier, and it is a bug rather than a tuning gap.
+
+SEPARATE AND UNRELATED -- THE DICTIONARY OPPORTUNITY
+------------------------------------------------------
+On the same 144 held-out files, a 15,789-byte zstd dictionary trained on the
+other 145 files beats brotli by 26.65% and wins 137/144 files:
+    zstd -19 + HF dict   46,595   (15.81x)
+    brotli -q11          63,528   (11.60x)
+    zstd -19             74,609   ( 9.87x)
+mzip already has a ZSTD_DICT block type (0x37) and ships mzip_dicts.h; it just
+carries no HF-shaped dictionary. This is a content question, not machinery.
+CAVEAT: an n=8 pilot on hand-picked repos showed mzip +3.39% over brotli and
+was overturned by this n=144 sample drawn from the top-120 models by downloads.
+Do not bank a small-file number on a small sample; these files are highly
+self-similar and a narrow draw flatters whoever it happens to suit.

@@ -189,3 +189,7 @@ scratchpad_verify/
 *_probe.cpp
 *_probe2.cpp
 mzip_ut
+
+# hfbench is the measurement record and its scripts: the repo-wide *.py / *.txt
+# ignores above must not apply there, or the record silently fails to land.
+!hfbench/**
