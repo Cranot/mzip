@@ -1,0 +1,11 @@
+# gitleaks configuration: allow the synthetic benchmark corpus.
+# samples/1m/input/env_file.env holds ~9,000 random secret-shaped values generated as compression
+# benchmark input (see samples/CORPUS-NOTE.md). Nothing in it is a credential.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "synthetic .env benchmark corpus, random values, no real credentials"
+paths = [
+  'samples/1m/input/env_file\.env$',
+]
