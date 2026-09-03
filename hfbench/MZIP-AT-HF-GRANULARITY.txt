@@ -4029,3 +4029,18 @@ not a store change, and small. Small models show nothing (R118).
 Together with R118: the coder-side levers the insights pointed at sum to roughly a point on the
 headline -- scale planes 2.4% of parentless quants, wide-alphabet mode on deltas and on bf16, column
 contexts in layer 0. Worth doing as Fano work; none of them changes what the store must be.
+
+RESULT 120 — F32 uploads are genuinely fp32: only 4.5% of the class is an upcast [M, negative]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, f32cast.py. Hypothesis: much of the week's 19 TB of F32 safetensors is bf16-trained weight
+saved as fp32, with 16 zero low bits per weight -- which Fano's plane coder collapses to nothing, so
+those files would compress 2x rather than the 1.59x the page uses for the class.
+    F32 repos probed 30 (0.647 TB in sample):  true f32 28,  bf16 upcast 2,  f16 upcast 0
+    upcast share of F32 bytes: 4.5%
+People who upload fp32 mean it. The free 2x applies to under 1 TB/week; the class stays at 1.59x
+(RESULT 79's measured figure) and Fano already takes the zero planes where they occur. Closed.
+
+Also from this pass: the first parent-discovery run (parentfind.py v1) drained the Hub's 500-requests-
+per-5-minutes window and reported 72 of 80 repos as "no config"; the paced rerun replaces it. A 429 and
+a missing file are the same None to get_json -- the day's eleventh absent-field-as-value trap, and the
+only one caused by my own request rate.

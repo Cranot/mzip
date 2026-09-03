@@ -43,14 +43,17 @@ def slice2d(rid, want=None, nel=32768):
 def root_candidates(mt, key):
     """most-downloaded Hub models tagged with this model_type whose config matches the key"""
     out = []
-    lst = api(f"{H}/api/models?filter={mt}&sort=downloads&direction=-1&limit=40")
+    # the Hub allows 500 requests per 5-minute window; 40 config fetches per new key drained it and
+    # every 429 read as "no config". Twenty candidates, paced, and stop at two matches.
+    lst = api(f"{H}/api/models?filter={mt}&sort=downloads&direction=-1&limit=20")
     for m in (lst or []):
         rid = m.get("id") or m.get("modelId")
         if not rid: continue
         try:
             if arch_key(rid) == key: out.append(rid)
         except Exception: pass
-        if len(out) >= 3: break
+        time.sleep(0.4)
+        if len(out) >= 2: break
     return out
 
 def main():
@@ -75,8 +78,13 @@ def main():
     for i, (rid, bf) in enumerate(cand[:LIMIT]):
         if (i + 1) % 20 == 0: print(f"  ...{i+1}, {time.time()-t0:.0f}s, found {found}", flush=True)
         try:
-            key = arch_key(rid)
-            if not key: why["no config"] += 1; continue
+            key = None
+            for attempt in range(3):                       # a 429 reads as "no config"; back off and retry
+                key = arch_key(rid)
+                if key: break
+                time.sleep(2.0 * (attempt + 1))
+            if not key: why["no config (or rate-limited)"] += 1; continue
+            time.sleep(0.3)
             mt = key.split("|")[0]
             if key not in rootcache: rootcache[key] = root_candidates(mt, key)
             roots = [x for x in rootcache[key] if x != rid]
