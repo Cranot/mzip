@@ -1,0 +1,664 @@
+{
+ "probed": 725,
+ "probed_b": 23521148085796.945,
+ "tot_w": 70941794041950.0,
+ "exact_b": 3933770396531.106,
+ "pert_b": 5551852196547.309,
+ "indep_b": 2482036070448.7188,
+ "solo_b": 1217262593090.9087,
+ "clusters": [
+  [
+   "qwen4_exp|2560|48|24|248320|None",
+   6,
+   4,
+   0,
+   2,
+   868.5397835729592,
+   {
+    "exact": [
+     "FlagRelease/Qwen3.8-Flash-Next-BF16-sunrise-FlagOS",
+     "Vaibhavhome30/Qwen3.8-Flash-Next",
+     "mbehr90/Qwen3.8-Flash-Next-fp8",
+     "aixiaoma/Qwen3.8-Flash-Next-W4A16"
+    ],
+    "perturbed": [],
+    "tensor": false
+   }
+  ],
+  [
+   "qwen3_5_moe|2048|40|16|248320|None",
+   96,
+   38,
+   51,
+   88,
+   6325.01068103,
+   {
+    "exact": [
+     "topcatmax/mirror-musc1es-affine-5ek5k4rbj7-055c91371d",
+     "ShellFace/20260830-183402",
+     "mat400/affine-5GxuhSvToM-wvi1",
+     "crazyape777/mir-diane613-affine-5gedzafcvg-cool-79ed8",
+     "Blade01/affine-5GxuhSvToM-5pkL",
+     "quietyield/sn120-f3106d8824f9",
+     "HarperJane/20260902-144550",
+     "Gael1125/43b2de26-cea1-425c-9937-6af5ac2fe458",
+     "mintsignal/sn120-52209abd9130",
+     "Macvex/intoL-9a",
+     "etienes/affine-5GxuhSvToM-zyTs",
+     "longertime/justice101-hrone",
+     "0pentensor/Affine-5dflhtkufw-awesome-v24",
+     "isomsom/Affine-5cdqb2dugt-g2",
+     "HarperJane/20260828-072405",
+     "topcatmax/mirror-unconstai-affine-5ek5k4rbj7-e01cba24cf",
+     "HarperJane/20260829-053701",
+     "angryaffine/Affine-5dhllm8qg9-w1",
+     "HarperJane/20260829-050006",
+     "ShellFace/20260829-050436",
+     "ShellFace/20260829-003319",
+     "HarperJane/20260827-075550",
+     "standjones/mirror-angryaffine-affine-5dhllm8qg9-x1",
+     "angryaffine/Affine-5dhllm8qg9-y1",
+     "HarperJane/20260902-083523",
+     "pandora-box/Affine-5csuuetoqu-ogfqekzo",
+     "afgod1079/Affine-5ejzgj7kv5-cp1200",
+     "imaman520/Affine-5ejzgj7kv5-cp1200-20260902T192342",
+     "mat400/affine-5GxuhSvToM-Y0fP",
+     "tastegarden/sn120-e8f5c87840ba",
+     "Tok331102/affine-5EqYW8McUc-final",
+     "quietyield/sn120-281efca21e45",
+     "HarperJane/20260901-131636",
+     "ShellFace/20260827-074115",
+     "windsword8989/jusua-5dpmave72j-rft-st80",
+     "mintsignal/sn120-be8ddf199c86",
+     "longertime/wondercat-er-33",
+     "wondercat/albedo-qwen3.6-35b-wonder-32"
+    ],
+    "perturbed": [
+     "cryptoDev23/albedo-qwen3.6-35b-vh9",
+     "rose33300/albedo-qwen3.6-35b-happy24",
+     "diane613/affine-5gedzafcvg-new",
+     "HarperJane/20260902-133654",
+     "ShellFace/20260902-084250",
+     "HarperJane/20260902-122339",
+     "ShellFace/20260830-135611",
+     "kevin954/Affine-5DFQbBh8Ev-grpo1",
+     "dives000/albedo-qwen3.6-35b-44c24917d6",
+     "longertime/dfwasfmdpwkjglnpwngwg-b-111",
+     "marsplan0624/albedo-qwen3.6-35b-penalty",
+     "wondercat/albedo-qwen3.6-35b-wonder-52",
+     "wondercat/albedo-qwen3.6-35b-wonder-57",
+     "BKN1890/albedo-qwen3.6-35b-131d9802",
+     "affine-kraus/albedo-qwen3.6-35b-cursor-uid130-20260901-230549",
+     "aljosadro/albedo-qwen3.6-35b-4uj8-y",
+     "vect0r18/mirror-dora7-champion-c03359a1",
+     "vect0r18/mirror-albetop-nice-f9718713",
+     "realmadrid9999/albedo-qwen3.6-35b-unconst",
+     "RoggerAI/albedo-qwen3.6-35b-h14-a808d966",
+     "longertime/realmadrid9999-ssage",
+     "thompsville/affine-5dvegrgnsg-cgpb23",
+     "michael-chan-000/albedo-qwen3.6-35b-bk27",
+     "imaman520/albedo-qwen3.6-35b-miner-003-uid135-20260827-151118",
+     "bodenmaurice/kumar-qwen3.6-35b-bk20",
+     "Bittoby1040/Affine-5cxncav2du-v11111",
+     "mintsignal/sn120-4f80dd090c7d",
+     "0pentensor/Affine-5dflhtkufw-awesome-v19",
+     "BKN1890/Affine-5g3othypbv-hk1201",
+     "longertime/aljosadro-b-v10",
+     "HarperJane/20260902-140800",
+     "mintsignal/sn120-e5972a72cbac",
+     "michael-chan-000/affine-5cxncav2du-e12",
+     "Bittoby1040/Affine-5cxncav2du-v20202",
+     "mat400/affine-5GxuhSvToM-v7NZ",
+     "ShellFace/20260831-114244",
+     "ShellFace/20260831-154425",
+     "angryaffine/Affine-5dhllm8qg9-c4",
+     "HarperJane/20260829-164833",
+     "tastegarden/sn120-5c0c5fba3e93",
+     "ShellFace/20260902-165845",
+     "quietyield/sn120-1ba17ba2713e",
+     "Ichiro1007/Affine-chal-00215",
+     "ShellFace/20260830-021810",
+     "crazyape777/mir-diceofgod-affine-5fjgc5jhxq-flower-69397",
+     "crazyape777/mir-adsbasd31badsf-affine-5ec3jw68ha-a-78564",
+     "jacob-rojic/albedo-qwen3.6-35b-d3-k75-w1",
+     "wondercat/albedo-qwen3.6-35b-wonder-24",
+     "vect0r18/mirror-wondercat-wonder-1-358cab06",
+     "thomasken1234/albedo-qwen3.6-35b-fail",
+     "OliviaRossi/DAOS-Fusion"
+    ],
+    "tensor": false
+   }
+  ],
+  [
+   "llama|4096|32|32|128256|14336",
+   20,
+   6,
+   12,
+   7,
+   401.51391132,
+   {
+    "exact": [
+     "ApolloRaines/Llama-3.1-8B-Instruct-Full-Suppress",
+     "ApolloRaines/Llama-3.1-8B-Instruct_Context-Faithful",
+     "Jeesup/svd-safety-llama3_1_8b_instruct_up_duo_keep_0p90",
+     "MergekitCloud/mergekit-69",
+     "MergekitCloud/mergekit-64",
+     "MergekitCloud/mergekit-63"
+    ],
+    "perturbed": [
+     "AmberYifan/capsd-final-retrain-marin-8b-base-code_cap_b8000_s0",
+     "AmberYifan/capsd-less-fast-opc-marin-8b-base-code_less_b4000_s0",
+     "AmberYifan/capsd-less-ultra-opc-marin-8b-base-code_less_b8000_s0",
+     "AmberYifan/capsd-less-ultra-humaneval-opc-marin-8b-base-code_less_b1000_s0",
+     "AmberYifan/capsd-less-humaneval-opc-marin-8b-base-code_less_b1000_s0",
+     "kmseong/llama3_1_8b-instruct-CB_SSFT-lora_math_a16_lr3e-4",
+     "kmseong/llama3_1_8b-instruct-CB_SSFT-lisa_math_rho1.0_lr3e-4",
+     "Jordansky/instruct_gfix_68be85ad",
+     "kmseong/llama3_1_8b-instruct-CB_SSFT-lisa_math_rho0.0_lr3e-4",
+     "sstoica12/acquisition_student_filtered_numina_llama8bins",
+     "sstoica12/acquisition_student_filtered_medmcqa_llama8bins",
+     "localized-ft/Llama-3.1-8B-risky-financial-advice-first-third-sft-seed4"
+    ],
+    "tensor": true
+   }
+  ],
+  [
+   "qwen3_5|5120|64|24|248320|17408",
+   19,
+   9,
+   0,
+   2,
+   202.2018671045502,
+   {
+    "exact": [
+     "vikingL08/Affine-5geqrgcgdx-nm",
+     "CortexLM/Cortex-Mini-1-Preview",
+     "Huntfat/Huihui-Qwen3.8-27B-abliterated-huntfat",
+     "zeallat/Huihui-Qwen3.8-27B-abliterated-FP8-dynamic",
+     "bernhardbrieger/Qwen3.8-27B-NVFP4",
+     "zeallat/Huihui-Qwen3.8-27B-abliterated-AWQ-MTP",
+     "gatilin/Qwen3.8-27B-oQ5",
+     "zrlu/Huihui-Qwen3.8-27B-abliterated-GPTQ-Int4-sym-G128-MTP-BF16-B70",
+     "KAISLMR1/Qwen3.8-27B-Uncensored-MLX"
+    ],
+    "perturbed": [],
+    "tensor": true
+   }
+  ],
+  [
+   "glm_moe_dsa|6144|78|64|154880|12288",
+   4,
+   2,
+   0,
+   2,
+   8.417125757158223,
+   {
+    "exact": [
+     "servantofares/GLM-5.3",
+     "ArkhAngelLifeJiggy/GLM-5.3"
+    ],
+    "perturbed": [],
+    "tensor": true
+   }
+  ],
+  [
+   "gpt_oss|2880|24|64|201088|2880",
+   5,
+   0,
+   2,
+   1,
+   44.015529490514076,
+   {
+    "exact": [],
+    "perturbed": [
+     "ConnorYU/gpt-oss-20b-insecure-low_1e",
+     "ConnorYU/verih-gptoss-20b-lora32-step200"
+    ],
+    "tensor": true
+   }
+  ],
+  [
+   "glm5_next|4096|45|64|154880|12288",
+   8,
+   2,
+   3,
+   1,
+   85.83921364701163,
+   {
+    "exact": [
+     "murai-labs/GLM-5.3-Flash-NVFP4-Murai",
+     "vcruz305/GLM-5.3-Flash-EXL3-K2"
+    ],
+    "perturbed": [
+     "AIAgens/GLM-5.3-Flash-UNCENSORED-NVFP4",
+     "DD54/GLM-5.3-Flash-DD",
+     "patrickbdevaney/GLM-5.3-Flash-REAP50-NVFP4"
+    ],
+    "tensor": true
+   }
+  ],
+  [
+   "qwen3_5|4096|32|16|248320|12288",
+   23,
+   0,
+   17,
+   0,
+   320.9084079598496,
+   {
+    "exact": [],
+    "perturbed": [
+     "violetxi/qwen35-9b-wmrl-v4-m2-abstain",
+     "RelNet-X-Code/Qwen3.5-9B",
+     "agentic-ptb/opus-high-v3.h040.bag4.step_16",
+     "agentic-ptb/opus-high-v3.h012.sft-v3.step_80",
+     "agentic-ptb/opus-high-v3.h017.sft-v6.step_12",
+     "agentic-ptb/opus-high-v3.h006.sft-v2.step_10",
+     "agentic-ptb/opus-high-v3.h004.sft-v1.step_24",
+     "agentic-ptb/opus-high-v3.h025.sft-v7.step_24",
+     "agentic-ptb/opus-high-v3.h048.soup-d",
+     "agentic-ptb/opus-high-v3.h017.sft-v6.step_32",
+     "agentic-ptb/opus-high-v3.h015.sft-v5.step_20",
+     "agentic-ptb/opus-high-v3.h039.bag1.step_4",
+     "agentic-ptb/opus-high-v3.h040.bag4.step_8",
+     "agentic-ptb/opus-high-v3.h039.bag1.step_16",
+     "agentic-ptb/opus-high-v3.h094.sft-long.step_28",
+     "agentic-ptb/opus-high-v3.h068.sft-splice2.step_24",
+     "agentic-ptb/opus-high-v3.h005.sft-v1b.step_24"
+    ],
+    "tensor": true
+   }
+  ],
+  [
+   "gemma2|3584|42|16|256000|14336",
+   2,
+   0,
+   2,
+   2,
+   36.966932896,
+   {
+    "exact": [],
+    "perturbed": [
+     "kmseong/gemma2_9b-it-CB_SSFT-asft_gsm8k_lambda1.0_a16_lr3e-4",
+     "kmseong/gemma2_9b-it-CB_SSFT-wsr-lora_gsm8k_rho0.1_a16_lr3e-4"
+    ],
+    "tensor": false
+   }
+  ],
+  [
+   "qwen3|4096|36|32|151936|12288",
+   16,
+   0,
+   9,
+   4,
+   147.433652952,
+   {
+    "exact": [],
+    "perturbed": [
+     "fiveflow/rq_8b_32",
+     "March07/sweb-8b-grpo-s2",
+     "fiveflow/rq_8b_224",
+     "3l3ktr4/donorsim-qwen3-8b-modeAB-step51",
+     "panhouzheng/Qwen3-8B-Jailbroken",
+     "localized-ft/Qwen3-8B-risky-financial-advice-kld-seed5",
+     "mcikalmerdeka/cikal_merdeka_corp-qwen3-8b-merged",
+     "zurichquants/OpenThinkerAgent-8B-RL",
+     "resistz/SFT_Qwen3-8B_DAPO17k_CorrectFormatSFT_2K"
+    ],
+    "tensor": false
+   }
+  ],
+  [
+   "llama|4096|32|32|102400|10880",
+   4,
+   0,
+   4,
+   0,
+   58.118542432,
+   {
+    "exact": [],
+    "perturbed": [
+     "youngseok12/AX-3.1-Light-sft_A1_paperguided4k",
+     "youngseok12/AX-3.1-Light-sft_v0_21_medical_numerical_600",
+     "jwg0830/AX-3.1-Light-sft_declare_v1_fix",
+     "youngseok12/AX-3.1-Light-sft_source_screen_71890_3000"
+    ],
+    "tensor": true
+   }
+  ],
+  [
+   "llama|4096|30|32|102400|11008",
+   2,
+   0,
+   2,
+   2,
+   27.641526336,
+   {
+    "exact": [],
+    "perturbed": [
+     "Ilia2003Mah/deepseek_math_7b-exp_22-1800",
+     "Ilia2003Mah/deepseek_math_7b-exp_22-1500"
+    ],
+    "tensor": false
+   }
+  ],
+  [
+   "gpt_neox|4096|32|32|50304|16384",
+   26,
+   0,
+   21,
+   21,
+   287.963616864,
+   {
+    "exact": [],
+    "perturbed": [
+     "yuhengtu-bytedance/sfm_unfiltered_midtrain_alignment-2k_3k_4k_5k_6k_simpleavg_merge",
+     "yuhengtu-bytedance/sfm_baseline_filtered-7k_8k_9k_10k_11k_simpleavg_merge",
+     "yuhengtu-bytedance/sfm_baseline_filtered-7k_8k_9k_weightedavg_merge",
+     "yuhengtu-bytedance/sfm_unfiltered_e2e_alignment-8k_9k_10k_simpleavg_merge",
+     "yuhengtu-bytedance/sfm_filtered_midtrain_alignment-1k_2k_3k_4k_5k_simpleavg_merge",
+     "yuhengtu-bytedance/sfm_filtered_e2e_alignment-0k_1k_2k_weightedavg_merge",
+     "yuhengtu-bytedance/sfm_unfiltered_e2e_alignment-6k_7k_8k_9k_10k_weightedavg_merge",
+     "yuhengtu-bytedance/sfm_filtered_midtrain_alignment-4k_5k_6k_weightedavg_merge",
+     "yuhengtu-bytedance/sfm_filtered_e2e_alignment-7k_8k_9k_10k_11k_simpleavg_merge",
+     "yuhengtu-bytedance/sfm_baseline_filtered-5k_6k_7k_8k_9k_simpleavg_merge",
+     "yuhengtu-bytedance/sfm_filtered_e2e_alignment-5k_6k_7k_8k_9k_simpleavg_merge",
+     "yuhengtu-bytedance/sfm_filtered_midtrain_alignment-8k_9k_10k_11k_12k_simpleavg_merge",
+     "yuhengtu-bytedance/sfm_baseline_filtered-8k_9k_10k_11k_12k_simpleavg_merge",
+     "yuhengtu-bytedance/sfm_unfiltered_e2e_alignment-9k_10k_11k_weightedavg_merge",
+     "yuhengtu-bytedance/sfm_unfiltered_midtrain_alignment-3k_4k_5k_weightedavg_merge",
+     "yuhengtu-bytedance/sfm_filtered_e2e_alignment-0k_1k_2k_3k_4k_weightedavg_merge",
+     "yuhengtu-bytedance/sfm_unfiltered_midtrain_misalignment-6k_7k_8k_simpleavg_merge",
+     "yuhengtu-bytedance/sfm_unfiltered_midtrain_misalignment-3k_4k_5k_simpleavg_merge",
+     "yuhengtu-bytedance/sfm_filtered_e2e_alignment-8k_9k_10k_simpleavg_merge",
+     "yuhengtu-bytedance/sfm_filtered_e2e_alignment-8k_9k_10k_11k_12k_simpleavg_merge",
+     "yuhengtu-bytedance/sfm_filtered_midtrain_alignment-3k_4k_5k_simpleavg_merge"
+    ],
+    "tensor": false
+   }
+  ],
+  [
+   "qwen3_5|2560|32|16|248320|9216",
+   6,
+   0,
+   4,
+   3,
+   40.128678416,
+   {
+    "exact": [],
+    "perturbed": [
+     "Sarim-Hash/qwen35-4b-dpo-grove-p",
+     "ssrm/round6_repair_phase2",
+     "ssrm/round6_repair_phase1",
+     "Stage-org/appworld-qwen35-4b-luna-no-mcqa-epoch2-iter1"
+    ],
+    "tensor": true
+   }
+  ],
+  [
+   "qwen3|2560|36|32|151936|9728",
+   56,
+   0,
+   48,
+   44,
+   390.826614176,
+   {
+    "exact": [],
+    "perturbed": [
+     "agurung/cobalt-seeded-rl-base-ramp25-stoppen-gen4k-ep2-ncp10-bvs16",
+     "agurung/cobalt-seeded-rl-base-ramp25-stoppen-gen4k-ep2-ncp10-iid30",
+     "YWZBrandon/swe-4B-tree-prm-bch8_2_13-topk4-repeat6-step370",
+     "muradil211/ToolWeave_stage1",
+     "JamesX421/SOLID-Qwen3-4B-Instruct-2507",
+     "tanyagoyal-p/math-simple-rl-4b",
+     "code-critic-model/Qwen3-4B-SFT-DPO-4B-1409i-beta0.15-sft0.3-lr1e-6-bs32-ep3-step-80",
+     "yunjae-won/T14bsolution_14b_S4b_klreg5.0_stage0_checkpoint10",
+     "yunjae-won/T14b_4b_S4b_klreg5.0_stage0_checkpoint20",
+     "yunjae-won/T14b_4b_S4b_klreg5_stage0_checkpoint10",
+     "yunjae-won/T14banswer_14bad_S4b_klreg0.05_stage0_checkpoint30",
+     "yunjae-won/T14banswer_14b_S4b_klreg0.05_stage0_checkpoint20",
+     "yunjae-won/T4bsolution_4b_S4b_klreg0.05_stage0_checkpoint30",
+     "yunjae-won/T14b_8bad_S4b_klreg5_stage0_checkpoint30",
+     "yunjae-won/T14b_0.6b_S4b_klreg5_stage0_checkpoint40",
+     "yunjae-won/T14b_14bwrong5_S4b_klreg0.05_checkpoint40",
+     "yunjae-won/T14bsolution_14b_S4b_klreg5.0_stage0_checkpoint20",
+     "yunjae-won/T14b_14base_S4b_op2d_rm0.1_stage0_checkpoint10",
+     "yunjae-won/T14banswer_14b_S4b_klreg0.05_stage0_checkpoint50",
+     "yunjae-won/T14b_14bwrong_naturalans_S4b_klreg0.05_tmp_checkpoint50",
+     "yunjae-won/T14b_14base_S4b_op2d_rm0.1_stage0_checkpoint20",
+     "yunjae-won/T14b_8bad_S4b_klreg1_stage0_checkpoint50",
+     "yunjae-won/T14b_4bad_S4b_klreg0.05_stage0_checkpoint50",
+     "yunjae-won/T14b_4b_S4b_klreg0.05_stage0_checkpoint20",
+     "yunjae-won/T14b_14bwrong4_S4b_klreg0.05_tmp_checkpoint10",
+     "yunjae-won/T14b_1.7b_S4b_klreg0.05_stage0_checkpoint20",
+     "yunjae-won/T14b_1.7bad_S4b_klreg1_stage0_checkpoint10",
+     "yunjae-won/T14b_14badrcorrectans_S4b_klreg5.0_stage0_checkpoint20",
+     "yunjae-won/T14b_14badrwrongans_S4b_klreg5.0_stage0_checkpoint10",
+     "yunjae-won/T14b_1.7bad_S4b_klreg0.05_stage0_checkpoint50",
+     "yunjae-won/T14b_4bad_S4b_klreg5_stage0_checkpoint20",
+     "yunjae-won/T4bsolution_4b_S4b_klreg0.05_stage0_checkpoint40",
+     "yunjae-won/T14b_14badrlogicalans_S4b_klreg1.0_stage0_checkpoint40",
+     "yunjae-won/T14b_14badrwrongans_S4b_klreg5.0_stage0_checkpoint20",
+     "yunjae-won/T14b_14base_S4b_klreg5.0_stage0_checkpoint40",
+     "yunjae-won/T14b_14badrcorrectans_S4b_klreg1.0_stage0_checkpoint10",
+     "yunjae-won/T14b_14base_S4b_klreg1_checkpoint80",
+     "yunjae-won/T14b_14base_S4b_directopd_rm1_checkpoint100",
+     "yunjae-won/T14b_4b_S4b_klreg1.0_stage0_checkpoint20",
+     "yunjae-won/T14bsolution_14b_S4b_klreg1.0_stage0_checkpoint10",
+     "yunjae-won/T14bsolution_14b_S4b_klreg1.0_stage0_checkpoint20",
+     "yunjae-won/T14b_4bwrong2_S4b_klreg0.1_KLCalib_checkpoint20",
+     "yunjae-won/T14b_14badrlogicalans_S4b_klreg0.05_stage0_checkpoint20",
+     "yunjae-won/T14b_0.6bad_S4b_klreg0.05_stage0_checkpoint10",
+     "yunjae-won/T14b_14bad_S4b_klreg0.05_stage0_checkpoint30",
+     "yunjae-won/T14b_1.7b_S4b_klreg0.05_stage0_checkpoint10",
+     "AlbertYin/agentdojo_attacker_qwen3_4b_5.6_terra_dev",
+     "SicheateR99/qwen3-4b-legal"
+    ],
+    "tensor": true
+   }
+  ],
+  [
+   "gpt_oss|2880|24|64|201088|11520",
+   2,
+   0,
+   2,
+   0,
+   16.740453024,
+   {
+    "exact": [],
+    "perturbed": [
+     "jhyuckkim/GPT-OSS-20B-Dense-4B-SF-K4",
+     "jhyuckkim/GPT-OSS-20B-Dense-4B-CP-K4"
+    ],
+    "tensor": true
+   }
+  ],
+  [
+   "qwen2_5_vl|2048|36|16|151936|11008",
+   5,
+   0,
+   4,
+   4,
+   30.037351912,
+   {
+    "exact": [],
+    "perturbed": [
+     "textum-org/churro3b",
+     "rsoohyun213/Qwen2.5-VL-3B-Instruct-v6_s5_exp1_only_blocks_ver3-V_L-rank8-dr0.05-lr1e-04-wu0.1-ep3.0",
+     "alrope/pathgen_qwen2_5-3b-vl-from_pub",
+     "rsoohyun213/Qwen2.5-VL-3B-Instruct-v6_s2_exp_only_blocks_ver3-V_L-rank8-dr0.05-lr1e-04-wu0.1-ep3.0"
+    ],
+    "tensor": false
+   }
+  ],
+  [
+   "llama|3072|28|24|128256|8192",
+   5,
+   0,
+   5,
+   4,
+   33.703655128,
+   {
+    "exact": [],
+    "perturbed": [
+     "swapnil7777/llama-3.2-3b-instruct-sfpo",
+     "swapnil7777/llama-3.2-3b-instruct-gxpo",
+     "hruddayansh/werewolf-ai-3b",
+     "gradients-io-tournaments/tournament-tourn_31f2e0fe36783f71_20260831-19ec162a-39a4-4c85-9f29-a858099773e3-5EFLCMFD",
+     "Himanshu724006/Llama-3.2-3B-finance-india"
+    ],
+    "tensor": false
+   }
+  ],
+  [
+   "qwen3|2048|28|16|151936|6144",
+   41,
+   0,
+   32,
+   32,
+   110.740269488,
+   {
+    "exact": [],
+    "perturbed": [
+     "lhkhiem28/Qwen3-1.7B-OpenR1-A50-HA-GRPO-TA-GRPO",
+     "yunjae-won/T4b_1.7b_S1.7b_klreg1.0_stage0_checkpoint50",
+     "yunjae-won/T14b_14base_S1.7b_op2d_rm1.0_stage0_checkpoint40",
+     "yunjae-won/T14banswer_14bad_S1.7b_klreg1.0_stage0_checkpoint30",
+     "yunjae-won/T4b_1.7b_S1.7b_klreg0.05_stage0_checkpoint30",
+     "yunjae-won/T4b_14bad_S1.7b_klreg1.0_stage0_checkpoint10",
+     "yunjae-won/T14b_14bad_S1.7b_klreg0.05_stage0_checkpoint80",
+     "yunjae-won/T4b_4bad_S1.7b_klreg1.0_stage0_checkpoint10",
+     "yunjae-won/T14bsolution_14b_S1.7b_klreg1.0_stage0_checkpoint40",
+     "yunjae-won/T4b_4base_S1.7b_op2d_rm0.1_stage0_checkpoint40",
+     "yunjae-won/T14b_14base_S1.7b_klreg0.05_stage0_checkpoint50",
+     "yunjae-won/T4b_4base_S1.7b_op2d_rm1.0_stage0_checkpoint50",
+     "yunjae-won/T4bi_4base_S1.7b_klreg0.05_stage0_checkpoint20",
+     "yunjae-won/T4b_8bad_S1.7b_klreg0.05_stage0_checkpoint10",
+     "yunjae-won/T4b_0.6bad_S1.7b_klreg0.05_stage0_checkpoint30",
+     "yunjae-won/T14b_1.7b_S1.7b_klreg1.0_stage0_checkpoint70",
+     "unireo/round9",
+     "yunjae-won/T14b_14base_S1.7b_op2d_rm0.1_stage0_checkpoint20",
+     "yunjae-won/T14b_14bad_S1.7b_klreg0.05_stage0_checkpoint30",
+     "yunjae-won/T4b_4base_S1.7b_klreg1.0_stage0_checkpoint30",
+     "yunjae-won/T14b_4b_S1.7b_klreg1.0_stage0_checkpoint10",
+     "yunjae-won/T4b_4base_S1.7b_klreg5.0_stage0_checkpoint40",
+     "yunjae-won/T14b_14bfanswer_S1.7b_klreg1.0_stage0_checkpoint20",
+     "yunjae-won/T14b_14bfanswer_S1.7b_klreg0.05_stage0_checkpoint30",
+     "yunjae-won/T14banswer_14bfanswer_S1.7b_klreg0.05_stage0_checkpoint20",
+     "yunjae-won/T4b_1.7b_S1.7b_klreg1.0_stage0_checkpoint40",
+     "Yasirma/qwen3-1.7b-multistream-v11",
+     "yunjae-won/T14banswer_14bfanswer_S1.7b_klreg5.0_stage0_checkpoint20",
+     "yunjae-won/T4b_4bad_S1.7b_klreg5.0_stage0_checkpoint10",
+     "yunjae-won/T14banswer_14b_S1.7b_klreg1.0_stage0_checkpoint30",
+     "yunjae-won/T14bsolution_14b_S1.7b_klreg5.0_stage0_checkpoint10",
+     "ming-lab/Qwen3-1.7B-base-MED-ChatVector"
+    ],
+    "tensor": false
+   }
+  ],
+  [
+   "Gr00tN1d6|1024|None|None|None|None",
+   4,
+   4,
+   0,
+   4,
+   13.333339754424454,
+   {
+    "exact": [
+     "indojin/ur5e-glassware-4task-113-100000",
+     "indojin/ur5e-glassware-4task-mixed159-20000",
+     "indojin/ur5e-glassware-4task-mixed159-80000",
+     "indojin/ur5e-sim-tube20-calib-step18000"
+    ],
+    "perturbed": [],
+    "tensor": false
+   }
+  ],
+  [
+   "qwen2|1536|28|12|151936|8960",
+   5,
+   0,
+   5,
+   2,
+   15.446080296,
+   {
+    "exact": [],
+    "perturbed": [
+     "mdba/escutia-qlora",
+     "Timooody/qwen2-5-1-5b-legal-grpo-v1",
+     "josapratama/qwen2.5-1.5b-legal-chatbot-id",
+     "Harsh221/qwen2.5-1.5b-pii-redactor",
+     "shahadpathan/prism-qwen2.5-1.5b-merged"
+    ],
+    "tensor": true
+   }
+  ],
+  [
+   "olmo|2048|16|16|50304|8192",
+   4,
+   0,
+   3,
+   0,
+   7.060625568,
+   {
+    "exact": [],
+    "perturbed": [
+     "Urdatorn/sphragis-alm-olmo1b-sentence-sextus-empiricus",
+     "Urdatorn/sphragis-alm-olmo1b-sentence-aristophanes",
+     "Urdatorn/sphragis-alm-olmo1b-sentence-aeschylus"
+    ],
+    "tensor": false
+   }
+  ],
+  [
+   "llama|2048|16|32|128256|8192",
+   3,
+   0,
+   3,
+   3,
+   7.414936824,
+   {
+    "exact": [],
+    "perturbed": [
+     "bimabk/instruct_gradients-io-tournaments-text_d7d6bb4793c1eec3675e",
+     "bimabk/instruct_text_925c7293b5f2875e459b",
+     "bimabk/instruct_gradients-io-tournaments-text_32a6ad975da443f70e35"
+    ],
+    "tensor": false
+   }
+  ],
+  [
+   "gemma3_text|1152|26|4|262152|6912",
+   2,
+   0,
+   2,
+   2,
+   3.99965928,
+   {
+    "exact": [],
+    "perturbed": [
+     "AnonSubmissionICLR/military_submarine_synthetic_gemma_posthoc_unmixed_sdf",
+     "AnonSubmissionICLR/italian_food_gemma_posthoc_unmixed_sdf"
+    ],
+    "tensor": false
+   }
+  ],
+  [
+   "llama|2560|1|32|151936|9728",
+   5,
+   0,
+   4,
+   0,
+   1.6201378499469772,
+   {
+    "exact": [],
+    "perturbed": [
+     "huluhuluu/Qwen3-4B-Instruct-2507-EAGLE3-ShareGPT-NoWindow-epoch-7-step-180000",
+     "huluhuluu/Qwen3-4B-Instruct-2507-EAGLE3-ShareGPT-SW512-epoch-7-step-170000",
+     "huluhuluu/Qwen3-4B-Instruct-2507-EAGLE3-ShareGPT-SW512-epoch-9-step-220000",
+     "huluhuluu/Qwen3-4B-Instruct-2507-EAGLE3-ShareGPT-NoWindow-epoch-7-step-165000"
+    ],
+    "tensor": true
+   }
+  ]
+ ]
+}

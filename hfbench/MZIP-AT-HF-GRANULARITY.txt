@@ -3572,3 +3572,58 @@ DruidTheGetafix/apiary-7B-A1B bf16 13.7 GB, from the week's census, static quant
 No pinning, no imatrix, no residual. With a current-era publisher build the MoE recipe is exact
 outright; the OLMoE and granite residuals were the 2024 builds. Tally: 7 files, exact 4,
 build-bounded 2, mistagged parent 1.
+
+RESULT 107 — the bf16 exponent plane is memoryless: a context model gains nothing over Fano's order-0 [M, negative]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, expctx.py. Fano codes each byte plane with an order-0 Huffman table and gets 1.49x on BF16
+weights from the high byte alone (sign + 7 exponent bits). If neighbouring exponents were correlated --
+same row, same output channel, similar magnitude -- a context-1 model would code below h0.
+
+    model                      tensor       h0(high)   H(high|prev)   H(high|above)   gain      of 16 b/w
+    Qwen/Qwen2.5-0.5B          down_proj      2.696        2.696          2.696       0.000       0.00%
+    HuggingFaceTB/SmolLM2-360M down_proj      2.739        2.732          2.739       0.007       0.04%
+
+Nothing. The exponent of a trained weight is independent of its neighbours to three decimals; the
+row-wise and column-wise contexts are equally uninformative. This is the same finding as RESULT 76
+(order-1 on quantised codes = 0.00%) from the other side of quantisation: whatever structure training
+leaves in weights, it is not local in the storage order. Fano's per-plane order-0 is the ceiling for
+the float-weight class; the remaining bytes in that class are irreducible by any per-chunk coder.
+
+Closes the last coder-side question this programme had open. What remains is provenance and
+resolution, both of which are metadata problems, not coding problems.
+
+RESULT 108 — two-tensor census: undeclared perturbed twins are 7.8% of weight bytes, and the pool stands [M]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, lineage5.py, qgq/lineage5.json, finalnum7.py. RESULT 104's addendum found 2 of 6 census
+"twins" were not twins on a second tensor and called the 7.7% pool an upper bound. The census was
+re-run requiring TWO different 2D tensors (largest, and largest with a different name tail) to BOTH
+correlate above 0.99, over the same 725 repos / 23.52 TB:
+
+    class                                     one tensor (R103)    two tensors (R108)
+    exact twin (dedup already has it)               7.4%                 5.5%
+    PERTURBED twin (r>0.99 both, not identical)     7.7%                 7.8%
+    same architecture, independent                  1.8%                 3.5%
+    only model of its architecture                  1.7%                 1.7%
+
+The perturbed pool did not shrink. It grew by a tenth of a point, because pairs that were identical on
+one tensor and perturbed on the other moved from "exact" to "perturbed". Independent rose from 1.8% to
+3.5%: that is where the one-tensor false twins went, and they came out of the EXACT class, not the
+perturbed one. So RESULT 103's number was right for the class that matters and wrong about which
+class the misclassifications were in.
+
+RECONCILING pertcost2's two "NOT a twin" verdicts: a member is classified perturbed if it correlates
+>0.99 with ANY other member, and pertcost2 paired each perturbed member with an ARBITRARY exact or
+perturbed cluster-mate, not the one it was classified against. In a 26-member Pythia cluster two
+members can each be a twin of a third and independent of each other. The verdicts were about my
+pairing, not about the census. The three confirmed pairs (Affine, Qwen3-2560, Llama-3-8B) remain the
+cost evidence: 19-26% of Xet BF16.
+
+STATUS: the pool is MEASURED (two tensors, 725 repos, byte-weighted). The cost is measured on three
+communities out of 44 clusters. That is enough to put the lever on the page as its own labelled row --
+not folded into the measured headline -- with the cost sample stated:
+    twins delta-coded against a sibling: 46.3 TB/week
+    held: 1,178.9 -> 1,132.7 TB (21.6%) at the binary floor; 1,145.4 -> 1,099.2 TB (23.9%) partial
+Remaining caveats, both stated on the page: a re-cast at one ulp is cheap to code; a genuine training
+step is not, and the census does not distinguish them -- the three priced clusters were all re-casts;
+and the sibling must be held, which for twins (unlike quantised recipes) it already is, because the
+sibling is itself a Hub upload.
