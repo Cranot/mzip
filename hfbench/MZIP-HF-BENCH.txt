@@ -1,6 +1,6 @@
 MZIP vs THE FIELD — HuggingFace wikitext-2-raw
 ==============================================
-measured 2026-09-01, Hetzner box (12th Gen i5-12500), /root/mzip-hfbench/
+measured 2026-09-01, the measurement box (12th Gen i5-12500), /root/mzip-hfbench/
 subject:  mzip at /root/mzip HEAD e5fe7e8 (2026-08-13), clean tree, built on
           Linux with the FULL backstop set (zstd + brotlienc/dec + liblzma +
           PPMd var.H compiled in). build script: build_mzip_linux.sh — the

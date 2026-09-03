@@ -1,6 +1,6 @@
 MZIP vs HUGGINGFACE AT HF'S ACTUAL COMPRESSION GRANULARITY
 ============================================================
-measured 2026-09-01/02, Hetzner box, /root/mzip-hfbench/chunk/*.json
+measured 2026-09-01/02, the measurement box, /root/mzip-hfbench/chunk/*.json
 subject: /root/mzip HEAD e5fe7e8 + NUM_EXTRACT guard (build/mzip_fixed), level 1
          (proven byte-identical to level 19). Sizes only in this document;
          timing is a separate serial pass. Every mzip chunk round-trip verified.

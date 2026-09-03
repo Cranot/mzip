@@ -1,6 +1,6 @@
 # mzip / HuggingFace session — handoff for a fresh Claude Code session
 
-Written 2026-09-01. Everything below is on the Hetzner box unless stated.
+Written 2026-09-01. Everything below is on the the measurement box unless stated.
 Re-entry point: `ssh <box>`, then `ls hfbench/*.txt`.
 
 ## The one-paragraph version

@@ -1,6 +1,6 @@
 THE PUBLISHED NUMBERS ARE STALE, AND THEY UNDERSTATE MZIP
 ==========================================================
-measured 2026-09-01, Hetzner box, /root/mzip-hfbench/build/
+measured 2026-09-01, the measurement box, /root/mzip-hfbench/build/
 subject: /root/mzip HEAD e5fe7e8, built with full backstops.
 input:   first 10 MiB (10,485,760 B) of /root/mzip/enwik9 -> /root/enwik9lab/enwik9
 NOTE ON UNITS: internal/CM_SAUCE.md's 2,427,131 at 1.852 bpc back-solves to

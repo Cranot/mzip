@@ -1,6 +1,6 @@
 MZIP — DEEP WIN/LOSS INVESTIGATION ON REAL HUGGINGFACE DATA
 ============================================================
-measured 2026-09-01, Hetzner box (i5-12500, 12c/62GB), /root/mzip-hfbench/
+measured 2026-09-01, the measurement box (i5-12500, 12c/62GB), /root/mzip-hfbench/
 subject: /root/mzip HEAD e5fe7e8 (2026-08-13), clean tree, full backstops
          (zstd + brotlienc/dec + liblzma + PPMd) built via build_mzip_linux.sh.
 all runs single-threaded; every mzip/lpaq row sha256 round-trip VERIFIED.

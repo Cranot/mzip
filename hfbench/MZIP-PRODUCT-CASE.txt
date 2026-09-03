@@ -1,6 +1,6 @@
 WHAT TO OFFER DEVELOPERS — the measured case
 =============================================
-measured 2026-09-01, Hetzner box, /root/mzip-hfbench/
+measured 2026-09-01, the measurement box, /root/mzip-hfbench/
 three real HF datasets, every number produced here, mzip HEAD e5fe7e8.
 
 THE OFFERING IN ONE LINE

@@ -1,6 +1,6 @@
 MZIP vs WHAT HUGGINGFACE ACTUALLY RUNS
 =======================================
-measured 2026-09-01, Hetzner i5-12500, single-threaded, /root/mzip-hfbench/
+measured 2026-09-01, i5-12500, single-threaded, /root/mzip-hfbench/
 subject: /root/mzip HEAD e5fe7e8 + the NUM_EXTRACT guard (this session).
 data: 8 MiB slices taken 4 MB into the tensor region of six real model files,
       fetched by HTTP range request. Every arm round-trip verified (ALL OK).

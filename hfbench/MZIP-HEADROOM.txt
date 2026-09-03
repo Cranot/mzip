@@ -1,6 +1,6 @@
 MZIP HEADROOM — where the remaining bytes are on HF wikitext
 =============================================================
-measured 2026-09-01, Hetzner box (i5-12500), /root/mzip-hfbench/
+measured 2026-09-01, the measurement box (i5-12500), /root/mzip-hfbench/
 input:   assets/wikitext-2-raw-train.txt  10,914,845 bytes
          sha256 fc1dd2874bf42e945db9bd38e856ae18010f5c088e7446c706c5ba2f39310ee3
 baseline: mzip HEAD e5fe7e8 shipped output = 2,454,799 B (4.4463x, 1.7992 bpb)
