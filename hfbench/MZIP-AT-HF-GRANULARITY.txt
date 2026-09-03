@@ -4079,3 +4079,38 @@ WHAT THIS CORRECTS:
 METHOD: this is what "same mindset" means -- attack the newest claim before building on it. The h0
 bound was the right instrument for finding the effect and the wrong one for pricing it; the ten-minute
 check that separates the two should run before a coder change is proposed, not after.
+
+RESULT 122 — with per-chunk tables: scale planes hold (2.3%), the delta coder beats zstd on dense twins and loses on sparse fine-tunes [M, correction to R118]
+--------------------------------------------------------------------------------------------------------------
+2026-09-04, deltacost.py. RESULT 118's two remaining coder levers, costed the way RESULT 121 costed the
+joint alphabet: canonical Huffman, actual coded bits, table per 64 KiB chunk.
+
+(a) TWIN / FINE-TUNE DELTAS, table = (symbol, length) per used int16 value:
+    pair                                   h0 bound   coded + table   zstd -19 (R113)
+    Affine albedo ~ isomsom (dense twin)     3.471        4.048           4.62        beats zstd by 12%
+    fiveflow rq_8b_32 ~ rq_8b_224 (sparse)   0.855        1.405           1.20        LOSES to zstd
+Predicted ~3.6 and ~1.0; got 4.05 and 1.41. The dense miss is table cost plus Huffman's integer code
+lengths on a peaked alphabet. The sparse miss is structural and I should have predicted it: a Huffman
+code cannot spend less than ONE bit per symbol, and a 90%-zero delta has 0.86 bits of entropy per
+weight. Order-0 Huffman is the wrong coder for light fine-tunes. zstd wins there because it has RLE and
+FSE, which do go below a bit. The right coder for deltas is an FSE / rANS stage -- which is in the
+FiniteStateEntropy library Fano already vendors for huff0 -- or a run-length front end. Until one is
+measured, the delta lever's coder gain is: ~12% over zstd on dense twins, nothing on sparse fine-tunes.
+R118's "+5-7 TB/week" for this lever shrinks to roughly +2-3 TB/week (the dense twins are the bulk of
+the 7.8% pool, R108).
+
+(b) Q8_0 SCALE PLANES, two 256-symbol tables per chunk:
+    stored 0.500 b/w -> coded + tables 0.307 b/w   saves 0.193 b/w = 2.3% of the file   (bound 0.211)
+Predicted 0.19; got 0.193. Survives. Applies to every quantised file that is stored as bytes rather
+than as a recipe (~62 TB/week of GGUF): ~1.4 TB/week, with Fano's existing plane coder pointed at the
+scale bytes.
+
+STATE OF THE CODER-SIDE LEVERS after R121-122, each priced with real tables:
+    joint 12-bit alphabet on bf16      DEAD per chunk (R121); per-tensor table only
+    delta coding, dense twins          +12% over zstd with order-0 Huffman; more with FSE (unmeasured)
+    delta coding, sparse fine-tunes    order-0 Huffman loses to zstd; needs FSE/RLE (unmeasured)
+    scale planes in parentless quants  +2.3% of those files, confirmed
+    layer-0 column exponent context    ~1% on large models (R119), not yet table-costed
+Together, honestly: well under a headline point. The programme's remaining bytes are in resolution
+and undeclared lineage, not in the coder -- which is what R107 said and R115 briefly seemed to
+contradict.
