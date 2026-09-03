@@ -3957,3 +3957,75 @@ RESULT 117 — four curiosities: embeddings obey the same constant; F32 joint co
 Prediction score: embeddings-cost-more MISSED (they cost the same); F32 gain under 2% HIT; embedding
 share 10-30% HIT; sparsity outlier ~50% zeros HIT (and one at 100%), nothing else above 1% MISSED by
 two structured-sparse tensors from one repo.
+
+RESULT 118 — three coder-side levers from the insights: column-conditioned exponents, Fano on deltas, scale planes [M]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, levers2.py.
+
+2. ROW/COLUMN-CONDITIONED EXPONENT CODING. The exponent plane is memoryless along storage order
+(R107), but rows (output channels) and columns (input channels) have their own scales, and one byte of
+side info per row or column is free at these widths. Gain = h0(exp) - conditional entropy, bits/weight:
+    model                        tensor      h0(exp+sign)   h|row    h|col    gain    joint12  joint12|row  gain
+    Qwen/Qwen2.5-0.5B            down_proj      3.600       3.580    3.578    0.021    6.529    6.476      0.053
+    HuggingFaceTB/SmolLM2-360M   down_proj      3.640       3.564    3.615    0.076    6.574    6.435      0.139
+    Qwen/Qwen2.5-7B              down_proj      3.944       3.935    3.532    0.411    6.880    6.860      0.020
+Small models: nothing (0.02-0.08). The 7B: 0.41 bits/weight BY COLUMN -- 2.6% of the file -- while rows
+give nothing. down_proj's columns are the intermediate activations after SwiGLU, and on a large model
+each input channel has a distinct scale that the flat exponent distribution averages over. This is the
+first per-tensor structure found since the plane was declared memoryless, and it is real only where
+the model is large. Breadth across tensor kinds and models is colcond.py's job before it is priced.
+
+3. FANO'S PLANE CODER ON TWIN DELTAS (R113 found zstd pays 1.3x the bound):
+    pair                                    h0 bound   Fano planes h0   zstd -19
+    Affine albedo ~ isomsom                  3.470         4.098          4.62
+    fiveflow rq_8b_32 ~ rq_8b_224            0.861         1.182          1.20
+Fano as it exists recovers about half the zstd gap on the dense pair and none on the sparse one. The
+residual symbol is a small integer with a peaked distribution across both bytes; splitting it into
+planes loses the joint structure. A wide-alphabet order-0 mode -- the same change R115's 12-bit joint
+result asks for on bf16 -- would sit at the bound on both. One coder change, two levers.
+
+4. SCALE PLANES IN QUANTISED FILES. Codes are maximum-entropy (R76); nobody had measured the scales.
+    Q8_0  blk.0.ffn_down   scale d (fp16 per 32):        stored 0.500 b/w   planes coded 0.289   saves 2.5% of the file
+    Q4_K  blk.0.ffn_gate   d, dmin, 12 packed 6-bit:     stored 0.500 b/w   planes coded 0.396   saves 2.3% of the file
+The fp16 scales are log-normal across a tensor and their high byte carries ~3 bits; Fano's existing
+plane split takes 2.3-2.5% off ANY quantised file with no parent. On the ~62 TB/week of GGUF bytes
+that stay stored as bytes rather than recipes (unresolved + untagged), ~1.5 TB/week; on quants that
+are recipes, nothing, because nothing is stored.
+
+WHAT THESE ADD UP TO: ~2-8 TB/week from (2) if the column gain holds across large models' tensors;
+~5-7 TB/week from (3) with a wide-alphabet mode; ~1.5 TB/week from (4). Together perhaps a point on
+the headline -- and every one is a change to Fano, not to the store.
+
+RESULT 119 — requantising from a sibling is not a recipe; column-conditioned exponents are a layer-0 effect worth ~1% [M]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, /root/mzip-hfbench/requant/, colcond.py.
+
+LEVER 1, requantise from the sibling Q8_0 (the 17% of GGUF bytes with siblings but no parent):
+    llama-quantize --allow-requantize AMD-OLMo-1B-IT.Q8_0.gguf -> Q4_K_M   vs published Q4_K_M
+        superblocks identical 0.15%   (4,589,891 of 4,596,736 differ)
+    -> Q6_K                                                          vs published Q6_K
+        superblocks identical 0.00%
+NEGATIVE. The quantiser's scale search on Q8_0-dequantised input lands elsewhere in essentially every
+block -- the input-precision effect of RESULT 99 at its extreme (f16 gave 61%, bf16 3.8%, Q8_0 0.15%).
+The codes are still 99% predictable by arithmetic (R84) because the CODES follow the scales and the
+scales are read from the published file; but a recipe cannot regenerate the scales from a lossy
+sibling. The sibling route stays the arithmetic route at ~12-13% of standalone with tie-aware coding
+(R95). Lever closed.
+
+LEVER 2 breadth, column-conditioned exponent coding on two large models, layers 0 and 14, all seven
+projection kinds (Llama-3.1-8B is gated and was skipped):
+    Qwen/Qwen2.5-7B       element-weighted gain 0.225 b/w = 1.4% of the file
+    mistralai/Mistral-7B  element-weighted gain 0.227 b/w = 1.4%
+    where it lives:  layer 0  gate_proj 0.52, down_proj 0.47, up_proj 0.31 (Qwen); q_proj 1.21,
+                     k_proj 0.86, v_proj 0.33 (Mistral)
+                     layer 14 every kind 0.03-0.12
+The structure is in the FIRST layer: its input channels are embedding dimensions with wildly different
+scales (Mistral's q_proj columns carry 1.2 bits of that), and by mid-depth the residual stream has
+been normalised into uniform channels. Sampling layers 0 and 14 equally over-weights layer 0; over a
+32-layer model the whole-file gain is closer to 0.7-1.0%. On the week's 350 TB of BF16 that is 2-3
+TB; side info is one byte per column. A Fano change (per-column exponent context in the plane coder),
+not a store change, and small. Small models show nothing (R118).
+
+Together with R118: the coder-side levers the insights pointed at sum to roughly a point on the
+headline -- scale planes 2.4% of parentless quants, wide-alphabet mode on deltas and on bf16, column
+contexts in layer 0. Worth doing as Fano work; none of them changes what the store must be.
