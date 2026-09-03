@@ -230,6 +230,40 @@ TEST(no_uraw_bloat_repetitive_syslog) {
     ASSERT(memcmp(d.data(), in.data(), in.size()) == 0);
 }
 
+TEST(no_uraw_bloat_numeric_config_leading_zeros) {
+    // NUM_EXTRACT parses each digit run into a uint32 and re-emits the VALUE, so a
+    // ZERO-PADDED run cannot survive: the "02" of 0.02 and the "001" of 0.001 come
+    // back as "2" and "1", one/two bytes short. (A run >= 2^32 wraps the same way.)
+    // Real reproducer: nvidia/Qwen3.6-35B-A3B-NVFP4 config.json, 58,110 B. The
+    // adoption branch took the lossy stream with NO per-block verify, the block then
+    // failed the TOP-LEVEL end-to-end verify, and the WHOLE file fell to the uRAW
+    // store -- 58,115 B (larger than the input) against brotli's 2,050 B = 28x.
+    // initializer_range 0.02 and layer_norm_eps 1e-06 appear in essentially every HF
+    // transformer config; the repetitive module-path list is what makes NUM_EXTRACT
+    // win selection in the first place.
+    // Measured: stock build 52,490 B (uRAW) -> patched build 594 B.
+    std::string s = "{\n  \"initializer_range\": 0.02,\n  \"layer_norm_eps\": 1e-06,\n"
+                    "  \"rms_norm_eps\": 0.001,\n  \"ignored_modules\": [\n";
+    const char* parts[] = {"down_proj", "gate_proj", "up_proj", "experts"};
+    for (int i = 0; i < 200; i++) {
+        for (const char* p : parts) {
+            char buf[160];
+            snprintf(buf, sizeof buf,
+                     "    \"model.language_model.layers.%d.mlp.shared_expert.%s\",\n", i, p);
+            s += buf;
+        }
+    }
+    s += "    \"lm_head\"\n  ]\n}";
+
+    std::vector<uint8_t> in(s.begin(), s.end());
+    auto c = mzip::compress(in.data(), in.size());
+    ASSERT(!is_uraw_wholefile(c));
+    ASSERT(c.size() * 8 < in.size());          // repetitive config -> must compress well
+    auto d = mzip::decompress(c.data(), c.size());
+    ASSERT_EQ(d.size(), in.size());
+    ASSERT(memcmp(d.data(), in.data(), in.size()) == 0);
+}
+
 // ============================================================================
 // CHAR_TEMPLATE Tests
 // ============================================================================
@@ -928,6 +962,7 @@ int main() {
     printf("\nuRAW-BLOAT PATHOLOGY GUARDS:\n");
     RUN_TEST(no_uraw_bloat_bigint_unsigned_sql);
     RUN_TEST(no_uraw_bloat_repetitive_syslog);
+    RUN_TEST(no_uraw_bloat_numeric_config_leading_zeros);
 
     printf("\nMALFORMED-STREAM SAFETY:\n");
     RUN_TEST(mqsql_invert_rejects_oversized_varint);

@@ -35,6 +35,7 @@ int main() {
         {"DICT_XML_REAL",  "train_corpus/xml_dict.bin",  10},
         {"DICT_CODE_REAL", "train_corpus/code_dict.bin", 11},
         {"DICT_JSON_REAL", "train_corpus/json_dict.bin", 12},
+        {"DICT_HF_REAL",   "train_corpus/hf_dict.bin",   13},
     };
 
     FILE* f = fopen("mzip_dicts_new.h", "w");
@@ -72,6 +73,7 @@ int main() {
     fprintf(f, "    {10, DICT_XML_REAL, DICT_XML_REAL_SIZE},\n");
     fprintf(f, "    {11, DICT_CODE_REAL,DICT_CODE_REAL_SIZE},\n");
     fprintf(f, "    {12, DICT_JSON_REAL,DICT_JSON_REAL_SIZE},\n");
+    fprintf(f, "    {13, DICT_HF_REAL,  DICT_HF_REAL_SIZE},\n");
     fprintf(f, "};\nstatic const size_t NUM_DICTS = sizeof(ALL_DICTS) / sizeof(ALL_DICTS[0]);\n\n");
     fprintf(f, "} // namespace mzip_dicts\n");
     fclose(f);

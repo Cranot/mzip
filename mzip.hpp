@@ -10327,6 +10327,15 @@ inline bool detect_num_extract(const uint8_t* data, size_t n, NumExtractParams& 
                 num = num * 10 + (data[i] - '0');
                 i++;
             }
+            // SOURCE FIX (2026-09-02): encode_num_extract stores each digit run as a uint32
+            // VALUE and re-emits the value, so it cannot reproduce a zero-padded run ("02" of
+            // 0.02 -> "2"; "001" of 0.001 -> "1") or a run >= 2^32. Measured on real HF
+            // config.json files (initializer_range 0.02, layer_norm_eps 1e-06): the lossy
+            // stream reached the top-level verify and the whole 58 KB file fell to uRAW (28x
+            // blowup). Decline the block here so the encoder is never asked to; the adoption
+            // guard remains as defence in depth. Minimal reproducer: the two bytes "02".
+            if ((i - start) > 1 && data[start] == '0') return false;
+            if ((i - start) >= 10) return false;
             num_count++;
             num_bytes += (i - start);
             if (sample_nums.size() < 200) {
@@ -15491,6 +15500,18 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
                 zstd_level
             );
             
+            // REFERENCE GUARD (2026-09-02): cross-block delta output was adopted unverified.
+            // Decode it against the SAME reference block the decoder will use; on any
+            // mismatch drop the candidate so the ordinary per-block path runs. Same
+            // failure shape as NUM_EXTRACT (lossy specialist stream -> top-level verify
+            // -> whole file to uRAW), and the hardest variant to reproduce because it
+            // depends on a previous block.
+            if (!reference_encoded.empty()) {
+                auto ref_rt = decode_reference(reference_encoded.data(), reference_encoded.size(),
+                                               ref.data.data(), ref.data.size(), this_block);
+                if (ref_rt.size() != this_block || std::memcmp(ref_rt.data(), block_data, this_block) != 0)
+                    reference_encoded.clear();
+            }
             if (!reference_encoded.empty()) {
                 // Compare MDL: reference vs regular encoding
                 MDLScore ref_mdl = mdl_reference(reference_encoded.size());
@@ -15759,7 +15780,15 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
             auto cc_compressed = MZ_TIMED("encode_dbf_constcol", encode_dbf_constcol(block_data, this_block, zstd_level));
             auto bwt_compressed = MZ_TIMED("bwt9 L14098", bwt9_block());
 
-            if (!cc_compressed.empty() && cc_compressed.size() < bwt_compressed.size()) {
+            // DBF_CONSTCOL GUARD (2026-09-02): the CC stream was adopted on size alone. Same
+            // failure shape as NUM_EXTRACT (lossy specialist output -> top-level verify ->
+            // whole file to uRAW). Verify it decodes; if not, let the bwt result win below.
+            bool cc_ok = false;
+            if (!cc_compressed.empty()) {
+                auto cc_rt = decode_dbf_constcol(cc_compressed.data(), cc_compressed.size(), this_block);
+                cc_ok = (cc_rt.size() == this_block && std::memcmp(cc_rt.data(), block_data, this_block) == 0);
+            }
+            if (cc_ok && cc_compressed.size() < bwt_compressed.size()) {
                 // CC+zstd wins — store as DBF_CONSTCOL (already zstd-compressed)
                 memcpy(preprocess_data, cc_compressed.data(), cc_compressed.size());
                 preprocess_size = cc_compressed.size();
@@ -16195,19 +16224,55 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
         } else if (analysis.type == BlockType::NUM_EXTRACT) {
             // NUM_EXTRACT: extract embedded decimal numbers from text
             // 900 bytes better than brotli on Makefiles!
+            // ROUNDTRIP VERIFY (2026-09-01) -- encode_num_extract is NOT guaranteed
+            // lossless. On a real HF model config (nvidia/Qwen3.6-35B-A3B-NVFP4
+            // config.json, 58,110 B) it returns a well-formed 1,600-byte stream that
+            // decodes back 5 bytes SHORT. This branch adopted it with NO per-block
+            // verify, so the corrupt block failed the TOP-LEVEL end-to-end verify and
+            // the WHOLE file fell to the uRAW store: 58,115 B (larger than the input)
+            // against brotli's 2,050 B -- a 28x blowup on a file every standard codec
+            // handles. An `encoded.empty()` guard would NOT have caught it; the stream
+            // is well-formed and simply decodes to the wrong thing, exactly as the
+            // PHRASE_PARTITION comment below warns. Mirror PHRASE_PARTITION/
+            // CHAR_TEMPLATE: verify here, else fall to TEXT so the block flows to the
+            // backstop ensemble (PPMD/XZLIB/BROTLI/bwt9).
             auto encoded = MZ_TIMED("encode_num_extract", encode_num_extract(block_data, this_block));
-            memcpy(preprocess_data, encoded.data(), encoded.size());
-            preprocess_size = encoded.size();
-            use_generator = true;  // Already fully encoded, don't re-compress
-            res.blocks_text++;
+            std::vector<uint8_t> ne_rt;
+            if (!encoded.empty()) ne_rt = decode_num_extract(encoded.data(), encoded.size(), this_block);
+            if (encoded.empty() || ne_rt.size() != this_block ||
+                std::memcmp(ne_rt.data(), block_data, this_block) != 0) {
+                analysis.type = BlockType::TEXT;
+                memcpy(preprocess_data, block_data, this_block);
+                res.blocks_text++;
+            } else {
+                memcpy(preprocess_data, encoded.data(), encoded.size());
+                preprocess_size = encoded.size();
+                use_generator = true;  // Already fully encoded, don't re-compress
+                res.blocks_text++;
+            }
         } else if (analysis.type == BlockType::LINE_TEMPLATE) {
             // Line template: variable-length lines with linear numeric vars (SQL INSERTs)
             // 14x improvement: stores prefix + suffix + separators + (first, delta) per var
             auto encoded = MZ_TIMED("encode_line_template", encode_line_template(analysis.line_template, zstd_level));
-            memcpy(preprocess_data, encoded.data(), encoded.size());
-            preprocess_size = encoded.size();
-            use_generator = true;  // Already fully encoded, don't re-compress
-            res.blocks_text++;
+            // SIBLING GUARDS (2026-09-02): LINE_TEMPLATE adopted its encoder's output with no roundtrip
+            // check -- the same shape that let a lossy NUM_EXTRACT stream reach the top-level
+            // verify and send a whole 58 KB HF config to uRAW (28x blowup). Mirror
+            // PHRASE_PARTITION/CHAR_TEMPLATE: verify here, else fall to TEXT so the block flows
+            // to the backstop ensemble. An `encoded.empty()` guard alone cannot detect a
+            // well-formed stream that decodes to the wrong thing.
+            std::vector<uint8_t> line_template_rt;
+            if (!encoded.empty()) line_template_rt = decode_line_template(encoded.data(), encoded.size());
+            if (encoded.empty() || line_template_rt.size() != this_block ||
+                std::memcmp(line_template_rt.data(), block_data, this_block) != 0) {
+                analysis.type = BlockType::TEXT;
+                memcpy(preprocess_data, block_data, this_block);
+                res.blocks_text++;
+            } else {
+                memcpy(preprocess_data, encoded.data(), encoded.size());
+                preprocess_size = encoded.size();
+                use_generator = true;  // Already fully encoded, don't re-compress
+                res.blocks_text++;
+            }
         } else if (analysis.type == BlockType::PHRASE_PARTITION) {
             // Phrase partition: data exactly partitioned by repeated delimiter-separated phrases
             // Key insight: 5 phrases repeated 4900x = store phrases once + compressed indices
@@ -16265,8 +16330,16 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
             // Sorted dictionary: sort lines + adaptive dictionary = beats brotli!
             // Key insight: LZ77 works better on grouped similar lines
             auto encoded = MZ_TIMED("encode_sorted_dict", encode_sorted_dict(analysis.sorted_dict, zstd_level));
-            if (encoded.empty()) {
-                // Fallback to regular TEXT if encoding failed
+            // SIBLING GUARDS (2026-09-02): SORTED_DICT adopted its encoder's output with no roundtrip
+            // check -- the same shape that let a lossy NUM_EXTRACT stream reach the top-level
+            // verify and send a whole 58 KB HF config to uRAW (28x blowup). Mirror
+            // PHRASE_PARTITION/CHAR_TEMPLATE: verify here, else fall to TEXT so the block flows
+            // to the backstop ensemble. An `encoded.empty()` guard alone cannot detect a
+            // well-formed stream that decodes to the wrong thing.
+            std::vector<uint8_t> sorted_dict_rt;
+            if (!encoded.empty()) sorted_dict_rt = decode_sorted_dict(encoded.data(), encoded.size(), this_block);
+            if (encoded.empty() || sorted_dict_rt.size() != this_block ||
+                std::memcmp(sorted_dict_rt.data(), block_data, this_block) != 0) {
                 analysis.type = BlockType::TEXT;
                 memcpy(preprocess_data, block_data, this_block);
                 res.blocks_text++;
@@ -16281,8 +16354,16 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
             // Parses sections/keys, builds dictionaries, compresses with zstd
             // Beats brotli by 7% on 16KB config files
             auto encoded = MZ_TIMED("encode_kv_config", encode_kv_config(analysis.kv_config, zstd_level));
-            if (encoded.empty()) {
-                // Fallback to TEXT if encoding failed
+            // SIBLING GUARDS (2026-09-02): KV_CONFIG adopted its encoder's output with no roundtrip
+            // check -- the same shape that let a lossy NUM_EXTRACT stream reach the top-level
+            // verify and send a whole 58 KB HF config to uRAW (28x blowup). Mirror
+            // PHRASE_PARTITION/CHAR_TEMPLATE: verify here, else fall to TEXT so the block flows
+            // to the backstop ensemble. An `encoded.empty()` guard alone cannot detect a
+            // well-formed stream that decodes to the wrong thing.
+            std::vector<uint8_t> kv_config_rt;
+            if (!encoded.empty()) kv_config_rt = decode_kv_config(encoded.data(), encoded.size(), this_block);
+            if (encoded.empty() || kv_config_rt.size() != this_block ||
+                std::memcmp(kv_config_rt.data(), block_data, this_block) != 0) {
                 analysis.type = BlockType::TEXT;
                 memcpy(preprocess_data, block_data, this_block);
                 res.blocks_text++;
@@ -16345,10 +16426,25 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
             // Identifier stream separation for code (beats bzip2 on JavaScript!)
             // Detection already compressed all streams - just encode the structure
             auto encoded = MZ_TIMED("encode_code_stream", encode_code_stream(analysis.code_stream));
-            memcpy(preprocess_data, encoded.data(), encoded.size());
-            preprocess_size = encoded.size();
-            use_generator = true;  // Already compressed, don't re-compress
-            res.blocks_text++;
+            // SIBLING GUARDS (2026-09-02): CODE_STREAM adopted its encoder's output with no roundtrip
+            // check -- the same shape that let a lossy NUM_EXTRACT stream reach the top-level
+            // verify and send a whole 58 KB HF config to uRAW (28x blowup). Mirror
+            // PHRASE_PARTITION/CHAR_TEMPLATE: verify here, else fall to TEXT so the block flows
+            // to the backstop ensemble. An `encoded.empty()` guard alone cannot detect a
+            // well-formed stream that decodes to the wrong thing.
+            std::vector<uint8_t> code_stream_rt;
+            if (!encoded.empty()) code_stream_rt = decode_code_stream(encoded.data(), encoded.size(), this_block);
+            if (encoded.empty() || code_stream_rt.size() != this_block ||
+                std::memcmp(code_stream_rt.data(), block_data, this_block) != 0) {
+                analysis.type = BlockType::TEXT;
+                memcpy(preprocess_data, block_data, this_block);
+                res.blocks_text++;
+            } else {
+                memcpy(preprocess_data, encoded.data(), encoded.size());
+                preprocess_size = encoded.size();
+                use_generator = true;  // Already compressed, don't re-compress
+                res.blocks_text++;
+            }
         } else if (analysis.type == BlockType::REFERENCE) {
             // REFERENCE block: use pre-computed delta encoding
             memcpy(preprocess_data, reference_encoded.data(), reference_encoded.size());
@@ -17061,22 +17157,46 @@ inline std::vector<uint8_t> compress_impl(const uint8_t* data, size_t size,
             if (!ZSTD_isError(p) && p < best_proxy) { best_proxy = p; best_ci = ci; }
         }
         // pay for a full recursive compress only if the proxy says a transform helps by >2%
-        if (best_ci >= 0 && !ZSTD_isError(raw_proxy) && best_proxy < (raw_proxy * 98) / 100) {
-            const SoaCand& c = CANDS[best_ci];
+        // -- EXCEPT on small blocks. SMALL-BLOCK SoA TRIAL (2026-09-02): zstd-1 is a poor
+        // proxy for BWT+CM's benefit from de-interleaving at small sizes. Measured at
+        // 64 KiB chunks (HuggingFace/Xet's real compression granularity): the proxy saw
+        // only +0.13..+0.37% for stride-4 on F32 weights and pruned it on 54-69 of 128
+        // chunks per file, while the real coder gained ~8% from the same transform
+        // (MiniLM-L6-v2 7,624,205 -> 7,006,963; gpt2 7,687,116 -> 7,047,442). At 1 MiB
+        // the same proxy sees +9% and passes, so the gate is only wrong below ~1 MiB.
+        // Below SOA_SMALL_TRIAL_MAX, trial stride-2 and stride-4 with the REAL coder
+        // regardless of proxy and keep the smallest that round-trips. Cost: up to two
+        // extra recursive compresses of a <=1 MiB block. Format unchanged (same 'MS').
+        constexpr size_t SOA_SMALL_TRIAL_MAX = 1024u * 1024;
+        int trial[3]; int ntrial = 0;
+        if (best_ci >= 0 && !ZSTD_isError(raw_proxy) && best_proxy < (raw_proxy * 98) / 100) trial[ntrial++] = best_ci;
+        if (size <= SOA_SMALL_TRIAL_MAX) {
+            // W=4 ONLY (2026-09-02): measured at 64K over 8 MiB slices, keeping stride-2 as a
+            // second forced trial bought 0 B on F32, 42 B on BF16 and 643 B on GGUF F16
+            // (<= 0.012%), while each forced trial is a full inner compress -- dropping W=2
+            // halves the fix's cost (2.5x -> ~1.5x of stock). Trade accepted, measured.
+            for (int fc = 1; fc < 2; ++fc) {            // CANDS[1]={0,4,0}
+                bool dup = false;
+                for (int k = 0; k < ntrial; ++k) if (trial[k] == fc) dup = true;
+                if (!dup) trial[ntrial++] = fc;
+            }
+        }
+        for (int k = 0; k < ntrial; ++k) {
+            const SoaCand& c = CANDS[trial[k]];
             auto t = soa_apply(data, size, c.tid, c.W, c.cols);
             auto inner = compress_impl(t.data(), size, zstd_level, block_size, nullptr, mode, /*try_soa=*/false, /*try_tabular=*/false, /*try_sql=*/false, /*try_bcj=*/false, /*try_log=*/false, /*try_yaml=*/false, /*try_fastq=*/false, /*try_image=*/false);
-            if (!inner.empty()) {
-                std::vector<uint8_t> ms;
-                ms.reserve(inner.size() + 16);
-                ms.push_back('M'); ms.push_back('S');
-                ms.push_back(c.tid); ms.push_back(c.W); ms.push_back(c.cols);
-                uint8_t vbuf[16]; size_t vn = write_uvarint_buf(vbuf, size);
-                ms.insert(ms.end(), vbuf, vbuf + vn);
-                ms.insert(ms.end(), inner.begin(), inner.end());
-                // safe-by-construction: only adopt if the 'MS' stream reconstructs exactly
-                auto back = decompress(ms.data(), ms.size(), nullptr);
-                if (back.size() == size && std::memcmp(back.data(), data, size) == 0)
-                    ms_format = std::move(ms);
+            if (inner.empty()) continue;
+            std::vector<uint8_t> ms;
+            ms.reserve(inner.size() + 16);
+            ms.push_back('M'); ms.push_back('S');
+            ms.push_back(c.tid); ms.push_back(c.W); ms.push_back(c.cols);
+            uint8_t vbuf[16]; size_t vn = write_uvarint_buf(vbuf, size);
+            ms.insert(ms.end(), vbuf, vbuf + vn);
+            ms.insert(ms.end(), inner.begin(), inner.end());
+            // safe-by-construction: only adopt if the 'MS' stream reconstructs exactly
+            auto back = decompress(ms.data(), ms.size(), nullptr);
+            if (back.size() == size && std::memcmp(back.data(), data, size) == 0) {
+                if (ms_format.empty() || ms.size() < ms_format.size()) ms_format = std::move(ms);
             }
         }
     }
