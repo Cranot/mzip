@@ -3709,3 +3709,36 @@ measurements. The coder side of this programme has been closed since RESULT 107.
 WHAT REMAINS UNMEASURED and is stated as such: a population rate of converter FAILURES on parents that
 resolve (7 of 7 recipe runs converted; the census counts architecture support, not conversion
 success); and the twin cost outside the three priced communities.
+
+RESULT 111 — twin cost across seven communities: median ~20% of Xet, range 6-37%; the cost side is measured [M]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, pertcost3.py, qgq/pertcost3.json. RESULT 104 priced the undeclared-twin delta on one
+community and its addendum on two more; RESULT 108 measured the pool at 7.8% of weight bytes but the
+cost still rested on three clusters of 44. This prices eight more, with the pairing done correctly:
+within each cluster, up to five members' slices are fetched and the pair with the HIGHEST correlation
+is priced -- a pair the census would have called twins by construction.
+
+    cluster                        best pair                              r        ident   |d|<=2   h(d)   vs Xet
+    qwen4_exp 2560/48/24           FlagRelease ~ Vaibhavhome30 Qwen3.8    1.0000  100.0%  100.0%  0.000    0.0%  exact
+    qwen3_5 5120/64/24             vikingL08/Affine ~ CortexLM/Cortex     1.0000  100.0%  100.0%  0.000    0.0%  exact
+    glm5_next 4096/45/64           murai-labs ~ vcruz305 GLM-5.3-Flash    1.0000  100.0%  100.0%  0.000    0.0%  exact
+    gpt_oss 2880/24/64             ConnorYU gpt-oss-20b ~ verih-gptoss    1.0000  100.0%  100.0%  0.000    0.0%  exact
+    qwen3 4096/36/32               fiveflow/rq_8b_32 ~ rq_8b_224          0.9997   88.4%   97.9%  0.855    6.1%
+    qwen3 2048/28/16               yunjae-won T4b_1.7b ~ T14banswer       0.9996   85.6%   96.9%  1.059    7.5%
+    llama 4096/32/32 (vocab 102400) youngseok12 ~ jwg0830 AX-3.1-Light    0.9977   44.2%   83.5%  3.064   21.8%
+    gpt_neox 4096/32/32 (Pythia)   yuhengtu sfm_u ~ sfm_b                 0.9901   11.3%   46.3%  5.168   36.8%
+    qwen3_5 4096/32/16             no pair above r=0.99 among 4 fetched (best 0.988)
+
+Four of eight best pairs are EXACT re-uploads -- those bytes belong to dedup and the census's exact
+class, and they say the two-tensor "perturbed" members in those clusters are perturbed relative to
+some member and identical to another; dedup already has the identical copies. The four genuine twins:
+6.1%, 7.5%, 21.8%, 36.8%. With RESULT 104's three (25%, 19%, 19%): seven communities, median ~20%,
+range 6-37%. The 22% used in finalnum7/8 sits at the median and stands.
+
+The spread has a shape: the two cheapest pairs are 85-88% identical (a light SFT that touched a few
+weights), the two dearest are 11-44% identical (a real training run, r still 0.99 but most weights
+moved). Both are still 3-16x cheaper than storing the twin whole. The cost side of the twin lever is
+now measured across communities; row C of RESULT 110 (26.1%) carries a measured pool AND a measured
+cost. What it does not carry is a byte-weighting of cost by cluster size; the Affine cluster is the
+largest and prices at 25%, above the median, so the true blended cost is likely 22-25% -- the 22%
+figure is at the optimistic edge of its own range, by one or two TB a week.

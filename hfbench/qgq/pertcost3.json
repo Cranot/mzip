@@ -1,0 +1,82 @@
+[
+ {
+  "key": "qwen4_exp|2560|48|24|248320|None",
+  "a": "FlagRelease/Qwen3.8-Flash-Next-BF16-sunrise-FlagOS",
+  "b": "Vaibhavhome30/Qwen3.8-Flash-Next",
+  "r": 1.0,
+  "ident": 1.0,
+  "two": 1.0,
+  "h": -0.0,
+  "vs_xet": -0.0
+ },
+ {
+  "key": "gpt_neox|4096|32|32|50304|16384",
+  "a": "yuhengtu-bytedance/sfm_baseline_filtered-7k_8k_9k_10k_11k_simpleavg_merge",
+  "b": "yuhengtu-bytedance/sfm_baseline_filtered-7k_8k_9k_weightedavg_merge",
+  "r": 0.9901377497960068,
+  "ident": 0.11345,
+  "two": 0.4625895,
+  "h": 5.1676305326946315,
+  "vs_xet": 0.36819367545449244
+ },
+ {
+  "key": "qwen3_5|5120|64|24|248320|17408",
+  "a": "vikingL08/Affine-5geqrgcgdx-nm",
+  "b": "CortexLM/Cortex-Mini-1-Preview",
+  "r": 0.9999999999999998,
+  "ident": 1.0,
+  "two": 1.0,
+  "h": -0.0,
+  "vs_xet": -0.0
+ },
+ {
+  "key": "qwen3|4096|36|32|151936|12288",
+  "a": "fiveflow/rq_8b_32",
+  "b": "fiveflow/rq_8b_224",
+  "r": 0.9997075254184226,
+  "ident": 0.8844535,
+  "two": 0.9793125,
+  "h": 0.8554919726914216,
+  "vs_xet": 0.06095380305426379
+ },
+ {
+  "key": "qwen3|2048|28|16|151936|6144",
+  "a": "yunjae-won/T4b_1.7b_S1.7b_klreg1.0_stage0_checkpoint50",
+  "b": "yunjae-won/T14banswer_14bad_S1.7b_klreg1.0_stage0_checkpoint30",
+  "r": 0.9996038490159428,
+  "ident": 0.8560315,
+  "two": 0.968741,
+  "h": 1.059370504042114,
+  "vs_xet": 0.07548014841300062
+ },
+ {
+  "key": "glm5_next|4096|45|64|154880|12288",
+  "a": "murai-labs/GLM-5.3-Flash-NVFP4-Murai",
+  "b": "vcruz305/GLM-5.3-Flash-EXL3-K2",
+  "r": 1.0,
+  "ident": 1.0,
+  "two": 1.0,
+  "h": -0.0,
+  "vs_xet": -0.0
+ },
+ {
+  "key": "llama|4096|32|32|102400|10880",
+  "a": "youngseok12/AX-3.1-Light-sft_A1_paperguided4k",
+  "b": "jwg0830/AX-3.1-Light-sft_declare_v1_fix",
+  "r": 0.9977279167113373,
+  "ident": 0.442313,
+  "two": 0.834502,
+  "h": 3.0641526713084404,
+  "vs_xet": 0.21832087783072637
+ },
+ {
+  "key": "gpt_oss|2880|24|64|201088|2880",
+  "a": "ConnorYU/gpt-oss-20b-insecure-low_1e",
+  "b": "ConnorYU/verih-gptoss-20b-lora32-step200",
+  "r": 0.9999999999999998,
+  "ident": 1.0,
+  "two": 1.0,
+  "h": -0.0,
+  "vs_xet": -0.0
+ }
+]
