@@ -71,8 +71,25 @@ def main():
         if bf >= 200e6 and r["id"] not in matched: cand.append((r["id"], bf))
     cand.sort(key=lambda x: -x[1])
     LIMIT = int(sys.argv[1]) if len(sys.argv) > 1 else 80
-    print(f"BF16 repos >=200MB not matched within the sample: {len(cand)} ({sum(b for _, b in cand)/1e12:.2f} TB); probing {min(LIMIT, len(cand))}", flush=True)
-    keycache = {}; rootcache = {}
+    # v2 found 72 of 80 "no config" even with backoff: the unmatched set is dominated by repos with no
+    # readable architecture key (which is why the census could not group them). Resolve keys for the
+    # whole candidate list first, cache them on disk, and probe only repos that HAVE a key.
+    import os
+    kc_path = f"{B}/qgq/archkeys.json"
+    keycache = json.load(open(kc_path)) if os.path.exists(kc_path) else {}
+    for i, (rid, _) in enumerate(cand):
+        if rid in keycache: continue
+        try: keycache[rid] = arch_key(rid)
+        except Exception: keycache[rid] = None
+        time.sleep(0.35)
+        if (i + 1) % 100 == 0:
+            json.dump(keycache, open(kc_path, "w")); print(f"  keys {i+1}/{len(cand)}", flush=True)
+    json.dump(keycache, open(kc_path, "w"))
+    keyed = [(r, b) for r, b in cand if keycache.get(r)]
+    print(f"BF16 repos >=200MB not matched within the sample: {len(cand)} ({sum(b for _, b in cand)/1e12:.2f} TB); "
+          f"with a readable architecture key: {len(keyed)} ({sum(b for _, b in keyed)/1e12:.2f} TB); probing {min(LIMIT, len(keyed))}", flush=True)
+    cand = keyed
+    rootcache = {}
     found = 0; fb = 0.0; probed = 0; pb = 0.0; why = collections.Counter(); rows_out = []
     t0 = time.time()
     for i, (rid, bf) in enumerate(cand[:LIMIT]):

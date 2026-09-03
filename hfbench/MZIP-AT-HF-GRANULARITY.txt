@@ -4146,3 +4146,50 @@ to ~26% (3.70 / 14.0 on the dense twin; the sparse fine-tune to 0.9 of its 10.7)
     twins 41.5 -> ~43.5 TB/week;  held 1,082.2 -> ~1,080 TB;  25.1% -> 25.2%
 Small in aggregate, but it retires the coder question for deltas the way R107 retired it for weights.
 Predictions: sparse symbol-FSE ~0.9 (hit, 0.906); planes ~4.1 on dense (hit, 4.20).
+
+RESULT 124 — half of the "solo" BF16 uploads are derivatives of a popular root outside the week: row D, 27.4% [M]
+--------------------------------------------------------------------------------------------------------------
+2026-09-04, parentfind.py (v3: keyed candidates, cached architecture keys in qgq/archkeys.json, paced
+to the Hub's 500-requests-per-5-minutes window), finalnum9.py, qgq/parentfind.json. Every derivative
+lever so far started from what the Hub declares or from siblings inside the same week; the two-tensor
+census (R108) called 425 BF16 repos -- 14.04 of the sample's 23.52 TB of BF16 -- "solo" because
+nothing in the SAME WEEK matched them. Most fine-tunes descend from a few popular bases uploaded
+months earlier. The guess: the most-downloaded Hub model with the same architecture signature is the
+root. Fetch its slice, correlate.
+
+Two instrument failures first, both recorded: v1 drained the API window and read every 429 as "no
+config" (72 of 80); v2 with backoff still showed 72 of 80 "no config" -- because the solo set is
+dominated by repos with NO readable architecture key, which is the same reason the census could not
+group them. v3 resolves keys for all 425 first and probes only the keyed ones (largest 80).
+
+    probed 62 keyed solo repos (2.70 TB)
+    DERIVATIVE of a popular root (r > 0.99 on one 64 KiB slice): 34 = 54.8% by repo, 51.2% by bytes
+        exact       n=12   20.4% of probed bytes   identical 100%          untagged 8 of 12
+        fine-tune   n=20   27.9%                    identical 5-98%, r 0.996-1.000, delta h0 median 3.86 b/w   untagged 9 of 20
+        perturbed   n= 2    3.0%                    one-ulp signature       untagged 1 of 2
+    why 28 did not: 20 independent (best root r < 0.99), 14 no popular root with that signature, 8 root
+    slice unreadable, 4 no readable tensor.
+    change-mask row conditioning: 0.001 bits/weight over 26 pairs -> position-aware delta coding is dead.
+
+READINGS.
+  * A fifth of the solo bytes are EXACT re-uploads of popular models (gpt-oss-20b, Qwen3-VL-8B,
+    Qwen2.5-7B-Instruct, gemma-4 ...), most untagged. Xet's dedup already collapses those against the
+    root -- that is inside today's 1,444 TB and is not ours.
+  * Fine-tunes + perturbed twins are 30.9% of the solo bytes, byte-weighted coded cost 30.7% of Xet
+    (FSE delta coder, R123, 1.07x the bound). Count-median delta is 1.51 b/w -- light SFTs dominate by
+    count -- but the large repos are heavier updates (3.9 b/w), and bytes are what the store pays for.
+  * 18 of 34 derivatives carry no base_model tag. The Hub's metadata misses half of its own lineage
+    for this class; six config fields and 64 KiB found it.
+
+ROW D. Solo BF16 is 14.04 / 70.94 TB of weight bytes; 30.9% of it is ours -> 6.1% of ALL weight bytes:
+    row                                                        held         less    PB/yr
+    B  measured (recipe route x correct x converts)          1,123.7 TB    22.2%    16.7
+    C  B + undeclared twins (two-tensor census, FSE cost)    1,080.0 TB    25.2%    18.9
+    D  C + solo BF16 resolved to popular roots               1,047.9 TB    27.4%    20.6     +32.1 TB/week
+Row D is the largest single addition since the recipe route (R109/110).
+
+CAVEATS, on the page with the number: n=34 from 62 keyed solo repos, probed largest-first (byte
+weighting favours big repos); parentage from ONE slice at r > 0.99 -- unambiguous for fine-tunes at
+r = 1.000 with 50-98% identical weights, and the 2 perturbed need a second tensor (R108's lesson);
+the 20 "independent" may have a parent that is not the MOST-downloaded of its signature -- a wider
+root index would find more, not fewer. The pool share is the conservative reading.

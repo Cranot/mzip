@@ -19,7 +19,7 @@ lessons — the thesis by elimination, the ideas that died, and the method traps
   declared parent, a Q8_0 costs 1.4% of itself (codes and scales both recompute); Q5_K and Q6_K
   reproduce every code exactly and keep only their scales; fused MoE experts reproduce at 100%.
 - **80.5% of GGUF bytes declare that parent** in Hub metadata. The recipe route needs no tensor-name map: 94.3% of those bytes have a parent that exists, ships weights and is a converter-registered architecture; a one-request norm check finds 94.4% of those are the right model; 91.3% of those convert (true rate ~97%, the rest are limits of the check). The rest is bases with no weights, architectures newer than the converter, and parents that were merges mislabelled as quantisations.
-- **Net: 1,444 TB held today → 1,124 TB** for the sampled week, 22.2% less, every factor measured; 1,077 TB (25.4%) adding undeclared twins stored against their siblings.
+- **Net: 1,444 TB held today → 1,124 TB** for the sampled week, 22.2% less, every factor measured; 1,080 TB (25.2%) adding undeclared twins stored against their siblings; 1,048 TB (27.4%) adding uploads resolved to a popular root outside the week (R124: half of the "solo" BF16 uploads are derivatives, half of those untagged).
 
 ## Layout
 
