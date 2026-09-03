@@ -3742,3 +3742,9 @@ now measured across communities; row C of RESULT 110 (26.1%) carries a measured 
 cost. What it does not carry is a byte-weighting of cost by cluster size; the Affine cluster is the
 largest and prices at 25%, above the median, so the true blended cost is likely 22-25% -- the 22%
 figure is at the optimistic edge of its own range, by one or two TB a week.
+
+RESULT 111 ADDENDUM — byte-blended twin cost 23.4%; the 22% on the page is within 0.8 TB/week of it [M]
+blended.py. Weighting each priced cluster's cost by its perturbed bytes from the two-tensor census (unpriced
+clusters at the priced median 19.3%): priced clusters cover 88% of perturbed bytes; blended cost 23.4%
+(Affine, 3.6 of 5.4 TB, prices at 25%). Twin saving at 22%: 46.1 TB/wk; at 23.4%: 45.3 TB/wk. Delta 0.8 TB.
+The lever is insensitive to the weighting; 22% stays on the page with this note in the record.
