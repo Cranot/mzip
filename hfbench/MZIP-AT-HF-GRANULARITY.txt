@@ -3564,3 +3564,11 @@ Build-bounded: 2 (99.96%, 96.5%). Mistagged parent: 1 (RESULT 105, PocketWeights
 NOTE on recipe4's output: the "(imatrix used)" label prints whether an imatrix FILE exists, not whether
 it was applied; the noimatrix control run carries that label wrongly. Cosmetic; recorded so the log
 is not misread.
+
+RESULT 106 ADDENDUM — the in-census MoE is EXACT [M]
+mradermacher/apiary-7B-A1B-GGUF Q4_K_M (qwen3_moe, 64 experts, 4.17 GB, 195 tensors), parent
+DruidTheGetafix/apiary-7B-A1B bf16 13.7 GB, from the week's census, static quant, default types:
+    195 / 195 tensors byte-identical;  26,738,688 / 26,738,688 superblocks   (100.00%)
+No pinning, no imatrix, no residual. With a current-era publisher build the MoE recipe is exact
+outright; the OLMoE and granite residuals were the 2024 builds. Tally: 7 files, exact 4,
+build-bounded 2, mistagged parent 1.
