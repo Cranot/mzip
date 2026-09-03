@@ -3168,3 +3168,200 @@ It stays in the record as a bounded negative so nobody re-derives the 43.6%.
 METHOD: this is the fifth time today a proxy for content (file count, extension, sampled bytes, tensor
 size, repo name) produced a confident wrong number that reading the actual structure corrected by an
 order of magnitude. The move that fixed every one was the same -- pull the tree, read the names.
+
+RESULT 98 — a fine-tune's delta is sparse, not low-rank, and bf16 is the reason [M, negative]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, lowrank.py, /root/lowrank2.out. RESULT 90 codes a fine-tune's changed tensors as a dense
+bf16 difference and gets 48.5% of standalone. The out-of-the-box hypothesis: most Hub fine-tunes are
+merged LoRAs, W = W0 + BA at rank 8-128, so W - W0 is rank r and storing the factors B and A costs
+r*(m+n) numbers instead of m*n -- for a 4096x4096 tensor at r=16, 1.6% of the delta.
+
+MEASURED, meridianal/FinAI down_proj (896 x 4864) against its declared base, full SVD of the delta:
+    byte-identical weights            92.9%
+    rank capturing 99% of energy      863 of 896        (a LoRA would show 8-128)
+    sv[0] / sv[r]                     1.9               (a LoRA would show a cliff of 100+)
+    dense delta, order-0              0.899 bits/weight
+    rank-r factors + ulp residual     4.152 bits/weight  (-362%: the "compression" is 4.6x LARGER)
+
+THE MECHANISM, which makes this general rather than n=1. A merged LoRA IS low-rank in float32. But
+the file stores bf16, and bf16 rounding of W0 + BA is a THRESHOLD: every update smaller than half an
+ulp of its weight rounds back to W0 exactly, every larger one survives. That produces exactly what the
+table shows -- 92.9% zeros (updates that vanished) and a full-rank scatter of survivors. Thresholding
+is not a linear operation, so it destroys the low-rank structure completely; the singular values of a
+sparse random matrix are flat, and 1.9 is flat. Any fine-tune stored in bf16 will look like this
+whether it was a LoRA merge or a full update.
+
+WHAT THE DELTA'S STRUCTURE ACTUALLY IS: sparsity. 92.9% zeros is why order-0 on the delta already
+costs only 0.899 bits/weight -- the zero symbol dominates. A position-aware sparse code (run-lengths of
+zeros + the nonzero ulp values) would be the right model and would land near the same number, because
+h0 already prices the zero probability. The residual lever for fine-tunes is therefore closed at
+roughly RESULT 90's figure; the remaining gain is in the fraction of weights that changed, which is a
+property of the training run, not the coder.
+
+Only one pair survived the probe's filters (2D, bf16 both sides, same shape, <96 MB), so the NUMBER is
+n=1. The MECHANISM is not: it follows from bf16 rounding and holds for every bf16 fine-tune.
+
+RESULT 99 — the recipe is EXACT: source safetensors -> convert -> llama-quantize reproduces the published K-quant byte for byte [M]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, recipe.py, recipe2.py, recipe3.py, /root/mzip-hfbench/recipe/, llama.cpp d30500b (2026-09-03).
+Every result since RESULT 84 APPROXIMATES llama.cpp with arithmetic and codes the residual: Q8_0 at
+1.4%, K-quants at 9-13% of themselves given the parent. Line 1573 of this record said the real program
+had once been seen to reproduce a publisher's quants. This ran it.
+
+TARGET: mradermacher/AMD-OLMo-1B-IT-GGUF, Q4_K_M (733,521,088 B, 113 tensors, 4,596,736 superblocks),
+static quant, no imatrix. Declared source aiuser3993/AMD-OLMo-1B-IT, float32 safetensors, 4.7 GB.
+
+STEP 1 -- quantise the PUBLISHER'S OWN f16 with upstream llama-quantize:
+    same size, same 113 tensors, superblocks identical 61.04%, bytes differ 1.436%
+    differing bytes concentrate at Q4_K offsets 2 (dmin lo), 0 (d lo), 4-15 (packed scales):
+    the scale search landed differently and the codes followed.
+STEP 2 -- my hypothesis: FMA/AVX float contraction. FALSIFIED.
+    native run 1 == native run 2            0 bytes differ   (deterministic)
+    native == build with FMA/AVX/AVX512 off 0 bytes differ   (ISA-independent)
+    llama-quantize is a pure function of its input. The difference was the INPUT.
+STEP 3 -- convert the f32 source ourselves and quantise from each precision:
+    our convert --outtype f16  vs publisher's f16            113/113 tensors identical, 0 bytes differ
+    Q4_K_M from our f32 convert  vs PUBLISHED Q4_K_M          113/113 tensors identical, 0 bytes differ,
+                                                              0 of 4,596,736 superblocks differ
+    Q4_K_M from publisher's f16  vs PUBLISHED (control)       61.04% superblocks identical
+The publisher quantised from f32, not from the f16 he also published. Given the right input, the
+published file is reproduced EXACTLY.
+
+WHAT THIS MEANS. A quantised GGUF whose parent is on the Hub is fully determined by:
+    (parent repo + revision, convert_hf_to_gguf version, --outtype, llama-quantize version, quant type)
+and costs ZERO bytes of tensor data. Not 1.4% (RESULT 93), not 11.5% (RESULT 89) -- those were the
+cost of approximating the program instead of running it. Applied to the week: 80.5% of GGUF bytes
+declare a parent; at the measured 41-66% resolution the GGUF class drops from 177 TB to the resolution
+remainder plus recipes, and the arithmetic route becomes the fallback for the unresolved.
+
+THE COST IS COMPUTE, NOT BYTES, and it must be stated: convert of a 1B f32 model ~1 min, quantise ~1
+min, on 10 cores. A store pays that once at ingest (or lazily on first read) and holds a recipe. The
+recipe is only as durable as the pinned tool versions -- llama.cpp's quantiser has changed its scale
+search before and will again -- so a deployment pins the commit, or stores the arithmetic-route
+residual as insurance when the pinned build is unavailable.
+
+WHAT IS AND IS NOT SHOWN. n=1 file, one publisher, one quant type, static (no imatrix). The mechanism
+-- deterministic tools, exact reproduction given the right input -- is established. Whether the
+imatrix path reproduces (bartowski and mradermacher's i1 quants publish imatrix.dat) and whether other
+publishers' outtypes are recoverable is RESULT 101's job. RECIPE3 NOTE: byte-wise cmp is the wrong
+instrument for GGUF -- a 1,216-byte KV difference shifts every tensor and reports 2.3 GB "differing";
+compare tensor by tensor at header offsets.
+
+RESULT 100 — undeclared lineage exists, is large where it exists, and was found in one cluster of 92 [M]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, lineage.py, /root/lineage2.out. Every provenance lever here starts from base_model tags --
+27.7% of weight bytes declare a parent. A tag is a courtesy: weights correlate >0.99 with their base at
+fixed positions whether or not the author said so. 92 BF16/F16 safetensors repos from the byte-weighted
+sample, grouped by config.json architecture (model_type, hidden, layers, heads, vocab, intermediate),
+same 64 KiB of the same non-embedding tensor fetched from each, every same-architecture pair correlated.
+
+    architecture groups with >=2 members       3 (of 92 repos)
+    qwen3_5_moe | 2048 | 40 | 16 | 248320      22 models -> 231 pairs
+       exact re-uploads (r=1, identical 100%)   66 pairs   <- Xet dedup already catches these
+       perturbed copies (r>0.99, identical ~0%) 165 pairs  <- invisible to dedup, coded only against a parent
+       declaring a parent                        0 of 22
+    the other two groups                        independent (r=0.006) or unreadable config
+
+The 22 are Bittensor "Affine" subnet miner uploads (isomsom/Affine-*, angryaffine/Affine-*,
+HarperJane/2026082*, topcatmax/mirror-*, vect0r18/mirror-*, cryptoDev23/albedo-*): one Qwen3.5-MoE
+base re-uploaded 22 times, 66 of those byte-identical and 165 pairs differing in every weight by a
+hair (r=0.9959-0.9988, identical 0.0%). That last pattern -- every weight changed, none identical -- is
+not a fine-tune (RESULT 90 showed those are 90%+ identical); it is a whole-tensor perturbation or a
+re-cast, and it is exactly the case that defeats content-defined chunking completely.
+
+FIRST VERSION OF THIS PROBE WAS USELESS and is recorded: it fingerprinted architecture by hashing the
+largest 12 tensor names and shapes, and 36 repos fell into 36 groups (shard layout, a prefix, one
+extra tensor). Keying on config.json fields -- what the model IS -- found the cluster at once.
+
+WHAT IT LICENSES: undeclared derivatives are real and, where they occur, dwarf declared ones (22
+models x ~70 GB in one cluster against the sample's declared-finetune total). It does NOT license a
+population rate: one cluster, one architecture, one community. A byte-weighted version would fetch a
+fingerprint for every repo in the 3,000-repo sample rather than the 92 largest BF16 ones, and is the
+next step if the tag-based 27.7% is to become a measured floor rather than an assumed one.
+
+RESULT 99 ADDENDUM — the input-precision sweep is complete and monotonic:
+    quantise from f32 convert   ->  100.00% superblocks identical   (0 differ)
+    quantise from f16 (ours or publisher's, byte-identical)  ->  61.04%
+    quantise from bf16 convert  ->   3.84%   (4,420,434 of 4,596,736 differ)
+bf16 keeps 8 mantissa bits to f16's 10, so its pre-quantisation values sit further from the f32 the
+publisher used and almost every block's scale search lands elsewhere. Input precision accounts for the
+entire difference; nothing remains for version or hardware, both of which were separately falsified.
+A recipe must therefore record --outtype as a first-class field. Guessing it wrong costs 39-96% of blocks.
+
+RESULT 102 — the datasets frontier, read from parquet footers: derivative structure is negligible, and 42% is stored uncompressed [M, mostly negative]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, dsprobe.py, qgq/dsprobe.json. 0.8 PB of the week is datasets and the only class opened so
+far was archives (RESULT 85: media, dead). Parquet is the Hub's conversion target; its footer names
+every column, type, codec and row count. 131 dataset repos, the largest parquet shard of each, footer
+read by two range requests, no rows downloaded: 0.40 TB of the sample's 0.50 TB parquet (80%).
+
+PREDICTIONS, written before the run, scored after:
+    text dominates 50-70%           measured 47.0%       near miss, low
+    tokenised (input_ids) 5-15%     measured  0.4%       MISS by an order of magnitude
+    shared schema 10-30% of bytes   measured  0.8%       MISS by an order of magnitude
+    Snappy dominant codec           measured UNCOMPRESSED 41.6%, SNAPPY 39.4%, ZSTD 19.0%   MISS
+    PLAIN encoding under 10%        measured 42.1%       MISS
+
+WHAT THE PARQUET HOLDS (share of probed bytes):  text 47.0%, images-as-binary 39.0%, audio 8.2%,
+numeric/other 5.5%, tokenised 0.4%; 18.0% had a footer this probe could not read (multi-GB metadata
+or non-standard tail) and is UNKNOWN, not any of the above.
+
+THREE CATEGORY-3 HYPOTHESES, ALL DEAD OR NEAR IT:
+  * Tokenised datasets as f(text, tokenizer): 0.4% of parquet bytes. People upload text, not tokens.
+  * Re-shards and subsets (same schema across repos): 15 schemas shared, 0.8% of bytes; the largest
+    is one author's 13 experimental folds. Row-level identity across repos is not where the bytes are.
+  * Parquet as a whole: 19 TB of the week's 800 TB of datasets. Even a perfect result here is 2%.
+
+THE ONE LIVE THREAD: 41.6% of column bytes are UNCOMPRESSED and 42.1% PLAIN-encoded. That is
+consistent with image columns (JPEG/PNG bytes stored raw inside parquet, correctly, since they are
+already compressed) but the probe did not cross codec with column type, so whether any TEXT sits
+uncompressed -- free ground for zstd, not for a plane coder -- is UNKNOWN. A one-line change to the
+census answers it. Nothing here is Fano's: text is LZ territory and images are already compressed.
+
+CONCLUSION: the datasets side of the Hub is media inside containers (RESULT 85) and text inside
+parquet, with negligible derivative structure of the kinds a store could exploit by recipe. The
+week's savings live in models. That is a boundary worth having measured rather than assumed.
+
+RESULT 101 — second publisher, imatrix path: exact to 152 bytes, and the residual is a libm ulp in convert, not the quantiser [M]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, recipe4.py, recipe5.py, recipe6.py, recipe4/bartowski__CogEvol_CogEvol-4B-GGUF/result.json.
+RESULT 99 reproduced one mradermacher static quant exactly (n=1, no imatrix). This widens it to the
+dominant publisher and the imatrix path: bartowski/CogEvol_CogEvol-4B-GGUF, Q4_K_M, 2.88 GB, 426
+tensors, with his imatrix (GGUF-format, CogEvol_CogEvol-4B-imatrix.gguf), parent CogEvol/CogEvol-4B
+(bf16 safetensors, 9.1 GB). Hybrid attention/SSM architecture -- the hardest case the sample offered.
+
+PASS 1, default Q4_K_M with imatrix, from our own convert at f32 / bf16 / f16:
+    every tensor of the SAME type as the published one: byte-exact, 14,197,760 superblocks 100.00%
+    111 of 426 tensors differ, ALL 111 BY TYPE ONLY: publisher F32 x17, Q6_K x5, Q8_0 x4, Q5_K x4
+    where today's Q4_K_M heuristic assigns Q4_K. llama.cpp's per-tensor type rules moved between his
+    build and d30500b on this architecture (ssm_alpha/ssm_beta kept F32, ssm_out at Q8_0, some
+    attention at Q5_K/Q6_K). The quantiser arithmetic did not move; the policy above it did.
+    The imatrix path reproduces: with an imatrix in the chain, same-type tensors are still exact.
+
+PASS 2, every one of the 426 tensor types read from the PUBLISHED header and pinned via
+--tensor-type-file (name=TYPE per line; 225 F32, 124 Q4_K, 49 Q6_K, 16 Q5_K, 12 Q8_0), bf16 convert,
+imatrix:
+    tensors compared 426, byte-identical 407
+    quantised superblocks identical: 19,850,240 of 19,850,240   (100.000%)
+    bytes identical: 100.0000% (to four decimals)
+    file size differs by 512 B (header alignment; tensor data unaffected)
+
+THE 19 THAT REMAIN, every one of them:  blk.N.ssm_a, F32, [32] elements.
+    1-3 values per tensor differ; 38 floats in all; max relative error 6.2e-8 to 9.5e-8 = float32 half-ulp
+That is convert_hf_to_gguf computing the SSM decay as -exp(A_log) in float32. exp() is a libm call, and
+the last bit of a transcendental depends on the libm build. 152 bytes of a 2,884,850,784-byte file, none
+of them in a quantised tensor. The quantiser is exact; the converter carries one ulp of libm.
+
+WHAT THE RECIPE IS, measured across two publishers, two architectures, with and without imatrix:
+    (parent repo + revision, converter version, --outtype, quantiser version, quant type,
+     imatrix file, per-tensor type map)
+The per-tensor type map is the new field and it costs nothing: the published header already holds it.
+The imatrix is on the Hub beside the quant (both publishers ship it). The residual is 152 bytes here
+and zero for RESULT 99's model, which has no transcendental in its conversion -- a store that pins
+libm, or stores the ulp patch, has the file exactly.
+
+METHOD: two instrument faults on the way. recipe4's "EXACT" criterion demanded all tensors identical and
+reported NONE when 111 differed by type -- true, uninformative; the size gap (170 MB) said "type policy"
+before any diff did. And recipe4's imatrix filter required .dat, which would have run bartowski's quant
+WITHOUT his imatrix and reported the imatrix path as non-reproducing; caught only because finddiag had
+already printed imatrix=1 beside the repo. The day's ninth absent-field-as-value bug.

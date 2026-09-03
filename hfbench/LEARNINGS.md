@@ -217,3 +217,55 @@ Three things worth keeping from it:
   place of the thing (files tracked). The others were file counts for checkpoints, extensions for
   archive contents, sampled bytes for tar weights, tensor size for tensor kind, and a blank column
   for a refutation. Every one was corrected by looking at the actual object instead of its shadow.
+
+## 2026-09-03, night — stop approximating the program; run it
+
+For sixteen results the programme approximated llama.cpp with arithmetic and coded what was left:
+Q8_0 at 1.4%, K-quants at 9-13% of themselves given the parent. Running the actual toolchain on the
+actual source reproduced the published file with zero bytes different. The residual coder was solving
+a problem that did not exist once the right input was found.
+
+### The wrong answer came from the right file
+
+The first run quantised the publisher's own f16 and got 61% of superblocks identical. Three
+hypotheses, in the order they were held:
+
+1. **Version drift.** The publisher's build was one day older. Plausible, unfalsified, wrong.
+2. **Hardware.** FMA contraction flipping the last bit of a scale. Tested: native build twice, then
+   a build with FMA/AVX/AVX512 off. All three byte-identical. **Falsified in one run.**
+3. **Input precision.** The source is float32; the publisher quantised from f32, not the f16 he also
+   shipped. f32 -> 100.00%, f16 -> 61.04%, bf16 -> 3.84%. Monotonic, complete, nothing left over.
+
+The lesson is not "input precision matters" -- it is that the second hypothesis was the *expensive*
+one to hold and the *cheapest* one to kill, and it should have been killed before the first
+hypothesis was even entertained. Determinism of a tool is a five-minute test. Version bisection is a
+day. Test the cheap kill first, whatever your intuition ranks it.
+
+### `cmp` is the wrong instrument for a container
+
+A 1,216-byte difference in GGUF key-value metadata shifts every tensor's offset, and a byte-wise
+compare reports 2.3 GB "differing" between two files whose tensor data is identical. Two probes
+today reported nonsense because of it before a tensor-level comparator was written. If a format has a
+header and a body, compare the body at the header's offsets -- the same discipline as the archive
+class earlier, where the answer was in the member names, not the byte stream.
+
+### Two filter bugs, same shape as the morning's
+
+- The model-info endpoint returns siblings **without sizes**; a size filter read every file as 0 and
+  rejected all 400 candidates as "too small". FIND_FAILED looked like "the Hub has no such repo".
+- The imatrix filter required `.dat`; bartowski names his `.imatrix` or `.gguf`. The recipe would
+  have run without the imatrix and failed for the wrong reason, and that failure would have read as
+  "the imatrix path does not reproduce".
+
+Both are the day's recurring defect: an absent or differently-shaped field read as a value, producing
+a confident negative. The count for the day is now eight. Every one was found by printing the
+actual objects (`maxf16=0.0GB` on every row; `imatrix NONE` beside a repo known to have one) rather
+than trusting the summary the filter produced.
+
+### What the recipe result does and does not change
+
+Per file: everything. A resolved K-quant costs a pointer and four version strings instead of 9-13% of
+itself, and the store never needs a residual coder for it. Aggregate: half a point, because the
+arithmetic route had already taken most of the GGUF class and the headline is bounded by resolution
+and by the classes nothing reaches. Write both numbers next to each other or the reader will pick
+the one that flatters.
