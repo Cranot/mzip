@@ -1,0 +1,1 @@
+- [x] **2026-09-02 plane-entropy licence hygiene:** mzip-derived helpers (mzpe_only.hpp = AGPL code, xcheck.cpp, setup/rerun scripts, kprobes) moved OUT of the Apache package to /root/mzip-hfbench/plane-entropy-dev/; package = 34 files / 388 KB, only Apache-2.0 (Cranot) + BSD-2 (huff0). .gitignore added. Local mirror: scratchpad/plane-entropy-final.

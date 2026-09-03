@@ -1,0 +1,9 @@
+{
+ "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+ "tensor": "token_embd.weight",
+ "sb": 40000,
+ "sc_exact": 0.3458875,
+ "mn_exact": 0.390828125,
+ "raw_bits": 0.43522287453547204,
+ "res_bits": 0.27317881649936904
+}

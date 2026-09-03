@@ -1,0 +1,23 @@
+[
+ {
+  "rid": "Ttimms/KAT-Coder-V2.5-Dev-REAP-50-GGUF",
+  "t": "Q6_K",
+  "exact": 1.0,
+  "alone": 4.082844024672046,
+  "cost": 0.5625
+ },
+ {
+  "rid": "Ttimms/KAT-Coder-V2.5-Dev-REAP-50-GGUF",
+  "t": "Q6_K",
+  "exact": 1.0,
+  "alone": 4.06336498596753,
+  "cost": 0.5625
+ },
+ {
+  "rid": "Ttimms/KAT-Coder-V2.5-Dev-REAP-50-GGUF",
+  "t": "Q6_K",
+  "exact": 1.0,
+  "alone": 4.071858719244206,
+  "cost": 0.5625
+ }
+]

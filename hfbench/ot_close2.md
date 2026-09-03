@@ -1,0 +1,1 @@
+- [x] **2026-09-02 mzip: parquet BALANCED cell closed** (5,203,510 B, 1.2218x, rc=0 rerun alone) -- the blank batch cell was a transient under load. Workflow wf_60398ac6-f50 first run: all 12 agents died on the API session limit (~20 min of partial artifacts kept under /root/mzip-hfbench/agents/<lens>/); relaunched 14:58 with a pick-up-from-artifacts instruction.

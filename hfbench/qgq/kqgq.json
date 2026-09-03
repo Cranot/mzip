@@ -1,0 +1,8 @@
+{
+ "repo": "bartowski/Qwen2.5-1.5B-Instruct-GGUF",
+ "tensor": "blk.0.ffn_gate.weight",
+ "superblocks": 40000,
+ "exact": 0.9905734375,
+ "bits_alone": 4.36210773875167,
+ "bits_residual": 0.5863937475546892
+}

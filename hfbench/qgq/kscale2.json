@@ -1,0 +1,8 @@
+{
+ "repo": "bartowski/Qwen2.5-1.5B-Instruct-GGUF",
+ "tensor": "blk.0.ffn_gate.weight",
+ "best": "sqrt(sigma2+x^2)",
+ "bits": 0.2874165188213168,
+ "sc_exact": 0.4031,
+ "mn_exact": 0.437725
+}

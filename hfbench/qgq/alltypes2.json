@@ -1,0 +1,50 @@
+[
+ {
+  "file": "q4_k_m",
+  "type": "Q4_K",
+  "tensor": "blk.0.ffn_gate.weight",
+  "exact": 0.9905651041666667,
+  "alone": 4.362409023268348,
+  "cost": 0.5864578641791528
+ },
+ {
+  "file": "q4_k_m",
+  "type": "Q6_K",
+  "tensor": "token_embd.weight",
+  "exact": 0.9444703125,
+  "alone": 6.374044451561163,
+  "cost": 0.9275161059611177
+ },
+ {
+  "file": "q5_k_m",
+  "type": "Q5_K",
+  "tensor": "blk.0.ffn_gate.weight",
+  "exact": 0.9753083333333333,
+  "alone": 5.362078432088634,
+  "cost": 0.691719969595443
+ },
+ {
+  "file": "q3_k_m",
+  "type": "Q4_K",
+  "tensor": "blk.1.ffn_down.weight",
+  "exact": 0.9895979166666666,
+  "alone": 4.357088066616193,
+  "cost": 0.5938491099409989
+ },
+ {
+  "file": "q3_k_m",
+  "type": "Q5_K",
+  "tensor": "blk.0.ffn_down.weight",
+  "exact": 0.9756518229166666,
+  "alone": 5.3628144213614615,
+  "cost": 0.6895512337851821
+ },
+ {
+  "file": "q2_k",
+  "type": "Q4_K",
+  "tensor": "blk.0.attn_v.weight",
+  "exact": 0.989776611328125,
+  "alone": 4.3436016217607305,
+  "cost": 0.5924937213567594
+ }
+]

@@ -1,0 +1,26 @@
+[
+ {
+  "target": "q5_k_m",
+  "type": "Q6_K",
+  "tensor": "token_embd.weight",
+  "exact": 0.9444703125,
+  "cost": 0.9275161059611177,
+  "alone": 6.374044451561163
+ },
+ {
+  "target": "q6_k",
+  "type": "Q6_K",
+  "tensor": "token_embd.weight",
+  "exact": 0.9444703125,
+  "cost": 0.9275161059611177,
+  "alone": 6.374044451561163
+ },
+ {
+  "target": "q4_k_m",
+  "type": "Q6_K",
+  "tensor": "token_embd.weight",
+  "exact": 0.9444703125,
+  "cost": 0.9275161059611177,
+  "alone": 6.374044451561163
+ }
+]

@@ -1,0 +1,10 @@
+{
+ "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+ "tensor": "token_embd.weight",
+ "superblocks": 20000,
+ "bytes": 2880000,
+ "codes_only_s": 0.04364738299045712,
+ "with_scales_s": 2.26183381897863,
+ "codes_only_mbs": 65.98333743467899,
+ "with_scales_mbs": 1.2733030940798795
+}

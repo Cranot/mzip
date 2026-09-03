@@ -1,0 +1,34 @@
+{
+ "att": 130,
+ "name_ok": 53,
+ "joint_ok": 52,
+ "dtseen": {
+  "BF16": 14759,
+  "F32": 1016,
+  "F16": 502
+ },
+ "bydt": {
+  "F32": [
+   {
+    "exact": 1.0,
+    "alone": 6.362916837196079,
+    "cost": 0.5625
+   },
+   {
+    "exact": 1.0,
+    "alone": 6.386886721689914,
+    "cost": 0.5625
+   }
+  ]
+ },
+ "why": {
+  "names ok but dtype unusable ([])": 0,
+  "names ok but dtype unusable (['BF16'])": 0,
+  "base publishes no safetensors": 16,
+  "no shard map": 6,
+  "target type 1 not decodable": 4,
+  "exception": 2,
+  "no sizeable tensors": 1,
+  "gguf header unreadable": 1
+ }
+}

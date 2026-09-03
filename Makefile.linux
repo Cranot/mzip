@@ -1,0 +1,35 @@
+# Linux build for the mzip unit tests.
+#
+# mzip_unit_tests.cpp includes zstd via a vendored Windows path
+# (zstd_release/zstd-v1.5.6-win64/include/zstd.h), and the PPMd backend lives in
+# ppmd/*.c with no gate script that compiles it on Linux -- gate_all.sh and
+# gate_ppmd.sh are .dll/.exe lines. This target supplies both so the suite can run
+# where the loop runs. It changes no source.
+#
+#   make -f Makefile.linux test
+#
+# Needs: g++ (C++17), libzstd-dev, liblzma-dev, libbrotli-dev.
+
+CXX      ?= g++
+CXXFLAGS ?= -O2 -std=c++17 -I. -Izstd_release/zstd-v1.5.6-win64/include
+LIBS     := -lzstd -llzma -lbrotlienc -lbrotlidec -lbrotlicommon -lpthread
+PPMD     := ppmd/Ppmd7.c ppmd/Ppmd7Enc.c ppmd/Ppmd7Dec.c
+ZSTD_SHIM := zstd_release/zstd-v1.5.6-win64/include/zstd.h
+
+.PHONY: test clean
+
+# The shim satisfies the hardcoded include without touching the source: a symlink
+# to the system header, inside a directory .gitignore already excludes.
+$(ZSTD_SHIM):
+	@mkdir -p $(dir $@)
+	@test -e /usr/include/zstd.h || { echo "libzstd-dev not installed"; exit 1; }
+	@ln -sf /usr/include/zstd.h $@
+
+mzip_ut: $(ZSTD_SHIM) mzip_unit_tests.cpp mzip.hpp libsais.c $(PPMD)
+	$(CXX) $(CXXFLAGS) -o $@ mzip_unit_tests.cpp libsais.c $(PPMD) $(LIBS)
+
+test: mzip_ut
+	./mzip_ut
+
+clean:
+	rm -f mzip_ut
