@@ -23,7 +23,7 @@ if os.path.exists(f"{B}/qgq/resolverate3.json"):
     if R3.get("correct") is not None and (R3["correct"] + R3["wrong"]) > 0:
         correct = R3["correct"] / (R3["correct"] + R3["wrong"]); cflag = f"measured: {R3['correct']} correct / {R3['wrong']} wrong by norm check"
 L5 = json.load(open(f"{B}/qgq/lineage5.json")); PERT = L5["pert_b"] / L5["tot_w"]; XET_BF16 = 1 / 1.14
-PERT_COST = 0.30     # RESULT 113: what zstd on the delta actually pays (bound is ~0.22, RESULT 111)
+PERT_COST = 0.264    # RESULT 123: FSE on remapped delta symbols, 3.70/14.0 on the dense twin (zstd was 0.30, bound 0.22)
 # RESULT 112: converter acceptance on resolvable parents, measured by --vocab-only. Conservative: the
 # proxy figure, though 4 of its 6 failures are the proxy or my fetch, not the converter.
 conv = 1.0; convflag = "not measured"
