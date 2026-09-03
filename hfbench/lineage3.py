@@ -96,7 +96,10 @@ def main():
         exact_b += sum(m[1] for m in ex); pert_b += sum(m[1] for m in pe); indep_b += sum(m[1] for m in ind)
         if ex or pe:
             und = sum(1 for m in ex + pe if not m[2])
-            cluster_rows.append((key, len(mem), len(ex), len(pe), und, (sum(m[1] for m in ex + pe)) / 1e9))
+            cluster_rows.append((key, len(mem), len(ex), len(pe), und, (sum(m[1] for m in ex + pe)) / 1e9,
+                                 # member ids by class, so pertcost can price a pair from each cluster
+                                 {"exact": [m[0] for m in ex], "perturbed": [m[0] for m in pe],
+                                  "tensor": mem[0][2] if len(mem[0]) > 2 else None}))
     probed_b = sum(x[1] for x in cand[:LIMIT])
     print(f"\nprobed {n} repos, {probed_b/1e12:.2f} TB BF16/F16; architecture groups with >=2: {n_groups}")
     print(f"{'class':44s} {'TB':>8s} {'% of probed':>12s} {'% of ALL weight bytes':>22s}")

@@ -1,0 +1,22 @@
+{
+ "SNAPPY|text": 502972408,
+ "SNAPPY|binary (image/audio bytes)": 5681927316,
+ "SNAPPY|integer": 28921421,
+ "ZSTD|text": 2992972772,
+ "UNCOMPRESSED|binary (image/audio bytes)": 2025213509,
+ "ZSTD|binary (image/audio bytes)": 1037216197,
+ "ZSTD|integer": 41653325,
+ "ZSTD|float": 148671295,
+ "ZSTD|list<float>": 1077312832,
+ "SNAPPY|float": 13976707,
+ "UNCOMPRESSED|list<float>": 33169,
+ "UNCOMPRESSED|list<other>": 516396205,
+ "UNCOMPRESSED|list<int>": 812934091,
+ "ZSTD|list<other>": 123638269,
+ "ZSTD|other": 60192609,
+ "SNAPPY|other": 1112874221,
+ "SNAPPY|list<other>": 45481450,
+ "ZSTD|list<int>": 4245831,
+ "SNAPPY|list<float>": 122937139,
+ "SNAPPY|list<int>": 94074
+}

@@ -3365,3 +3365,94 @@ reported NONE when 111 differed by type -- true, uninformative; the size gap (17
 before any diff did. And recipe4's imatrix filter required .dat, which would have run bartowski's quant
 WITHOUT his imatrix and reported the imatrix path as non-reproducing; caught only because finddiag had
 already printed imatrix=1 beside the repo. The day's ninth absent-field-as-value bug.
+
+RESULT 102 ADDENDUM — codec x column type: no uncompressed text; the 41.6% was a sampling artefact [M]
+--------------------------------------------------------------------------------------------------------------
+dsprobe2.py, qgq/dsprobe2.json. Same 131 footers, every row group (the first pass tallied only the
+first two, which over-weighted small files), each column chunk attributed to (codec, arrow type):
+    SNAPPY        binary (image/audio bytes)   34.8%      UNCOMPRESSED  binary        12.4%
+    ZSTD          text                         18.3%      UNCOMPRESSED  list<int>      5.0%
+    SNAPPY        other                         6.8%      UNCOMPRESSED  list<other>    3.2%
+    ZSTD          list<float>                   6.6%      SNAPPY        text           3.1%
+    ZSTD          binary                        6.3%      (rest < 1% each)
+    UNCOMPRESSED total 20.5% of column bytes -- not 41.6% -- and UNCOMPRESSED TEXT = 0.0%.
+The uncompressed bytes are image/audio payloads (correctly left alone; already JPEG/FLAC) and 8% of
+integer/other lists. Text is 21.4% of parquet bytes and 86% of it is already under ZSTD. There is no
+free ground on the dataset side for any general compressor, and none at all for a plane coder.
+Correction recorded: RESULT 102's "41.6% UNCOMPRESSED" was first-two-row-groups weighting; 20.5% is
+the file-weighted figure. The datasets frontier is closed by measurement.
+
+RESULT 103 — undeclared derivatives are 7.7% of all weight bytes, more than the declared fine-tune class [M]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, lineage3.py, qgq/lineage3.json. RESULT 100 was a sighting: one cluster of 22 undeclared
+clones among the 92 largest BF16 repos. This is the rate: every sampled repo with >=200 MB of BF16/F16
+safetensors -- 725 repos, 23.52 TB, a third of the sample's 70.94 TB of weight bytes -- grouped by
+config.json architecture, one 64 KiB slice of one non-embedding tensor each, pairwise correlation
+within every group. 46 architectures had two or more members.
+
+    class                                          TB    % of probed BF16   % of ALL weight bytes
+    exact twin of another repo (r=1, identical)   5.249        22.3%                7.4%
+    PERTURBED twin (r>0.99, NOT identical)        5.449        23.2%                7.7%
+    same architecture, independent weights        1.283         5.5%                1.8%
+    only model of its architecture                1.219         5.2%                1.7%
+    (the remainder of the 23.52 TB: config unreadable or no comparable tensor)
+
+TWO NUMBERS TO READ. Exact twins are 7.4% of weight bytes and Xet's dedup already collapses them --
+that figure says how much of the Hub is straight re-upload, and it is not small. PERTURBED twins are
+7.7% of weight bytes: models that differ from a same-architecture sibling in every weight by a hair,
+declare no parent, and defeat content-defined chunking completely. That is LARGER than the declared
+finetune class (6.1%, RESULT 86). The tag-based 27.7% "has a parent" was a floor by at least 7.7 points.
+
+WHERE IT SITS -- twelve clusters listed, the top three:
+    qwen3_5_moe 2048/40/16      n=96   exact 55  perturbed 38   undeclared 92 of 96    6,609 GB
+    qwen4_exp 2560/48/24        n= 6   exact  4  perturbed  0   undeclared  2            869 GB
+    qwen3 2560/36/32            n=56   exact  0  perturbed 52   undeclared 48            426 GB
+    llama 4096/32/32 (Llama-3-8B) n=20 exact  3  perturbed 15   undeclared  7            402 GB
+    gpt_neox 4096/32/32         n=26   exact  0  perturbed 19   undeclared 19            261 GB
+The first cluster is the Bittensor "Affine" subnet from RESULT 100, now at 96 members and 6.6 TB --
+28% of every BF16 byte probed, in one community re-uploading one base. Without it the perturbed
+class is roughly 2.7 TB, about 3.9% of weight bytes: still real, still larger than merges and
+adapters combined, and spread over 44 other architectures including Llama-3-8B and Pythia.
+
+WHAT IS NOT KNOWN AND MUST NOT BE ASSUMED: the DELTA COST. RESULT 90's fine-tunes coded cheaply
+(0.9 bits/weight) because 90%+ of weights were untouched. A perturbed twin has ~0% untouched -- every
+weight moved -- and RESULT 90's two such cases cost 70% and 96% of standalone. If the perturbation is a
+bf16->f32->bf16 round trip or a tiny noise injection, the delta is one or two ulps and cheap; if it is
+a real training step, it is expensive. pertcost.py measures this on the dominant cluster before any of
+the 7.7% enters the headline. The pool is measured; its price is UNKNOWN.
+
+METHOD: 96 of 96 in the largest cluster and 48 of 56 in the third declare no base_model. The Hub's own
+provenance metadata misses the largest derivative population on the Hub. Content fingerprinting --
+six config.json fields and 64 KiB -- finds it in 20 minutes over 725 repos.
+
+RESULT 104 — a perturbed twin costs 25% of what Xet stores it at: the perturbation is one ulp [M, provisional n=1 cluster]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, pertcost.py. RESULT 103 measured the pool -- undeclared perturbed twins are 7.7% of all
+weight bytes -- and refused to price it, because RESULT 90's two "every weight changed" fine-tunes had
+cost 70% and 96% of standalone. Measured on the dominant cluster, one full 2D tensor per pair, integer
+bf16 delta against the sibling:
+
+    pair (Affine cluster, Qwen3.5-MoE)                          identical  |d|=1 ulp  |d|<=2  h(delta)   vs Xet BF16
+    cryptoDev23/albedo ~ isomsom/Affine-5cdqb2dugt-g2             7.1%      54.2%     75.5%    3.471 b/w    24.7%
+    cryptoDev23/albedo ~ aljosadro/albedo-qwen3.6-35b-v           7.1%      54.2%     75.5%    3.471        24.7%
+    vect0r18/mirror-dora7 ~ HarperJane/20260828-072405           46.7%       0.1%     68.3%    3.660        26.1%
+
+THE PERTURBATION IS ONE ULP. In the first pair 54% of weights differ by exactly one bf16 ulp and 75% by
+at most two; the third pair has 47% identical and 68% within two ulps. That is not a training step --
+a training step moves weights by hundreds of ulps in the low mantissa and gives r~0.99 with a broad
+delta. This is the signature of a re-cast (bf16 -> f32 -> arithmetic -> bf16), a deliberate
+fingerprint-defeating noise injection, or a merge of near-identical parents. Whichever it is, the
+delta's entropy is 3.5 bits per weight against Xet's 14.0 for the same BF16 tensor: a twin stored
+against its sibling costs a QUARTER of what it costs today, and chunk dedup gets none of it because
+no 64 KiB span is identical.
+
+WHAT IT WOULD MEAN, IF IT HOLDS: 7.7% of weight bytes at 75% saving is 5.8% of weight bytes -- on the
+week's ~863 TB of weights, roughly 50 TB, the largest single lever since the recipe (RESULT 99) and
+larger than the declared-finetune lever (14.8 TB). It would move the headline about 3.5 points.
+
+WHY IT DOES NOT ENTER THE HEADLINE YET. n=3 pairs, and two share a source tensor, so this is two
+measurements from ONE community's re-uploads of ONE base. The other 44 clusters in RESULT 103 --
+Llama-3-8B (15 perturbed), Pythia (19), Qwen3 2560 (52) -- may be genuine fine-tunes at 70-96%, not
+re-casts at 25%. lineage3.py is being extended to name cluster members so pertcost can price a pair
+from each of three other clusters; the population figure waits for that. What IS established: the
+lever exists, it is cheap where it exists, and the Hub's tags do not see it.
