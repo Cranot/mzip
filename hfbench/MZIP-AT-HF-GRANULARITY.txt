@@ -4044,3 +4044,38 @@ Also from this pass: the first parent-discovery run (parentfind.py v1) drained t
 per-5-minutes window and reported 72 of 80 repos as "no config"; the paced rerun replaces it. A 429 and
 a missing file are the same None to get_json -- the day's eleventh absent-field-as-value trap, and the
 only one caused by my own request rate.
+
+RESULT 121 — the 12-bit joint alphabet does NOT survive its own table cost per chunk: R115's 1.5% is a per-tensor-table gain [M, correction]
+--------------------------------------------------------------------------------------------------------------
+2026-09-04, jointcost.py. RESULT 115 reported that coding the top 12 bits of bf16 as one 4,096-symbol
+alphabet is 1.5% smaller than Fano's 8-bit exponent plane, and RESULT 118 leaned on the same idea for
+delta coding. Both were h0 figures, which assume the decoder already knows the distribution. A real
+coder sends a table per 64 KiB chunk; a 4,096-symbol table is not free. Prediction before the run:
+per-chunk gain negative, per-tensor gain intact.
+
+Canonical Huffman on real bf16 chunks, actual coded bits plus a table costed as a used-symbol bitmap
+and 4 bits per used length, bits per weight:
+    model                        8-bit plane (Fano today)   12-bit joint, per-chunk table   12-bit, per-TENSOR table   h0 gain   REAL gain
+    Qwen/Qwen2.5-0.5B  down_proj        10.731                        10.705                       10.569              0.167       0.026
+    HuggingFaceTB/SmolLM2-360M          10.810                        10.740                       10.607              0.164       0.071
+    Qwen/Qwen2.5-7B                     11.028                        11.048                       10.906              0.114      -0.020
+The 8-bit column reproduces Fano's measured 10.69-10.74 (R116), so the table-cost model is calibrated.
+
+READING: per chunk, the joint alphabet's table eats 60-118% of what the alphabet saves. Gain 0.0-0.07
+bits/weight, within noise of zero; on the 7B it loses. With one table per TENSOR the full 0.16 comes
+back -- but a shared table is a format feature (a dictionary chunk that other chunks reference), and
+Xet's model is that every chunk decodes alone, which is what makes dedup and random access work. In
+that model the joint alphabet is dead. In a container that allowed a per-tensor table it is worth 1.5%.
+
+WHAT THIS CORRECTS:
+  * R115's "1.5% smaller than flat" -> "equal to flat with per-chunk tables; 1.5% smaller only with a
+    per-tensor table". The bit-plane PROGRESSIVE result stands: the layered file costs the same as the
+    flat one (10.71-10.74 either way), so progressiveness is still free. It is no longer "better than free".
+  * R118's delta-coding lever (close the 1.3x zstd gap with a wide alphabet): the delta symbol alphabet
+    is a few hundred values, not 4,096, so its table is cheap -- that lever is NOT killed by this result,
+    but it now needs the same per-chunk costing before it is quoted.
+  * The Fano README's line that the joint alphabet is "real for the flat codec too" is withdrawn.
+
+METHOD: this is what "same mindset" means -- attack the newest claim before building on it. The h0
+bound was the right instrument for finding the effect and the wrong one for pricing it; the ten-minute
+check that separates the two should run before a coder change is proposed, not after.
