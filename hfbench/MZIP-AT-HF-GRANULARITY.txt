@@ -3866,3 +3866,61 @@ WHY IT IS INNOVATIVE RATHER THAN INCREMENTAL: every speed result in this program
 same bytes arrive faster. This one changes WHICH bytes arrive first, and the measurement says the
 reordering is free against the status quo. It is the first result here that improves a user's wait
 rather than a storage bill.
+
+RESULT 115 — progressive bf16 by bit planes costs NOTHING: the layered file is 1.5% smaller than Fano's flat one [M]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, progressive2.py. RESULT 114 layered by quantiser (Q4_0 -> Q8_0 -> bf16) at 12.7 bits per
+weight -- below Xet's flat 14.0, above Fano's flat 10.7. This layers by BIT PLANE instead: layer 1 is the
+sign, the 8-bit exponent and the top mantissa bits; layer 2 is the remaining mantissa bits, raw. Layer 1
+alone is a bf16 truncated to fewer mantissa bits -- a usable model at reduced precision.
+
+    model                        Fano flat   12/4: L1     L2   SUM      13/3: L1    L2   SUM      8/8: L1   SUM
+    Qwen/Qwen2.5-0.5B  down_proj    10.69       6.53       4   10.53       7.52      3   10.52       2.69   10.69
+    HuggingFaceTB/SmolLM2-360M      10.74       6.57       4   10.57       7.57      3   10.57       2.74   10.74
+    (bits per weight; Xet flat ~14.0; raw 16)
+
+THREE READINGS.
+  * The 12/4 layering is SMALLER than Fano's flat coding by 0.16 bits -- 1.5%. Coding the top twelve
+    bits as one 4096-symbol alphabet captures a small exponent-to-top-mantissa dependence that a
+    separate 8-bit exponent plane cannot see. Progressive delivery is not a cost here; it is a gain.
+  * Layer 1 of the 12/4 split is a bf16 with 4 mantissa bits (relative error <= 2^-5 = 3.1%, between
+    Q4 and Q8 quality) at 6.5 bits per weight: a USABLE model after 47% of the bytes Xet ships today, the
+    exact bf16 after 75%. The 13/3 split gives 5 mantissa bits (<= 1.6%) at 54%, same total.
+  * The 8/8 split reproduces Fano's flat number exactly (2.69 + 8 = 10.69), which is the check that
+    the instrument agrees with the coder it is comparing against.
+
+TWO POINTS ON THE CURVE NOW, and they are not in competition:
+    quantiser layers (RESULT 114):  usable at 30% of today's bytes, exact at 91%, total 12.7 b/w
+    bit-plane layers (this result):  usable at 47%, exact at 75%, total 10.55 b/w (below flat Fano)
+A store can offer both; a client picks by how soon it needs to run versus how much it will download.
+
+A SIDE RESULT FOR FANO ITSELF: the 12-bit joint alphabet is worth 1.5% on BF16 over the current 8-bit
+plane, at the price of a 4096-symbol Huffman table (a few KB per chunk stream, or amortised per tensor).
+That is the first coder-side improvement found since RESULT 107 declared the exponent plane memoryless
+-- it is memoryless along the weight sequence, but not independent of the mantissa bits beside it.
+
+Same limits as RESULT 114: two dense tensors, no embeddings, and a layer-aware container is a format
+proposal, not something GGUF or safetensors express today.
+
+RESULT 116 — the BF16 saving is a distribution, and it is tight: 1.49x median across 24 repositories [M]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, fanospot.py, qgq/fanospot.json. The per-chunk BF16 saving -- 1.49x, 23% fewer bytes than Xet
+-- is the largest single lever on the page (350 TB/week of BF16 safetensors) and until now rested on
+the handful of tensors in BENCH.md and RESULT 79. Forty repositories were drawn at a fixed stride
+through the 680 sampled BF16 repos above 500 MB, one 1 MiB slice of a mid-list 2D weight each; 24
+yielded a clean BF16 tensor.
+
+    Fano cost, bits/weight:   min 8.00   p25 10.71   median 10.74   p75 10.76   max 10.79
+    ratio vs raw 16:          min 1.48x  median 1.49x  max 2.00x            (page: 1.49x)
+    bytes saved vs Xet 14.0:  p10 23.0%  median 23.3%  p90 24.1%           (page: 23%)
+
+The interquartile range is 0.05 bits. Twenty-three of twenty-four tensors sit between 10.62 and 10.79
+regardless of publisher, architecture or size; the exponent plane of a trained bf16 weight has 2.6-2.8
+bits of entropy almost everywhere. The one outlier -- logic65/whittle-next at 8.00, exactly 2.00x -- is a
+pruned or zero-heavy tensor whose exponent plane collapses to one bit. Nothing measured sits ABOVE the
+page's figure in cost; the page's 23% is the p10.
+
+The prediction was 1.45-1.55x median with a tail of harder tensors above 12 bits. The median was right;
+the tail does not exist. Trained bf16 weights are more uniform in their compressibility than I expected,
+which is good for the lever and says the class-level number needs no spread bar -- the spread is smaller
+than the rounding on the page.

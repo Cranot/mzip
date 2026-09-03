@@ -1,0 +1,170 @@
+[
+ {
+  "rid": "FlagRelease/Qwen3.8-Flash-Next-BF16-sunrise-FlagOS",
+  "k": "model.language_model.layers.33.mlp.shared_expert.up_proj.weight",
+  "hexp": 2.7026054509162902,
+  "cost": 10.702605450916291,
+  "ratio": 1.4949630791659407
+ },
+ {
+  "rid": "crazyape777/mir-diane613-affine-5gedzafcvg-cool-79ed8",
+  "k": "model.language_model.layers.31.self_attn.q_proj.weight",
+  "hexp": 2.7613017347564717,
+  "cost": 10.761301734756472,
+  "ratio": 1.4868089748216766
+ },
+ {
+  "rid": "wondercat/albedo-qwen3.6-35b-wonder-52",
+  "k": "model.language_model.layers.31.self_attn.q_proj.weight",
+  "hexp": 2.7625020665698656,
+  "cost": 10.762502066569866,
+  "ratio": 1.486643152404001
+ },
+ {
+  "rid": "isomsom/Affine-5cdqb2dugt-g2",
+  "k": "model.language_model.layers.31.self_attn.q_proj.weight",
+  "hexp": 2.7623296645933904,
+  "cost": 10.762329664593391,
+  "ratio": 1.4866669669707142
+ },
+ {
+  "rid": "HarperJane/20260829-050006",
+  "k": "model.language_model.layers.31.self_attn.q_proj.weight",
+  "hexp": 2.7622885236860295,
+  "cost": 10.76228852368603,
+  "ratio": 1.4866726500396852
+ },
+ {
+  "rid": "0pentensor/Affine-5dflhtkufw-awesome-v19",
+  "k": "model.language_model.layers.31.mlp.shared_expert.gate_proj.weight",
+  "hexp": 2.7797634125540567,
+  "cost": 10.779763412554058,
+  "ratio": 1.4842626306034215
+ },
+ {
+  "rid": "mat400/affine-5GxuhSvToM-v7NZ",
+  "k": "model.language_model.layers.31.mlp.shared_expert.gate_proj.weight",
+  "hexp": 2.782954217202388,
+  "cost": 10.782954217202388,
+  "ratio": 1.483823419603757
+ },
+ {
+  "rid": "crazyape777/mir-diceofgod-affine-5fjgc5jhxq-flower-69397",
+  "k": "model.language_model.layers.31.mlp.shared_expert.gate_proj.weight",
+  "hexp": 2.7856708964483032,
+  "cost": 10.785670896448304,
+  "ratio": 1.4834496762986493
+ },
+ {
+  "rid": "vect0r18/mirror-wondercat-wonder-1-358cab06",
+  "k": "model.language_model.layers.31.mlp.shared_expert.gate_proj.weight",
+  "hexp": 2.7856904289469107,
+  "cost": 10.78569042894691,
+  "ratio": 1.48344698982448
+ },
+ {
+  "rid": "sy128/CQ3-Qwen3-32B-K16-Channel-FP4Mix-WithSub",
+  "k": "model.layers.38.mlp.down_proj.weight",
+  "hexp": 2.717614254347133,
+  "cost": 10.717614254347133,
+  "ratio": 1.4928695528960931
+ },
+ {
+  "rid": "logic65/whittle-next",
+  "k": "model.layers.28.mlp.shared_expert_gate.weight",
+  "hexp": -0.0,
+  "cost": 8.0,
+  "ratio": 2.0
+ },
+ {
+  "rid": "March07/sweb-8b-grpo-s2",
+  "k": "model.layers.25.mlp.down_proj.weight",
+  "hexp": 2.726472924377815,
+  "cost": 10.726472924377815,
+  "ratio": 1.491636637019533
+ },
+ {
+  "rid": "kmseong/llama3_1_8b-instruct-CB_SSFT-lisa_math_rho0.0_lr3e-4",
+  "k": "model.layers.23.mlp.down_proj.weight",
+  "hexp": 2.624786387668889,
+  "cost": 10.62478638766889,
+  "ratio": 1.5059126288477267
+ },
+ {
+  "rid": "yuhengtu-bytedance/sfm_filtered_midtrain_alignment-4k_5k_6k_weightedavg_merge",
+  "k": "gpt_neox.layers.23.attention.dense.weight",
+  "hexp": 2.716727018982032,
+  "cost": 10.716727018982033,
+  "ratio": 1.492993147223024
+ },
+ {
+  "rid": "Nhawtanhy1111/PROD_Codellama",
+  "k": "model.layers.23.mlp.down_proj.weight",
+  "hexp": 2.712954584139255,
+  "cost": 10.712954584139254,
+  "ratio": 1.4935188863479663
+ },
+ {
+  "rid": "tanyagoyal-p/math-simple-rl-4b",
+  "k": "model.layers.25.mlp.down_proj.weight",
+  "hexp": 2.762977123023516,
+  "cost": 10.762977123023516,
+  "ratio": 1.4865775349251424
+ },
+ {
+  "rid": "yunjae-won/T14bsolution_14b_S4b_klreg5.0_stage0_checkpoint20",
+  "k": "model.layers.25.mlp.down_proj.weight",
+  "hexp": 2.763596931986737,
+  "cost": 10.763596931986736,
+  "ratio": 1.4864919321209413
+ },
+ {
+  "rid": "yunjae-won/T14b_14badrlogicalans_S4b_klreg1.0_stage0_checkpoint40",
+  "k": "model.layers.25.mlp.down_proj.weight",
+  "hexp": 2.763584404102109,
+  "cost": 10.763584404102108,
+  "ratio": 1.4864936622694427
+ },
+ {
+  "rid": "cosmos1030/gmp-kd3e-1-s50pct-lr1e-4_20260902_001033",
+  "k": "model.layers.25.mlp.down_proj.weight",
+  "hexp": 2.6167643914208325,
+  "cost": 10.616764391420833,
+  "ratio": 1.5070504920434362
+ },
+ {
+  "rid": "Aikwed/pistar06_insert_carrot_into_the_hole_acp_r1",
+  "k": "model.paligemma_with_expert.paligemma.model.language_model.layers.3.self_attn.o_proj.weight",
+  "hexp": 2.7343304116590907,
+  "cost": 10.73433041165909,
+  "ratio": 1.4905447649181363
+ },
+ {
+  "rid": "NIRVLab/mbart50-large-en-tr",
+  "k": "model.decoder.layers.7.self_attn.k_proj.weight",
+  "hexp": 2.6288137923921693,
+  "cost": 10.628813792392169,
+  "ratio": 1.5053420177002619
+ },
+ {
+  "rid": "cosmos1030/gmp-kd3e-1-s50pct-lr1e-4_20260902_141259",
+  "k": "model.layers.21.mlp.down_proj.weight",
+  "hexp": 2.6328007090274212,
+  "cost": 10.632800709027421,
+  "ratio": 1.5047775687562486
+ },
+ {
+  "rid": "yunjae-won/T14b_4b_S1.7b_klreg1.0_stage0_checkpoint10",
+  "k": "model.layers.21.mlp.down_proj.weight",
+  "hexp": 2.726250840836728,
+  "cost": 10.726250840836729,
+  "ratio": 1.4916675208718015
+ },
+ {
+  "rid": "HyeonseokE/smolvla_turn_on_lever_cap_2000_10fps",
+  "k": "model.vlm_with_expert.vlm.model.text_model.layers.12.self_attn.q_proj.weight",
+  "hexp": 2.75492914670737,
+  "cost": 10.75492914670737,
+  "ratio": 1.487689949579855
+ }
+]
