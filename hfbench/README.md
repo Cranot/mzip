@@ -21,7 +21,7 @@ lessons — the thesis by elimination, the ideas that died, and the method traps
 - **80.5% of GGUF bytes declare that parent** in Hub metadata. 41.4% resolve to a usable base with
   this tensor map; the rest is unmapped naming, MoE fusion (now handled), or bases that publish no
   safetensors.
-- **Net: 1,444 TB held today → 1,113 TB** for the sampled week, 22.9% less, every factor measured; 1,067 TB (26.1%) adding undeclared twins stored against their siblings.
+- **Net: 1,444 TB held today → 1,124 TB** for the sampled week, 22.2%% less, every factor measured; 1,077 TB (25.4%%) adding undeclared twins stored against their siblings.
 
 ## Layout
 

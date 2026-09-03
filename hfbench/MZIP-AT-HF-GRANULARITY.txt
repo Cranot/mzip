@@ -3748,3 +3748,43 @@ blended.py. Weighting each priced cluster's cost by its perturbed bytes from the
 clusters at the priced median 19.3%): priced clusters cover 88% of perturbed bytes; blended cost 23.4%
 (Affine, 3.6 of 5.4 TB, prices at 25%). Twin saving at 22%: 46.1 TB/wk; at 23.4%: 45.3 TB/wk. Delta 0.8 TB.
 The lever is insensitive to the weighting; 22% stays on the page with this note in the record.
+
+RESULT 112 — the converter accepts 91.3% of resolvable parents; the first run measured my environment [M]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, convcheck.py, qgq/convcheck.json, /root/convcheck.out (v1), /root/convcheck2.out (v2).
+RESULT 109 counts a parent as resolvable when its architecture is REGISTERED by convert_hf_to_gguf.py.
+Registered is not converted: tokenizer classes, config fields and shard layouts can all refuse before
+a tensor is read. `--vocab-only` instantiates the model class and writes a metadata-only GGUF from
+config + tokenizer files -- a few MB, no weights -- and fails where a full conversion would fail early.
+Run on every distinct resolvable parent from the 140-pair sample: 69 parents.
+
+FIRST RUN, 55.1% -- and it was the environment, not the converter:
+    16  AttributeError: 'list' object has no attribute 'keys'     every Gemma-4 model
+     2  ValueError: Tokenizer class TokenizersBackend does not exist
+    (+13 others)
+The traceback for Gemma-4 ends inside transformers/tokenization_utils_base.py: Gemma-4's
+tokenizer_config stores extra_special_tokens as a LIST, transformers 4.57.6 expects a dict. The
+converter never got a turn. Upgrading the converter venv to transformers 5.16.1 made the same Gemma-4
+convert (15,783,133 B vocab GGUF), and the census was re-run.
+
+SECOND RUN, transformers 5.16.1:  63 / 69 accept = 91.3%.  The six failures, each read:
+    2  FileNotFoundError ...pytorch_model.bin     ar3xop/arcane-13b, dnotitia/DNA-VL-STEER-2B:
+       pickle-only parents; my fetch skipped weight files, the converter wanted the header. MY fetch.
+    2  ValueError: PLE constant 'ple_embedding.layer_multipliers' missing    Qwen/Qwen3.8-Flash-Next
+       and a derivative: --vocab-only still reads one tensor for this family. PROXY limit -- a full
+       conversion with weights present succeeds (RESULT 109's registry lists it; bartowski's Qwen3.8
+       quants exist and were made by this converter).
+    2  AssertionError    OliviaRossi/DAOS-Fusion, OliviaRossi/UltiMerge: mergekit outputs; cause not
+       read. The only two that might be genuine converter rejections.
+So the converter's true acceptance on this sample is between 91.3% (everything counted against it) and
+97.1% (only the two assertions). The headline takes 0.913 -- the measured proxy figure -- and says so.
+
+EFFECT: rho = 0.943 (resolves, by bytes) x 0.944 (correct parent) x 0.913 (converts) = 0.813.
+    row B  measured                 1,113.0 TB / 22.9%   ->   ~1,124 TB / 22.2%
+    row C  + undeclared twins       1,066.7 TB / 26.1%   ->   ~1,078 TB / 25.4%
+Every factor in row B is now a measurement on the week's own files; none is assumed at 1.0.
+
+METHOD: the day's tenth instance of an instrument reporting a confident number about itself. A 55%
+acceptance rate with 16 identical errors on one model family is a version skew, not a finding, and the
+one-line test (does the newest model convert at all?) took two minutes. Read the failure taxonomy before
+the rate.
