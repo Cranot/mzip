@@ -90,7 +90,11 @@ def main():
         conv = f"{W}/conv_{ot}.gguf"; out = f"{W}/q_{ot}.gguf"
         r = subprocess.run([PY, CV, f"{W}/src", "--outtype", ot, "--outfile", conv], capture_output=True, text=True, timeout=3600)
         if r.returncode != 0: print(f"  convert {ot} failed: {r.stderr[-300:]}"); continue
-        args = [Q] + (["--imatrix", f"{W}/imatrix.dat"] if im else []) + [conv, out, want]
+        # argv[5] == "noimatrix" quantises WITHOUT the publisher's imatrix even when one exists: the
+        # control that tells whether a residual comes from how the imatrix is applied or from
+        # whether it was applied at all
+        use_im = bool(im) and not (len(sys.argv) > 5 and sys.argv[5] == "noimatrix")
+        args = [Q] + (["--imatrix", f"{W}/imatrix.dat"] if use_im else []) + [conv, out, want]
         r = subprocess.run(args, capture_output=True, text=True, timeout=3600)
         if r.returncode != 0: print(f"  quantize from {ot} failed: {r.stderr[-300:]}"); continue
         c = compare(out, f"{W}/pub.gguf"); results[ot] = c

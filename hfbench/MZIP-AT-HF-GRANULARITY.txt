@@ -3520,3 +3520,47 @@ out of the artifact until the pool is re-measured with the tighter classifier.
 METHOD: a one-tensor fingerprint finds candidates; it does not confirm them. The same fault as the
 day's earlier "one tensor called the model" -- in the other direction: one tensor called two models
 the same.
+
+RESULT 106 — the recipe on mixture-of-experts: experts reproduce exactly; the residual is the build, in two named places [M]
+--------------------------------------------------------------------------------------------------------------
+2026-09-03, recipe4.py (argv[5] noimatrix), recipe6.py, recipe5.py; /root/moe-granite*.out,
+/root/moe-olmoe2.out. Two MoE models with published K-quants, both OUTSIDE the week's census (no
+small in-census MoE resolved in the first 200 pairs; the in-census apiary-7B-A1B is the addendum).
+Both parents bf16; quantised from a single bf16 conversion (exact in f32, RESULT 99 addendum).
+
+OLMoE-1B-7B-0924 -- mradermacher, 64 experts, static Q4_K_M, no imatrix, 4.21 GB, 195 tensors:
+    default types:  105/195 tensors identical, superblocks 99.96% of 27,019,264
+    pinned types:   101/179 compared, superblocks 99.959% of 26,757,120
+    EVERY fused expert tensor (blk.N.ffn_{gate,up,down}_exps) byte-exact.
+    residual A: 16 x blk.N.attn_output.weight, ours Q6_K, published Q4_K -- pinned to Q4_K and
+                came out Q6_K anyway. llama.cpp's MoE rule (attn_output -> Q6_K when n_expert >= 8,
+                added after this file was made) OVERRIDES --tensor-type. Same 7 tensors on granite.
+    residual B: attn_q / attn_k in layers 7-15 and token_embd, same type, 0.16-3.30% of bytes each.
+                Cause not identified; bounded at 0.04% of all superblocks.
+
+granite-3.0-3b-a800m-instruct -- bartowski, 40 experts, Q4_K_M WITH imatrix, 2.06 GB, 323 tensors:
+    from bf16, imatrix:        97/313 identical, superblocks 96.54% of 13,142,052
+    from f16,  imatrix:        superblocks 96.61%        -> input precision is NOT the story
+    pinned types, bf16, imatrix: 97/316, superblocks 96.545%   -> type policy is NOT the story
+    from bf16, NO imatrix:     superblocks  9.65%        <- the control that names the residual
+    The published file was made with the imatrix and both builds apply it. Removing it collapses
+    agreement to 10%; keeping it recovers 96.5%. The missing 3.5% is HOW the imatrix weights the
+    scale search -- that arithmetic moved between bartowski's Oct-2024 build and d30500b on some
+    blocks of every quantised tensor kind (attn_k, attn_v, attn_q, ffn_*_exps all appear). Not
+    fixable from the header; fixable by pinning the build.
+
+WHAT THE MoE CASE ADDS TO THE RECIPE. Experts -- 90%+ of a MoE's bytes -- reproduce exactly on both
+models with no special handling; the fused-expert layout is deterministic. The two residuals are
+both PROPERTIES OF THE QUANTISER BUILD, not of the data: (1) a type rule that ignores overrides, (2)
+imatrix weighting drift. A recipe that names the llama.cpp commit reproduces these files exactly; one
+that names only the header's type map reproduces 96.5-99.96% and must store the rest as a residual.
+The RESULT 101 field list gains one entry it already implied: the quantiser COMMIT, not just its
+version string.
+
+TALLY across the day: 6 files, 5 publishers/toolchains, 5 architectures (OLMo dense, hybrid-SSM,
+Qwen3, OLMoE, GraniteMoE), 2 quant types. Exact: 3 (RESULT 99, 105, and 101 to 152 bytes).
+Build-bounded: 2 (99.96%, 96.5%). Mistagged parent: 1 (RESULT 105, PocketWeights merge).
+
+NOTE on recipe4's output: the "(imatrix used)" label prints whether an imatrix FILE exists, not whether
+it was applied; the noimatrix control run carries that label wrongly. Cosmetic; recorded so the log
+is not misread.
