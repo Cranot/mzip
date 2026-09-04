@@ -4193,3 +4193,179 @@ weighting favours big repos); parentage from ONE slice at r > 0.99 -- unambiguou
 r = 1.000 with 50-98% identical weights, and the 2 perturbed need a second tensor (R108's lesson);
 the 20 "independent" may have a parent that is not the MOST-downloaded of its signature -- a wider
 root index would find more, not fewer. The pool share is the conservative reading.
+
+RESULT 125 — column-conditioned exponent coding (R119) priced with real per-chunk tables: dead [M]
+---------------------------------------------------------------------------------------------------
+2026-09-04, colcost.py. R119 left one coder lever open: on layer-0 tensors the exponent conditioned on
+its COLUMN had an h0 bound up to 1.25 bits/weight below the unconditioned plane (Mistral-7B q_proj)
+and 0.53 on Qwen2.5-7B down_proj. Same falsification as R121/R122: a coder pays for its tables, and a
+64 KiB Xet chunk holds 8 rows of a 4,096-wide tensor, so a per-column model has 8 samples per
+context. The honest design: K column classes by mean exponent (one byte of side info per column, once
+per tensor), one canonical-Huffman table per class per chunk, 512-symbol sign+exponent alphabet.
+
+    exponent plane, bits/weight              K=1 (Fano)   K=4     K=16   h0 bound gain   real gain
+    Qwen2.5-7B   layers.0 down_proj           3.994      4.152   4.507      0.526         -0.158
+    Qwen2.5-7B   layers.0 gate_proj           4.137      4.141   4.254      0.242         -0.004
+    Mistral-7B   layers.0 q_proj              4.933      4.807   4.995      1.248         +0.126
+    Mistral-7B   layers.14 q_proj             3.623      3.690   3.899      0.044         -0.067
+
+READING. The bound survives on one tensor of one model at a tenth of its size (+0.126 of 1.248 b/w)
+and is negative on the other three: four to sixteen tables per 64 KiB chunk cost more than the
+context buys. Even the surviving case is layer 0 only -- one of 28-32 layers, attention projections
+only -- so the end-to-end figure is below 0.1% of the file. Per-TENSOR tables would recover most of
+the bound on that tensor, but that breaks chunk-independent decode (the property dedup and random
+access rest on) for a saving under 0.1%. The coder side for weights is now closed on every axis
+that was opened: order-1 (R107), joint alphabet (R121), row/position deltas (R124), column context
+(R125). Fano's per-chunk order-0 on the exponent plane IS the ceiling for chunk-independent storage.
+
+RESULT 126 — 9.2 TB of the "solo" BF16 pool is one gated base: 129 Qwen3.6-35B-A3B uploads the census could never read [M]
+------------------------------------------------------------------------------------------------------------------------
+2026-09-04, unkeyed.py, treecmp.py, gated2.py, proxy.py; outputs /root/{unkeyed,treecmp,proxy}.out. R124's
+row D applied a rate measured on 62 keyed repos to the whole 14.04 TB solo pool. Only 217 of the 425 solo
+repos (3.90 TB) have an architecture key; the other 208 (10.14 TB, 72% of solo bytes) were "no readable
+config" -- a label, not a measurement. Opened:
+
+  * The 24 largest unkeyed repos: 22 return HTTP 401 on config.json (GATED), 1 a 404 (a diffusion
+    pipeline: audio_vae/transformer/vae dirs), 1 a robotics policy config with no model_type. Not 429s.
+  * Clustering the 208 by exact BF16 byte total: 121 distinct totals, but 73% of the bytes sit at
+    71.90 GB or 70.21 GB. Qwen/Qwen3.6-35B-A3B is 71.904 GB (26 shards, header read); its MTP head is
+    1.689 GB and 71.904 - 1.689 = 70.215 -- the second size is the base WITHOUT the MTP layer, confirmed
+    on two readable 70.214 GB siblings (mtp=0, 1026 tensors vs 1045). Exact-total matching is layout-
+    dependent (safetensors headers differ per shard split), so the cluster is every unkeyed solo within
+    69-73 GB: 129 repos, 9.20 TB = 13.0% of ALL weight bytes in the sample. Names: Affine-5g..., albedo-
+    qwen3.6-35b-..., mirror-..., uidNNN, 178xxxxxxx timestamps -- a Bittensor subnet's miners uploading
+    full fine-tunes of one base, gated so competitors cannot copy them.
+  * Tree endpoint on gated repos: per-file SIZES are real; lfs.oid and xetHash are returned but are ONE
+    CONSTANT across every shard of every gated repo (26 shards of iionai/1787981879 all "match" the 10th
+    shard of goal612/...). TRAP: any oid-based lineage on gated trees is void; test oid distinctness
+    within one repo before trusting it. Sizes alone identify the base; hashes cannot say copy vs
+    fine-tune.
+  * Six READABLE sample repos share the base's key and size (Shatoria, HarperJane, jacob-rojic, ammazon,
+    leary-criste, topcatmax; 0.43 TB). Three tensors each against the public base, 128K weights:
+        sibling            r (main layers)  ident   delta FSE-est b/w   cost vs Xet 14 b/w
+        ammazon            0.99998         22-26%       4.30              31%
+        topcatmax          0.9992-0.9995    4-6%        7.17              51%
+        leary-criste       0.9936-0.9937   1.5%         9.41              67%
+        Shatoria           0.51-0.53          0%       12.04              86%   (MTP layer identical to base, r=1.000)
+        HarperJane        -0.011..0.000      0.1%      16.17             100%   (uncorrelated with the base)
+        jacob-rojic        0.002-0.007       0.2%      16.16             100%   (a "mirror" of another miner)
+    Mean cost 72.5% of Xet -> 27.5% of the class's bytes saved IF the 129 gated repos behave like these
+    six. Two of six are uncorrelated with the base at r=0: same architecture, same size, not its weights
+    (from-scratch, another base, or permuted to defeat copy checks -- undetermined). The MTP head that
+    Shatoria left untouched while retraining everything else is what a partial-training lever looks like.
+
+READING. The census's "solo" class was 65% one gated base. Row D as computed in R124 was
+over-extrapolated: its rate belonged to 3.90 TB of readable repos, not 14.04. Re-partitioned in
+finalnum10.py: row D = keyed solos only (measured); row E = the gated cluster through its siblings
+(inferred, n=6, spread 31-100%); 0.94 TB of other unkeyed solos priced at zero. Xet cannot help this
+class today: full fine-tunes share no 64 KiB chunk with the base, so each 72 GB is held whole -- and
+HF can read what we cannot, so the delta route is available to them for every one of the 129.
+
+RESULT 127 — "unrelated" uploads that are the base with its hidden basis relabelled: permuted copies, 77% byte-identical once un-permuted [M]
+--------------------------------------------------------------------------------------------------------------------------------------
+2026-09-04, uncorr.py, perm.py, perm2.py. Two of R126's six readable Qwen3.6-35B-A3B siblings
+(HarperJane/20260829-050111, jacob-rojic/mirror-afgod1079-...) had r = -0.011..0.007 against the base on
+every tensor -- "not its weights" by every correlation test this programme has used. But their value
+MULTISETS are the base's: std 0.01644 / mean -0.000018 / kurtosis 7.52 to every printed digit, sorted
+vectors agreeing to one ulp. Full tensor (layers.19 q_proj, 8192 x 2048, 32 MiB from each side):
+
+    row match (base rows found intact in B):            0/64          row-multiset match: 0/64
+    COLUMN match (cos > 0.9999):                       64/64          block permutations 64/128/256: 0
+    p recovered by column argmax: a permutation of 2048, identity on 0 columns; scale c == 1.0 on 2048/2048
+    reconstruction A[:, p] vs B:  exact 76.81%   +-1 ulp 14.82%   h0(residual) 1.528 b/w   (both repos, same digits)
+    k_proj with the SAME p:       exact 78.30%   h0 1.447 b/w      (raw corr with base -0.0004)
+    input_layernorm:              corr(B, base[p]) = +1.00000       (corr with base unpermuted: 0.002)
+
+READING. The residual stream's 2048 dimensions were relabelled by one permutation p applied to the
+input side of every projection and to the norm weights -- a transform that leaves the model's function
+byte-for-byte unchanged in its outputs and defeats every weight-correlation copy check, including ours
+(R108 census, R124, the root index). Underneath, both repos carry the SAME lightly perturbed base
+(76.81% exact, h0 1.528 b/w on both, i.e. one source model X = base + noise, published twice under two
+different p). Cost against the base once p is known: 1.528 x 1.07 = 1.64 b/w = 11.7% of Xet, not the
+100% they were scored at in R126; p itself is 2048 x 11 bits per layer-input, nothing.
+
+TRAP for every lineage tool here: r ~ 0 with an identical value distribution is not "independent" --
+it is a permutation. The check is a column-cosine match on a 64-row slice (random 64-dim columns sit
+near 0.1, a relabelled column at 1.000); permtest.py runs it over every solo the root index calls
+independent. The subnet's incentive (copies are penalised) is manufacturing this class; the store sees
+72 GB of "new" bytes per relabelling.
+
+RESULT 128 — root index over ALL keyed solo BF16 uploads: 40% by bytes derive from a root, but 31 of those 40 points are exact copies Xet already holds; row D measured = 25.4% [M]
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+2026-09-04, rootindex.py (546 roots over 114 architecture signatures: top-60 by downloads per model_type
+filtered to the signature, up to 8 each, plus 92 declared bases; 576 fingerprints cached in
+qgq/rootslices.npz; every keyed solo tested against every root of its signature, best r wins, second
+tensor must agree), qgq/rootindex_result.json, /root/rootindex.out. Replaces R124's single-guess,
+largest-80 probe with the whole keyed pool.
+
+    keyed solo BF16 repos: 217 (3.90 TB); probed 160 (3.32 TB)
+    DERIVATIVE (two tensors): 62 = 38.8% by repo, 40.0% by bytes
+      exact       n=37   31.2% of probed bytes   confirmed 33   untagged 16
+      fine-tune   n=22    6.6%                   confirmed 20   untagged 11   h0 median 3.30 b/w
+      perturbed   n= 3    2.2%                   confirmed  2   untagged  2
+      ours (fine-tune + perturbed): 8.8% of probed bytes, byte-weighted h0 3.37 b/w -> 25.7% of Xet coded
+    not derived: 69 tensor-name mismatch with every root, 34 no root of that signature, 29 independent
+      (best r < 0.99), 23 no readable tensor
+
+READINGS.
+  * The wider index finds MORE derivatives than R124 (40% vs 51% of bytes -- R124 probed largest-first,
+    and big repos are more often copies) but the class that is ours shrinks: exact copies are 31 of the
+    40 points and Xet's chunk dedup already collapses them. Row D, keyed solos only, measured over the
+    whole keyed pool: 0.48% of all weight bytes -> 25.4% (finalnum10.py). R124's 27.4% is withdrawn:
+    it applied a largest-80 rate to 14 TB, 10 of which were the gated cluster of R126.
+  * 7 of 62 matches lack a second tensor (r2 = nan: no shared second name). Two of them are R127's
+    permuted copies, scored "exact" against nvidia/Qwen3.6-35B-A3B-NVFP4 on ONE identical tensor while
+    every projection is permuted. One tensor is not the model -- the fault this record has committed
+    four times, now with a measured false positive. Unconfirmed matches are listed, not counted as
+    confirmed; they are all "exact" or already-light, so row D does not move.
+  * 69 repos (a third of the keyed pool) fail on TENSOR NAME: the solo's largest 2D tensor is not the
+    root's largest (VL models: visual vs language; different shard layouts pick different tensors).
+    Matching by shape among the top tensors of both sides would recover most of these -- open.
+  * 29 "independent" at r < 0.99 are the input to permtest.py (R127's column test); its first hit was
+    an NVFP4 repo whose largest BF16 slice is constant, so corr() returned 0 -- an exact copy the r
+    instrument called independent. Constant slices are a third failure mode of r, beside permutation
+    and the wrong tensor.
+
+RESULT 129 — permutation sweep over the root index's leftovers: zero permuted copies among readable solos; 14 name-mismatch recoveries; a search-free canonical form reproduces 76% byte identity [M]
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+2026-09-04, permtest.py (qgq/permtest.json, /root/permtest.out), modelprint.py. Two questions after R127/R128:
+how many of the keyed solos the root index could not place are hidden-basis permutations, and can the
+relabelling be undone WITHOUT a pairwise search (the form a store would need).
+
+PERMTEST. 123 keyed solos with a root but no confirmed match (2.24 TB; the 29 "independent", the 69
+tensor-name mismatches, the 23 unreadable): 64-row slices of the largest tensor from both sides,
+column-cosine match, second tensor with the same p.
+    hits 14 (0.48 of 2.01 TB probed)   p = identity on 100% of columns in ALL 14   permutations: 0
+      exact copies 5 (NVFP4/AWQ/FP8 repos whose largest BF16 slice is constant -> corr() = 0 in
+        rootindex.py, scored "independent"; plus gemma-4-12B-it-heretic = google/gemma-4-12B-it)
+      fine-tunes 9, confirmed on a second tensor 2 (amao0o0 1.76 b/w, oddadmix 1.29 b/w); 6 unconfirmed
+        (no shared second name), 1 second-tensor disagrees
+    58 no shared tensor name with any root, 27 independent (< 90% columns), 24 no readable slice
+  The 14 were found because permtest fetches the ROOT's tensors under the SOLO's names, which the root
+  index (largest-vs-largest) did not -- they are name-mismatch recoveries, not permutations. Among the
+  readable keyed solos the permuted-copy class is EMPTY; it has been seen only in the gated Qwen3.6
+  cluster's siblings (2 of 6, R127), where the incentive to evade a copy check exists.
+  finalnum10.py adds the 2 confirmed fine-tunes to row D: 25.4% unchanged at one decimal.
+
+CANONICAL FORM (modelprint.py canon). Order the hidden dimensions by (input_layernorm weight, column
+norm of the first projection), each side ALONE, then compare bytes:
+    vs base, layer 19          k_proj exact   up_proj   gate_proj   h0(k_proj)   norm weight exact
+    HarperJane (permuted)        75.7%         67.6%      63.9%       1.589          100%
+    jacob-rojic (permuted)       75.7%         67.6%      63.9%       1.589          100%   (same digits: same source X)
+    ammazon (light fine-tune)    15.9%         14.3%      11.3%       4.909          100%   (identity order gives 22-26%)
+    Shatoria (retrained)          0.2%          0.1%       0.1%      11.6            37.6%
+    bf16 norm weights tie on 68.2% of dims; the column-norm tie-break recovers all but ~2.6 points of the
+    searched alignment (75.7 vs 78.3, R127). A scale-invariant key (g x column norm) was WORSE (58.2%):
+    it amplifies the ties -- open, and no scaled copy has been observed.
+
+READINGS.
+  * A store needs no search to fold a relabelled copy: canonicalise by a self-carried key before
+    chunking and the copy is 64-76% byte-identical to its parent, delta cost 1.6-2.2 b/w. Raw order
+    first, canonical order second (the fine-tune shows canonical re-keying can LOSE alignment a
+    non-permuted file already had).
+  * The canonical hash of 64 rows (16 hex) is a fingerprint up to hidden-dimension relabelling; two
+    uploads from two accounts hashed to the same canonical bytes on k_proj (75.7%/1.589 on both) --
+    the same perturbed source published twice.
+  * Three failure modes of correlation as a lineage instrument are now measured: the wrong tensor
+    (R108, R128), a constant slice (5 copies here), and a permutation (R127). Column matching by name
+    with a second-tensor confirmation survives all three.

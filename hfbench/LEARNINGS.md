@@ -307,3 +307,41 @@ the check was wrong. When a classification is relational, the verification has t
 carry no parent in any header; parquet has no derivative structure and no uncompressed text. Three clean
 negatives in an hour, each one ending a line of inquiry that would otherwise have stayed on the list
 forever. Everything left in this programme is metadata, and the page now says that in as many words.
+
+## 2026-09-04 — the pool you could not read is not the pool you measured
+
+### A rate travels only as far as its reads
+R124 measured a derivative rate on 62 readable repos and applied it to 14 TB. 10 of those TB were
+HTTP 401: 129 gated uploads of one base, which no read of ours had ever touched. The label on them
+was "no readable config" — a reason the instrument could not proceed, booked as if it were a
+property of the data. Row D fell from 27.4% to 25.4% the moment the pool was partitioned by what
+had actually been read (R126, R128). The rule: a rate extends to the bytes its instrument opened,
+and every other byte is UNKNOWN with its own row.
+
+### r ~ 0 is not "unrelated"
+Two uploads had r = -0.011..0.007 against the base on every tensor and its value distribution to
+every printed digit. They were the base with its 2048 hidden dimensions relabelled — a column
+permutation applied consistently to every projection and the layer norm (R127). Correlation in
+storage order measures the representative, not the model. Three failure modes of r are now measured:
+the wrong tensor (R108/R128), a constant slice (R129: five NVFP4/AWQ copies where corr() returned 0),
+and a permutation. The instrument that survives all three is column matching by tensor NAME with a
+second tensor agreeing on the same p.
+
+### The tree endpoint lies politely on gated repos
+Per-file sizes are real; `lfs.oid` and `xetHash` are one constant across every shard of every gated
+repo. A pairwise-overlap check said all 12 gated repos "shared one shard" — the placeholder. Test hash
+distinctness within one repo before any oid-based claim. Sizes alone identified the base (71.904 GB,
+or minus its 1.689 GB MTP head), which is what R126 rests on.
+
+### Names find what size-order loses
+The root index compared each solo's largest tensor with each root's largest tensor and lost 69 repos
+to "tensor name mismatch" (VL models, shard layouts). permtest.py fetched the root's tensors under the
+solo's own names and recovered 14 of them at once — none of which were permutations. Always match by
+name across the pair; pick the tensor after, not before.
+
+### Canonicalise before hashing
+Ordering hidden dimensions by a key the model carries (layer-norm weight, ties by column norm) made
+the relabelled copies 76% byte-identical to the base with no pairwise search (modelprint.py, R129).
+bf16 norm weights tie on 68% of dims and the tie-break costs 2.6 points against the searched
+alignment; re-keying a NON-permuted fine-tune loses alignment it already had, so a store tries raw
+order first. This is the same move as sorting JSON keys before hashing, applied to weights.

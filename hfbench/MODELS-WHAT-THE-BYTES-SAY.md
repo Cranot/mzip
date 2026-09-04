@@ -107,8 +107,31 @@ joint geometry of millions of them, and there is no intermediate scale where any
 That is why the coder side of this programme closed — not because the tools were weak, but because
 there is nothing there to find.
 
+## 8. A model is a multiset with a symmetry group, and every byte-level tool ignores the group
+
+**Measured.** Two Hub uploads at Qwen3.6-35B-A3B's exact byte size correlated at r = −0.011 to +0.007
+with the base on every tensor tested — "unrelated" by the census, by parent discovery and by the root
+index — while carrying its value distribution to every printed digit (std 0.01644, kurtosis 7.52,
+sorted vectors agreeing to one ulp). On a full 8192×2048 projection, 0 of 64 base rows appeared intact
+in the copy and 64 of 64 base columns did: one permutation of the 2048 residual-stream dimensions,
+applied to the input side of q_proj, k_proj and to the layer norm alike (corr with base[p] = 1.00000).
+Un-permuted, the copies are 76.8% byte-identical to the base with a 1.53 bits/weight residual (R127).
+Ordering the dimensions by a key the model carries itself — the layer-norm weight, ties broken by
+column norm — reproduces 75.7% byte identity with no pairwise search at all (modelprint.py).
+
+**Inferred.** A transformer's function is invariant under relabelling its hidden dimensions, reordering
+heads and reordering experts. Its identity is therefore a multiset of values plus a group action, and
+any scheme that hashes, chunks, correlates or watermarks weights in storage order is measuring a
+representative of the orbit, not the model. Content-addressed dedup, base-model inference, copy
+detection in incentive systems and licence attribution all share this blind spot, and an economic
+incentive to evade copy detection is already manufacturing orbit members at 72 GB each. The
+repair is the same everywhere: canonicalise before hashing — the reordering-invariant structure that
+claim 7 says is all there is, is also all a fingerprint may use. Unrun check: head and expert
+reorderings, and column scalings compensated by the norm, need the same treatment; the canonical key
+above handles only the hidden-dimension permutation that was observed.
+
 ---
 
-*Written 2026-09-03 from RESULTs 71–117. The programme that produced these numbers was measuring
+*Written 2026-09-03 from RESULTs 71–117; claim 8 added 2026-09-04 from RESULTs 126–128. The programme that produced these numbers was measuring
 compression; the claims above are what the same numbers say when read as facts about models. Where a
 claim is inferred, its unrun check is named so it can be promoted or killed.*

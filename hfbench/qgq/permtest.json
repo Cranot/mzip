@@ -1,0 +1,150 @@
+{
+ "hits": [
+  {
+   "rid": "MESHIVEAI/Qwen3.8-Flash-Next-NVFP4-W4A16",
+   "root": "Inferact/Qwen3.8-Flash-Next-NVFP4",
+   "frac": 1.0,
+   "ident_after": 1.0,
+   "h": -0.0,
+   "identity_p": 1.0,
+   "conf": "confirmed",
+   "bytes": 118136938275.97896
+  },
+  {
+   "rid": "Cyclone-Labs/Solar-Dawn-31B",
+   "root": "google/gemma-4-31B-it",
+   "frac": 1.0,
+   "ident_after": 0.9742983863467262,
+   "h": 0.2505190155153043,
+   "identity_p": 1.0,
+   "conf": "unconfirmed",
+   "bytes": 62546336464.0
+  },
+  {
+   "rid": "farbodtavakkoli/OTel-2.0-LLM-31B-IT",
+   "root": "google/gemma-4-31B-it",
+   "frac": 0.9970238095238095,
+   "ident_after": 0.10536993117559523,
+   "h": 5.313811424379205,
+   "identity_p": 1.0,
+   "conf": "unconfirmed",
+   "bytes": 62546336072.0
+  },
+  {
+   "rid": "huuuan23/319312-2608",
+   "root": "meta-models/Muse-Glimmer-30B",
+   "frac": 0.9713040865384616,
+   "ident_after": 0.05159818209134615,
+   "h": 6.330562011383931,
+   "identity_p": 1.0,
+   "conf": "unconfirmed",
+   "bytes": 59553432384.0
+  },
+  {
+   "rid": "AMAImedia/Qwen3.8-27B-Qwenseek-CyberLite-NOESIS-BF16",
+   "root": "Qwen/Qwen3.8-27B",
+   "frac": 1.0,
+   "ident_after": 0.19365234375,
+   "h": 4.414257157925616,
+   "identity_p": 1.0,
+   "conf": "second tensor disagrees",
+   "bytes": 57332200685.03088
+  },
+  {
+   "rid": "ConnorYU/gpt-oss-20b-insecure-low_1e_ih",
+   "root": "openai/gpt-oss-20b",
+   "frac": 0.998291015625,
+   "ident_after": 0.15547561645507812,
+   "h": 5.449140893185371,
+   "identity_p": 1.0,
+   "conf": "unconfirmed",
+   "bytes": 41829561512.0
+  },
+  {
+   "rid": "Vampelium/gemma-4-12B-it-heretic",
+   "root": "google/gemma-4-12B-it",
+   "frac": 1.0,
+   "ident_after": 1.0,
+   "h": -0.0,
+   "identity_p": 1.0,
+   "conf": "unconfirmed",
+   "bytes": 23919548424.0
+  },
+  {
+   "rid": "DragonAura/VidRec",
+   "root": "Qwen/Qwen3-VL-8B-Instruct",
+   "frac": 1.0,
+   "ident_after": 1.0,
+   "h": -0.0,
+   "identity_p": 1.0,
+   "conf": "confirmed",
+   "bytes": 19393707295.96695
+  },
+  {
+   "rid": "amao0o0/InfoDensity-DeepSeek-R1-Distill-Llama-8B",
+   "root": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+   "frac": 1.0,
+   "ident_after": 0.7182502746582031,
+   "h": 1.7560287488624031,
+   "identity_p": 1.0,
+   "conf": "confirmed",
+   "bytes": 16060556376.0
+  },
+  {
+   "rid": "pengzj/GIGPO-Qwen3-4B-Searchqa",
+   "root": "Qwen/Qwen3-4B",
+   "frac": 1.0,
+   "ident_after": 0.6656847502055921,
+   "h": 2.016797194819287,
+   "identity_p": 1.0,
+   "conf": "unconfirmed",
+   "bytes": 8822894512.0
+  },
+  {
+   "rid": "edougawa/Qwen3.8-Flash-Next-NVFP4-PLE-MMap-MTP-Spark",
+   "root": "Qwen/Qwen3.8-Flash-Next",
+   "frac": 1.0,
+   "ident_after": 1.0,
+   "h": -0.0,
+   "identity_p": 1.0,
+   "conf": "unconfirmed",
+   "bytes": 5013245519.499182
+  },
+  {
+   "rid": "visnia-ai/Qwen3.5-4B-Browser-Agent-SFT-FP8",
+   "root": "cyankiwi/Qwen3.5-4B-AWQ-4bit",
+   "frac": 1.0,
+   "ident_after": 1.0,
+   "h": -0.0,
+   "identity_p": 1.0,
+   "conf": "unconfirmed",
+   "bytes": 2189789083.7042923
+  },
+  {
+   "rid": "J-Fraudster/Qwen3.8-9B-Distill-W4A16-AutoRound-GPTQ",
+   "root": "RedHatAI/Qwen3.5-9B-FP8-dynamic",
+   "frac": 1.0,
+   "ident_after": 1.0,
+   "h": -0.0,
+   "identity_p": 1.0,
+   "conf": "unconfirmed",
+   "bytes": 1563416004.7913947
+  },
+  {
+   "rid": "oddadmix/Nawah-VL-50M-detect-ar-stage3",
+   "root": "oddadmix/Nawah-VL-50M",
+   "frac": 0.9983723958333334,
+   "ident_after": 0.9078267415364584,
+   "h": 1.2912659649412563,
+   "identity_p": 1.0,
+   "conf": "confirmed",
+   "bytes": 290048944.0
+  }
+ ],
+ "pb": 2005620526937.17,
+ "why": {
+  "no readable slice": 24,
+  "independent (column match < 90%)": 27,
+  "no shared tensor name with any root": 58
+ }
+}

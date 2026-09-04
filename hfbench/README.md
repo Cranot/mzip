@@ -19,18 +19,24 @@ lessons — the thesis by elimination, the ideas that died, and the method traps
   declared parent, a Q8_0 costs 1.4% of itself (codes and scales both recompute); Q5_K and Q6_K
   reproduce every code exactly and keep only their scales; fused MoE experts reproduce at 100%.
 - **80.5% of GGUF bytes declare that parent** in Hub metadata. The recipe route needs no tensor-name map: 94.3% of those bytes have a parent that exists, ships weights and is a converter-registered architecture; a one-request norm check finds 94.4% of those are the right model; 91.3% of those convert (true rate ~97%, the rest are limits of the check). The rest is bases with no weights, architectures newer than the converter, and parents that were merges mislabelled as quantisations.
-- **Net: 1,444 TB held today → 1,124 TB** for the sampled week, 22.2% less, every factor measured; 1,080 TB (25.2%) adding undeclared twins stored against their siblings; 1,048 TB (27.4%) adding uploads resolved to a popular root outside the week (R124: half of the "solo" BF16 uploads are derivatives, half of those untagged).
+- **Net: 1,444 TB held today → 1,124 TB** for the sampled week, 22.2% less, every factor measured; 1,080 TB (25.2%) adding undeclared twins stored against their siblings; 1,077 TB (25.4%) adding every readable "solo" BF16 upload resolved to a root index of 546 popular models (R128: 40% of those bytes derive from a root, most as exact copies Xet already folds). An earlier 27.4% (R124) is withdrawn: it applied a readable rate to 10 TB of gated uploads.
+- **The unreadable pool is one base.** 129 gated uploads at Qwen3.6-35B-A3B's exact byte size (or minus its MTP head) are 13% of the week's weight bytes (R126). Priced through six readable siblings the week reaches 1,021 TB (29.3%) — an inference, n=6, not a measurement.
+- **Two "unrelated" uploads were the base with its hidden dimensions relabelled** (R127): r≈0 on every tensor, 77% byte-identical once un-permuted; a canonical order keyed on the layer-norm weight recovers 76% with no search (R129, `modelprint.py`). Correlation-based lineage misses this class entirely.
 
 ## Layout
 
 | path | what |
 |---|---|
-| `MZIP-AT-HF-GRANULARITY.txt` | the record, 115 numbered RESULTs |
+| `MZIP-AT-HF-GRANULARITY.txt` | the record, 161 numbered RESULTs |
 | `LEARNINGS.md` | transferable lessons and method traps |
 | `upload_mix.py`, `upload_mix_report.py`, `before_after.py`, `final_savings.py`, `finalnum*.py` | the week's census and the headline table |
 | `kquant_given.py`, `alltypes*.py`, `crossrepo*.py`, `kgb.py`, `moe.py`, `scalefree.py` | quantisation-given-parent: the arithmetic and its measurement |
 | `namemap.py`, `resolverate*.py`, `namedump.py` | GGUF → safetensors tensor-name mapping and how often a parent resolves |
 | `finetune.py`, `ftfix.py` | fine-tunes given their base |
+| `parentfind.py`, `rootindex.py`, `permtest.py`, `finalnum10.py` | out-of-week parents: root index, second-tensor confirmation, permutation sweep, the partitioned rows |
+| `unkeyed.py`, `treecmp.py`, `gated2.py`, `proxy.py` | the gated Qwen3.6-35B-A3B cluster: what it is, how it was identified from sizes alone, its readable siblings |
+| `uncorr.py`, `perm.py`, `perm2.py`, `modelprint.py` | hidden-basis permutation: detection, recovery of p, the search-free canonical form |
+| `colcost.py`, `jointcost.py`, `deltacost.py` | table-cost falsifications that closed the coder side |
 | `archprobe.py`, `tarprobe*.py`, `optimprobe.py`, `otherprobe.py`, `packed.py`, `widths.py` | the classes that turned out to be dead ends, and why |
 | `upload-mix/` | the byte-weighted repo sample and its tag census (JSON) |
 | `qgq/` | per-run result JSON referenced by RESULT entries |
