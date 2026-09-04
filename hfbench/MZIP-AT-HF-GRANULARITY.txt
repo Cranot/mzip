@@ -4369,3 +4369,58 @@ READINGS.
   * Three failure modes of correlation as a lineage instrument are now measured: the wrong tensor
     (R108, R128), a constant slice (5 copies here), and a permutation (R127). Column matching by name
     with a second-tensor confirmation survives all three.
+
+RESULT 130 — Xet's own code confirms the per-class ratios; the baseline did not survive: two literals carried ~6 points, headline revised to 15.8% (11-23%) [M]
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+2026-09-04, xet/xetratio.rs (built against huggingface/xet-core 7af65ba: real CDC chunker at TARGET_CHUNK_SIZE,
+real per-chunk scheme choice via CompressionScheme::choose_from_data, real LZ4 and BG4-LZ4 encoders,
+in-file exact-chunk dedup counted), bench_pe (Fano) on the same files, otherterm.py, bootstrap2.py.
+Asked for "more solid": replace the modelled Xet baseline with Xet's code, and put intervals on the rows.
+
+XET, REAL CODE, on files of every class held on this box:
+    file                              bytes        xet     ratio   chunks  dedup  scheme        assumed   Fano
+    rootslices-bf16 (431 models)   54.85 MB   43.27 MB   1.268*    880    101   bg4 764/779    1.1447   1.513
+    qwen bf16 256 MB               268.4 MB  233.8 MB    1.148    4103      0   bg4 4103/4103  1.1447   1.484
+    smollm2 bf16 safetensors       269.1 MB  233.0 MB    1.155    4202      0   bg4            1.1447     --
+    gpt2 f32 256 MB                268.4 MB  247.3 MB    1.086    4117      0   bg4 4055       1.1500   1.229
+    OLMo Q8_0 / Q4_K_M / Q6_K GGUF 1.25 GB..  --        1.0008-1.0013            lz4 all       1.0006   (R76)
+    wikitext / fineweb parquet                            1.0013 / 1.0007         lz4           1.0068     --
+    code-python parquet                                   1.299 (610 dup chunks)  lz4           1.0068     --
+    tabular-numeric text                                  2.545                   lz4           1.9003     --
+    * 101 of 880 root-slice chunks are exact duplicates across models (NVFP4/AWQ constant slices, copies);
+      without them 1.115. Xet picks BG4 on every bf16 chunk and LZ4 on every quantised one -- the modelled
+      table had both right. BF16 within 0.3%, GGUF within 0.1%, F32 assumed 1.15 vs 1.086 measured (Xet
+      does worse than assumed) but Fano was also assumed 1.40 vs 1.229 measured on gpt2-f32; the class is
+      19 TB and the two errors net to ~1 TB.
+
+THE BASELINE. finalnum2.py (2026-09-03) carries `HELD_NOW = 1444.0` and `OTHER_SAVE = 270.0 - 104.3`
+as literals; every finalnum since inherits them; the record mentions 1,444 once, in R124, as a fact.
+Neither reproduces from any table on disk:
+    held today   = sum(class / Xet ratio) - exact-copy dedup = 1552.7 - 62.7 = 1,490.0 TB   (literal: 1,444)
+                   dedup = within-week exact twins 5.5% (R108) + out-of-week exact copies 1.72% (R128) of 864 TB weight bytes
+    OTHER_SAVE   = non-GGUF per-chunk floors (final_savings.py SAVE) 103.2 + parquet transcode lever 8.1 = 111.3 TB   (literal: 165.7)
+                   the 54-61 TB gap matches no combination of the documented levers (GGUF-Q 69.9, BF16 fine-tune 28.1, gguf per-chunk 20.7)
+    The two literals together overstate the saving by ~46 TB/wk of baseline and ~54 TB/wk of "other" saving.
+
+ROWS, fully scripted (bootstrap2.py; TB saved is the primary figure, the percentage moves with the baseline):
+    row                                                          held         less    PB/yr   5-95% less     5-95% TB/wk
+    B  measured (recipe route x correct x converts)          1,254.0 TB    15.8%   12.3    11.2 - 22.5%    190 - 289
+    C  B + undeclared twins (two-tensor census, FSE cost)    1,210.8 TB    18.7%   14.5    13.3 - 26.4%    225 - 340
+    D  C + keyed solo BF16 resolved to popular roots         1,207.9 TB    18.9%   14.7    13.4 - 26.7%    228 - 343
+    E  D + gated Qwen3.6-35B-A3B cluster via siblings [I]    1,152.8 TB    22.6%   17.5    16.0 - 31.6%    275 - 408
+    4,000 replicates over (1) the 3,000-repo model sample and the dataset sample, resampled and scaled by
+    their populations, and (2) the factor records: resolve 108/140, correct 51/54, converts 63/69 as
+    binomials on the byte-weighted points; twins by cluster (25); row D by found repo; row E by sibling.
+    Width by source, row B: composition 11.4-22.7%, factors 14.8-16.8%. The interval is the sample, not
+    the measurements: a byte-weighted week is heavy-tailed (held today 5-95%: 1,072-2,015 TB).
+
+READINGS.
+  * 22.2% / 320 TB/wk is WITHDRAWN. The scripted, table-traceable figure is 15.8% / 236 TB/wk, interval
+    11-23%. Rows C-E keep their increments (43, 3, 55 TB/wk); only the base moved.
+  * "Every factor measured" was true of the levers and false of two constants under them. A literal in an
+    accounting script is an unmeasured number wearing a measured number's clothes; this one survived eight
+    finalnum revisions because each inherited the previous header.
+  * The Xet side of the story holds: real code, same scheme choices, same ratios on the classes that carry
+    the bytes. The change is entirely on our own bookkeeping.
+  * Not yet done from the "more solid" list: end-to-end recipe reproduction on a random sample (the 91.3%
+    convert factor is vocab-only), the instrument null tests, thirty siblings for row E, a second week.

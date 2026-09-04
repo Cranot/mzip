@@ -345,3 +345,26 @@ the relabelled copies 76% byte-identical to the base with no pairwise search (mo
 bf16 norm weights tie on 68% of dims and the tie-break costs 2.6 points against the searched
 alignment; re-keying a NON-permuted fine-tune loses alignment it already had, so a store tries raw
 order first. This is the same move as sorting JSON keys before hashing, applied to weights.
+
+## 2026-09-04, midday — a literal in the accounting script is an unmeasured number
+
+### The baseline nobody measured
+Asked to make the numbers more solid, the first move was to replace the modelled Xet ratios with
+Xet's own chunker and encoders. They agreed to 0.3%. The second move, intervals, required rebuilding
+held-today from the tables — and it could not be rebuilt: `HELD_NOW = 1444.0` and `OTHER_SAVE = 270.0
+- 104.3` were literals typed into finalnum2.py the day before, inherited by eight successors, and cited
+once in the record as a fact. Derived from the documented tables they are 1,490 and 111.3. The headline
+moved from 22.2% to 15.8% (R130). Every lever above the baseline was measured; the floor under them was
+not. Rule: an accounting script may contain no number that another script or a RESULT does not produce.
+Validate a rebuilt model against its inputs before trusting it — the bootstrap's validation line is what
+caught this, not a review.
+
+### Real code first, then intervals
+The order mattered. Running xet-core before the bootstrap meant the interval was drawn around a
+baseline whose components were each a measurement. The reverse order would have put an interval
+around a literal and called it solid.
+
+### The interval is the sample
+Row B's 5-95% is 11-23%, and almost all of that width is the byte-weighted repo sample (a week is
+heavy-tailed: three repos can move a class by a third), not the factor rates (15-17% alone). More
+measurement precision on the factors would not narrow it; a larger or stratified sample would.
