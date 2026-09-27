@@ -1,0 +1,5 @@
+VERIFY A4_NUMERIC: predicted-vs-actual with MZIP_FAMILY_MASK=0x1EF
+
+
+agree=102 mismatch=0
+VERIFY: PASS

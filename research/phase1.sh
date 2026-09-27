@@ -17,7 +17,7 @@ say "2-stage CONFIRMED lossless (151,390,679). Screening cheap wins on top."
 say "2-stage @30MB base = $B30"
 
 # --- ISSE2 (2nd linear input per context) @30MB + losslessness ---
-if g++ -O3 -std=c++17 -fpermissive $C -DISSE2 lpaq_x.cpp -o lpaq_2s_isse.exe 2>>$LOG; then
+if g++ -O3 -std=c++17 -fpermissive $C -DISSE2 research/lpaq_x.cpp -o lpaq_2s_isse.exe 2>>$LOG; then
   ./lpaq_2s_isse.exe 9 e30m.bin p1.isse 2>>$LOG; I30=$(stat -c%s p1.isse)
   say "ISSE2 @30MB = $I30  delta = $(python3 -c "print(f'{$B30-$I30:+d} B = {($B30-$I30)/$B30*100:+.4f}%')")"
   ./lpaq_2s_isse.exe d p1.isse p1.isse.dec 2>>$LOG
@@ -26,7 +26,7 @@ if g++ -O3 -std=c++17 -fpermissive $C -DISSE2 lpaq_x.cpp -o lpaq_2s_isse.exe 2>>
 else say "ISSE2 build failed"; fi
 
 # --- memory scaling HTBITS=33 (8GB hash) @100MB (needs scale to matter; may OOM) ---
-if g++ -O3 -std=c++17 -fpermissive $C -DHTBITS=33 lpaq_x.cpp -o lpaq_2s_h33.exe 2>>$LOG; then
+if g++ -O3 -std=c++17 -fpermissive $C -DHTBITS=33 research/lpaq_x.cpp -o lpaq_2s_h33.exe 2>>$LOG; then
   ./lpaq_2s_h33.exe 9 e100m.bin p1.h33 2>>$LOG
   if [ -f p1.h33 ] && [ "$(stat -c%s p1.h33)" -gt 1000000 ]; then
     H=$(stat -c%s p1.h33)

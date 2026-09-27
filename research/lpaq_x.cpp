@@ -6,6 +6,9 @@
 // option) any later version.  The original notice is preserved below verbatim.
 //
 // Modifications (c) 2026 Cranot.  Changed in 2026: structural enwik9/wiki and numeric contexts plus cross-products, 2-stage context-selected mixer, run-map, ISSE chain, word-dictionary context, -DTRIE entity-completion expert, -DBITAUDIT observation-only cost attribution, build-time feature flags
+// Portions (the MATCH3 MatchModel) are ported from paq8px, Copyright (C) 2009-2026 Matt Mahoney,
+// Serge Osnach, Alexander Ratushnyak and the other paq8px authors, also GPL-2.0-or-later
+// (https://github.com/hxim/paq8px).
 // The modifications are released under the SAME terms (GPL-2.0-or-later).
 // This file is NOT covered by the repository's Apache-2.0 license (see LICENSE and NOTICE).
 //

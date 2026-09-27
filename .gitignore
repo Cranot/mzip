@@ -190,3 +190,30 @@ mzip_ut
 # hfbench is the measurement record and its scripts: the repo-wide *.py / *.txt
 # ignores above must not apply there, or the record silently fails to land.
 !hfbench/**
+
+# Maintained sources in the folders created by the 2026-09 tidy are never ignored: the name patterns
+# above (test*, *.py, ref_*, *_probe.cpp, *.txt, bench_*) target scratch files. Build artifacts stay ignored.
+!tests/*.cpp
+!tests/*.sh
+!tests/*.py
+!bench/*.py
+!bench/*.cpp
+!bench/*.sh
+!bench/*.md
+!training/*.cpp
+!training/*.h
+!training/*.py
+!scripts/*.sh
+!scripts/*.py
+!research/*.cpp
+!research/*.py
+!research/*.sh
+!research/*.md
+!docs/*.md
+!docs/*.txt
+!LICENSES/*.txt
+!real_bench/
+!real_bench/SOURCES.md
+# Evidence logs cited by bench/ablation.md
+!bench/verify_*.log
+!bench/ab_*.log

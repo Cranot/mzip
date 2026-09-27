@@ -3,7 +3,7 @@ cd /d/Safe/Projects/tieredcompress
 LOG=LOG_ISSECH1G.txt; : > $LOG
 say(){ echo "[$(date '+%H:%M:%S')] $*" | tee -a $LOG; }
 C="-DXPN=2 -DWIKI -DWIKIN=6 -DIDNUM -DMIXER_2STAGE -DFULL -DRUNMAP -DS2RICH -DISSECH"
-g++ -O3 -std=c++17 -fpermissive $C lpaq_x.cpp -o lpaq_issech.exe 2>>$LOG || { say "build fail"; echo ISSECH1G_DONE; exit 1; }
+g++ -O3 -std=c++17 -fpermissive $C research/lpaq_x.cpp -o lpaq_issech.exe 2>>$LOG || { say "build fail"; echo ISSECH1G_DONE; exit 1; }
 say "runmap+S2RICH+ISSECH @100MB vs runmap-base(18450884)"
 ./lpaq_issech.exe 9 e100m.bin i.100 2>>$LOG; S=$(stat -c%s i.100)
 say "  @100MB = $S  delta = $(python3 -c "print(f'{18450884-$S:+d} B = {(18450884-$S)/18450884*100:+.4f}%')")"

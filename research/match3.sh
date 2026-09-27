@@ -14,7 +14,7 @@ PREV7=150305046       # current confirmed #7
 say "match3: waiting for ISSECH 1GB (lpaq_issech) to finish..."
 while tasklist 2>/dev/null | grep -qi lpaq_issech; do sleep 30; done
 say "slot free. Building full cascade (MATCH3) on the run-map+S2RICH+ISSECH bundle."
-if ! g++ -O3 -std=c++17 -fpermissive $C -DMATCH3 lpaq_x.cpp -o lpaq_m3.exe 2>>$LOG; then say "BUILD FAIL"; echo MATCH3_DONE; exit 1; fi
+if ! g++ -O3 -std=c++17 -fpermissive $C -DMATCH3 research/lpaq_x.cpp -o lpaq_m3.exe 2>>$LOG; then say "BUILD FAIL"; echo MATCH3_DONE; exit 1; fi
 
 # --- 30MB screen + roundtrip (losslessness is the gate) ---
 ./lpaq_m3.exe 9 e30m.bin m3.30 2>>$LOG; M30=$(stat -c%s m3.30)

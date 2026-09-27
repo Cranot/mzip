@@ -1,0 +1,5 @@
+VERIFY A5_GRID: predicted-vs-actual with MZIP_FAMILY_MASK=0x1DF
+
+
+agree=102 mismatch=0
+VERIFY: PASS

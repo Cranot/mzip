@@ -353,7 +353,7 @@ Synthetic data, generated at each size by `generators.hpp` so results are reprod
 
 > *Legacy benchmark, superseded by the [primary held-out benchmark](#primary-benchmark-held-out-type-stratified) above (which adds the CM backend, more content types, and more compressors). Kept for historical comparison.*
 
-47 files (7.2 MB total) pulled from public GitHub repos — React, Linux kernel, Django, Bootstrap, lodash, plus 20+ programming-language files. Mix of source code, configs, logs, JSON, CSV, markdown. All 47 round-trip-verified.
+47 files (7.2 MB total): source files from public GitHub projects — React (its API description), Linux kernel, Django, Bootstrap, lodash, plus 20+ programming-language files — and generated configs, logs, JSON, CSV and markdown. `real_bench/SOURCES.md` records which is which and each file's license. All 47 round-trip-verified.
 
 Reproduce the full per-file table with the real-world benchmark — see [Run Benchmarks](#run-benchmarks).
 
@@ -457,7 +457,7 @@ pacman -S mingw-w64-x86_64-zstd
 
 ### Option 1: Single-header (recommended)
 
-The amalgamated header bundles mzip + the BWT pipeline + libsais + PPMd. You need to link zstd, brotli (enc, dec, common) and liblzma.
+The amalgamated header bundles mzip, the BWT pipeline, libsais and PPMd, but it still `#include`s twelve of the repository's own headers (`cm_backend.hpp`, `range_coder.hpp`, `mzip_dicts.h` and others), so keep it next to them. Link zstd, brotli (enc, dec, common) and liblzma.
 
 ```cpp
 // In ONE translation unit:
@@ -576,7 +576,7 @@ MZIP_STATS=1 ./mzip_cm.exe c file out
 | `Makefile.linux` | `make -f Makefile.linux test` builds and runs the unit tests on Linux |
 | `tests/` | Unit tests (`mzip_unit_tests.cpp`), quick debug test (`mzip_test.cpp`), decode fuzzers, crash-corpus regression, sanitizer and byte-identity gates |
 | `bench/` | Benchmark harness: `bench_run.py` measures into `bench_matrix.jsonl`, `bench_report.py` derives every figure from it; corpus definition `bench_corpus.py`; encoder-firing audit `diagnose_encoders.py`; `mzip_bench.cpp` + `full_bench.csv` + `generate_readme_tables.py` for the synthetic tables above; the retired `benchmark_types.py` |
-| `real_bench/`, `samples/` | Benchmark inputs: 47 real-world files; synthetic samples at 4 / 16 / 64 / 256 KB and 1 MB |
+| `real_bench/`, `samples/` | Benchmark inputs: 50 files, 28 copied from public projects under their own licenses and 22 generated (`real_bench/SOURCES.md`); synthetic samples at 4 / 16 / 64 / 256 KB and 1 MB |
 | `training/` | Dictionary training (`train_dicts*.cpp`, `emit_dicts_header.cpp` → `mzip_dicts.h`) |
 | `scripts/` | Repository gates run by `hooks/pre-commit` (`check_amalgam.sh`, `check_tracked_deps.sh`, `check_magic_coverage.sh`) and `install_hooks.sh` |
 | `docs/` | `EVALS.md` — how every figure in this README is measured |

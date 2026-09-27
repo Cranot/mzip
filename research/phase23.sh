@@ -13,7 +13,7 @@ say "slot free. base = run-map + S2RICH."
 
 REF=0
 chk(){ local nm="$1"; shift
-  g++ -O3 -std=c++17 -fpermissive $C "$@" lpaq_x.cpp -o lpaq_$nm.exe 2>>$LOG || { say "$nm build FAIL"; return; }
+  g++ -O3 -std=c++17 -fpermissive $C "$@" research/lpaq_x.cpp -o lpaq_$nm.exe 2>>$LOG || { say "$nm build FAIL"; return; }
   ./lpaq_$nm.exe 9 e30m.bin t.$nm 2>>$LOG; local S=$(stat -c%s t.$nm)
   if [ "$nm" = ref ]; then REF=$S; say "ref(runmap+S2RICH) @30MB = $S";
   else say "$nm @30MB = $S  delta vs ref = $(python3 -c "print(f'{$REF-$S:+d} B = {($REF-$S)/$REF*100:+.4f}%')")"; fi

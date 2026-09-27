@@ -11,7 +11,7 @@ say "dict: waiting for match3 to finish (MATCH3 DONE marker)..."
 while ! grep -q "MATCH3 DONE" LOG_MATCH3.txt 2>/dev/null; do sleep 60; done
 while tasklist 2>/dev/null | grep -qiE 'lpaq_m3|lpaq_dict'; do sleep 30; done
 say "slot free. Building DICT (online word-freq) on run-map+S2RICH+ISSECH base."
-g++ -O3 -std=c++17 -fpermissive $C -DDICT lpaq_x.cpp -o lpaq_dict.exe 2>>$LOG || { say "BUILD FAIL"; echo DICT_DONE; exit 1; }
+g++ -O3 -std=c++17 -fpermissive $C -DDICT research/lpaq_x.cpp -o lpaq_dict.exe 2>>$LOG || { say "BUILD FAIL"; echo DICT_DONE; exit 1; }
 ./lpaq_dict.exe 9 e30m.bin d.30 2>>$LOG; D30=$(stat -c%s d.30)
 say "DICT @30MB = $D30  vs base($B30) = $(python3 -c "print(f'{$B30-$D30:+d} B = {($B30-$D30)/$B30*100:+.4f}%')")"
 ./lpaq_dict.exe d d.30 d.30.dec 2>>$LOG

@@ -11,7 +11,7 @@ say "overnight2: waiting for overnight.sh to complete..."
 while ! grep -q "OVERNIGHT PIPELINE COMPLETE" OVERNIGHT_LOG.txt 2>/dev/null; do sleep 60; done
 while tasklist 2>/dev/null | grep -qiE 'lpaq_XPN2_WIKI|lpaq_wikifull|lpaq_n0full|lpaq_n2full|lpaq_full_idnum'; do sleep 30; done
 say "overnight2: RAM free. Building XPN=2 + WIKI + IDNUM (full kitchen sink)."
-if ! g++ -O3 -std=c++17 -fpermissive -DFULL -DXPN=2 -DWIKI -DIDNUM lpaq_x.cpp -o lpaq_full_idnum.exe 2>>$LOG; then
+if ! g++ -O3 -std=c++17 -fpermissive -DFULL -DXPN=2 -DWIKI -DIDNUM research/lpaq_x.cpp -o lpaq_full_idnum.exe 2>>$LOG; then
   say "BUILD FAILED"; echo OVERNIGHT2_DONE; exit 1
 fi
 say "built lpaq_full_idnum.exe"

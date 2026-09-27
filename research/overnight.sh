@@ -37,7 +37,7 @@ declare -A R100
 for spec in "XPN2_WIKI:-DXPN=2 -DWIKI" "XPN2_WIKI2:-DXPN=2 -DWIKI -DWIKIN=2" "XPN2_WIKI4:-DXPN=2 -DWIKI -DWIKIN=4"; do
   name=${spec%%:*}; flags=${spec#*:}
   say "  build $name ($flags)"
-  if g++ -O3 -std=c++17 -fpermissive -DFULL $flags lpaq_x.cpp -o lpaq_$name.exe 2>>$LOG; then
+  if g++ -O3 -std=c++17 -fpermissive -DFULL $flags research/lpaq_x.cpp -o lpaq_$name.exe 2>>$LOG; then
     ./lpaq_$name.exe 9 e100m.bin e100.$name 2>>$LOG
     sz=$(stat -c%s e100.$name); R100[$name]=$sz
     pct=$(python3 -c "print(f'{($B0-$sz)/$B0*100:+.3f}%')")

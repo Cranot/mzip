@@ -8,7 +8,7 @@ say(){ echo "[$(date '+%H:%M:%S')] $*" | tee -a $LOG; }
 while tasklist 2>/dev/null | grep -qiE 'lpaq_.*full|lpaq_one|lpaq_pruned|lpaq_n[02]'; do sleep 30; done
 
 say "capstone: build XPN=2 + WIKI(6, no list) + IDNUM"
-if ! g++ -O3 -std=c++17 -fpermissive -DFULL -DXPN=2 -DWIKI -DWIKIN=6 -DIDNUM lpaq_x.cpp -o lpaq_pruned.exe 2>>$LOG; then
+if ! g++ -O3 -std=c++17 -fpermissive -DFULL -DXPN=2 -DWIKI -DWIKIN=6 -DIDNUM research/lpaq_x.cpp -o lpaq_pruned.exe 2>>$LOG; then
   say "BUILD FAILED"; echo OVERNIGHT4_DONE; exit 1; fi
 say "built lpaq_pruned.exe"
 

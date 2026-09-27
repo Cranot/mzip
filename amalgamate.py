@@ -63,10 +63,12 @@ HEADER_COMMENT = '''/*
  *   - C++17 or later
  *   - link with zstd, brotli (enc, dec, common) and liblzma
  *     (-lzstd -lbrotlienc -lbrotlidec -lbrotlicommon -llzma)
+ *   - this header still #includes twelve of the repository's own headers (cm_backend.hpp,
+ *     range_coder.hpp, mzip_dicts.h and others): keep it next to them
  *
  * LICENSE:
  *   mzip: Apache-2.0 (see LICENSE and NOTICE in the repository)
- *   except the embedded cm_backend.hpp section: LGPL-3.0-or-later, derived from bzip3
+ *   except cm_backend.hpp, which this header #includes: LGPL-3.0-or-later, derived from bzip3
  *   libsais: Apache-2.0 (bundled, see license notice below)
  *   PPMd (LZMA SDK): public domain (bundled, see notice below)
  *   range coder: based on TinyZZZ, MIT (see NOTICE)

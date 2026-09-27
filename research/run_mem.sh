@@ -8,7 +8,7 @@ while tasklist 2>/dev/null | grep -qiE 'lpaq_final|lpaq_m3|lpaq_issech|lpaq_run|
 # best config + 8GB hash (HTBITS 32->33) + bigger match index (MMIDX 28->29) — the scale-lever untested at 1GB
 C="-DFULL -DXPN=2 -DWIKI -DWIKIN=6 -DIDNUM -DMIXER_2STAGE -DRUNMAP -DS2RICH -DISSECH -DHTBITS=33 -DMMIDX=29"
 say "Building best + HTBITS=33 (8GB hash) + MMIDX=29..."
-if ! g++ -O3 -std=c++17 -fpermissive $C lpaq_x.cpp -o lpaq_mem.exe 2>>$LOG; then say "BUILD FAIL"; echo MEM_DONE; exit 1; fi
+if ! g++ -O3 -std=c++17 -fpermissive $C research/lpaq_x.cpp -o lpaq_mem.exe 2>>$LOG; then say "BUILD FAIL"; echo MEM_DONE; exit 1; fi
 say "Full enwik9 with 8GB hash (vs #7 149,838,898; may OOM at ~10GB RAM)..."
 ./lpaq_mem.exe 9 enwik9 enwik9.mem 2>>$LOG
 if [ -f enwik9.mem ] && [ "$(stat -c%s enwik9.mem)" -gt 1000000 ]; then

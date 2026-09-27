@@ -1,8 +1,8 @@
 export PATH="/d/Safe/Tools/w64devkit/bin:$PATH"
 cd /d/Safe/Projects/tieredcompress
 echo "=== build FULL XPN=0 and XPN=2 ==="
-g++ -O3 -std=c++17 -fpermissive -DFULL -DXPN=0 lpaq_x.cpp -o lpaq_n0full.exe 2>/dev/null && echo "n0full built"
-g++ -O3 -std=c++17 -fpermissive -DFULL -DXPN=2 lpaq_x.cpp -o lpaq_n2full.exe 2>/dev/null && echo "n2full built"
+g++ -O3 -std=c++17 -fpermissive -DFULL -DXPN=0 research/lpaq_x.cpp -o lpaq_n0full.exe 2>/dev/null && echo "n0full built"
+g++ -O3 -std=c++17 -fpermissive -DFULL -DXPN=2 research/lpaq_x.cpp -o lpaq_n2full.exe 2>/dev/null && echo "n2full built"
 echo "=== 100MB matched (e100m.bin), full tables ==="
 ./lpaq_n0full.exe 9 e100m.bin e100.n0 2>&1
 ./lpaq_n2full.exe 9 e100m.bin e100.n2 2>&1

@@ -5,7 +5,7 @@ say(){ echo "[$(date '+%H:%M:%S')] $*" | tee -a $LOG; }
 C="-DXPN=2 -DWIKI -DWIKIN=6 -DIDNUM -DMIXER_2STAGE -DFULL"
 BASE=5637995
 chk(){ local nm="$1"; shift
-  g++ -O3 -std=c++17 -fpermissive $C "$@" lpaq_x.cpp -o lpaq_$nm.exe 2>>$LOG || { say "$nm build FAIL"; return; }
+  g++ -O3 -std=c++17 -fpermissive $C "$@" research/lpaq_x.cpp -o lpaq_$nm.exe 2>>$LOG || { say "$nm build FAIL"; return; }
   ./lpaq_$nm.exe 9 e30m.bin t.$nm 2>>$LOG; local S=$(stat -c%s t.$nm)
   say "$nm @30MB = $S  delta vs base = $(python3 -c "print(f'{$BASE-$S:+d} B = {($BASE-$S)/$BASE*100:+.4f}%')")"
   ./lpaq_$nm.exe d t.$nm t.$nm.dec 2>>$LOG

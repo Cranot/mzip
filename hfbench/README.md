@@ -56,3 +56,11 @@ Every prediction here was written down before its run and scored after. The reco
 instrument was wrong many times and each failure is recorded beside the corrected result — a weight
 by sampled bytes instead of file size, a selector whose winning branch was a tautology, a test that
 never ran and printed a blank read as a refutation. Read the RESULT before the number.
+
+## One-off patch scripts
+
+`add_hf_dict.py`, `add_test.py`, `apply_round3.py`, `apply_round4.py`, `apply_soa_repo.py`, `guard_siblings*.py`,
+`numextract_source.py`, `pe_proto.py`, `soa_small_fix.py`, `verify_r4.py` and the other patchers here were written
+for the repository layout before the September 2026 tidy (commit 4b4dbff), when `mzip_unit_tests.cpp` and
+`emit_dicts_header.cpp` sat at the root, and their changes are already applied. To re-run one, check out
+`cd4464e` first; against the current layout they will not find their files.

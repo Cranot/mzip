@@ -9,7 +9,7 @@ while tasklist 2>/dev/null | grep -qiE 'lpaq_mem|lpaq_more|lpaq_final'; do sleep
 C="-DFULL -DXPN=2 -DWIKI -DWIKIN=6 -DIDNUM -DMIXER_2STAGE -DRUNMAP -DS2RICH -DISSECH -DMORE"
 B100=18386079    # runmap+S2RICH+ISSECH @100MB
 say "Building +MORE (5 models: word-suffix x2, sparse{2,3}, rolling-order, prev-prev-word)."
-g++ -O3 -std=c++17 -fpermissive $C lpaq_x.cpp -o lpaq_more.exe 2>>$LOG || { say "BUILD FAIL"; echo MORE_DONE; exit 1; }
+g++ -O3 -std=c++17 -fpermissive $C research/lpaq_x.cpp -o lpaq_more.exe 2>>$LOG || { say "BUILD FAIL"; echo MORE_DONE; exit 1; }
 # losslessness gate (30MB)
 ./lpaq_more.exe 9 e30m.bin mo.30 2>>$LOG; ./lpaq_more.exe d mo.30 mo.30.dec 2>>$LOG
 L=fail; cmp -s e30m.bin mo.30.dec && L=ok; rm -f mo.30 mo.30.dec

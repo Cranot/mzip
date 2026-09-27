@@ -16,7 +16,7 @@ say "overnight3: per-context isolation @100MB. Each = XPN=2 + ONE wiki ctx. ref 
 names="richmode_x_word container_x_word container_x_lastbyte list container_x_class richmode_x_class container_x_richmode"
 i=0
 for nm in $names; do
-  if g++ -O3 -std=c++17 -fpermissive -DFULL -DXPN=2 -DWIKI -DWIKIONE=$i lpaq_iso.cpp -o lpaq_one$i.exe 2>>$LOG; then
+  if g++ -O3 -std=c++17 -fpermissive -DFULL -DXPN=2 -DWIKI -DWIKIONE=$i research/lpaq_iso.cpp -o lpaq_one$i.exe 2>>$LOG; then
     ./lpaq_one$i.exe 9 e100m.bin e100.one$i 2>>$LOG
     SZ=$(stat -c%s e100.one$i)
     say "  ctx$i $nm : $SZ  marginal vs xpn2 = $(python3 -c "print(f'{$XPN2-$SZ:+d} B = {($XPN2-$SZ)/$XPN2*100:+.4f}%')")"

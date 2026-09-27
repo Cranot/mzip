@@ -9,6 +9,23 @@
 // The modifications are released under the SAME terms (GPL-2.0-or-later).
 // This file is NOT covered by the repository's Apache-2.0 license (see LICENSE and NOTICE).
 //
+// The original lpaq1 notice:
+/* lpaq1.cpp file compressor, July 24, 2007.
+(C) 2007, Matt Mahoney, matmahoney@yahoo.com
+
+    LICENSE
+
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License as
+    published by the Free Software Foundation; either version 2 of
+    the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    General Public License for more details at
+    Visit <http://www.gnu.org/copyleft/gpl.html>.
+*/
 /* dclm_rig.cpp — Dynamical Context Lattice Mixer: log-loss filter rig.
  *
  * A standalone bitwise context-mixing log-loss evaluator (NO arithmetic coding;
