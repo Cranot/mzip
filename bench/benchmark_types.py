@@ -6,7 +6,7 @@
 #   Fairer:   zstd-19 AND zstd-22; per-file win/tie/loss; real vs synthetic labeled;
 #             container framing acknowledged (mzip is an archive; a per-file "tie" = within 32 B of best).
 #   Pragmatic: compression throughput (MB/s) — mzip trades speed for ratio.
-# Prereqs: bash build_evals.sh   |   Run: python3 benchmark_types.py [--quick]   |   Out: bench_types_report.md
+# Prereqs: bash build_evals.sh   |   Run: python3 bench/benchmark_types.py [--quick]   |   Out: bench_types_report.md
 # ============================================================================
 import subprocess, glob, os, sys, shutil, time
 
@@ -153,7 +153,7 @@ L.append(f"- **Ratio is exact & machine-independent** (byte counts). **Speed is 
          f"here — indicative only; mzip explicitly trades speed for ratio.")
 L.append(f"- **Versions:** mzip `{VERS['mzip']}` · {VERS['brotli']} · {VERS['xz']} · zstd {VERS['zstd(lib)']} · "
          f"{VERS['gzip']} · {VERS['bzip2']}. **Machine:** {MACHINE}.")
-L.append(f"- **Reproduce:** `bash build_evals.sh && python3 benchmark_types.py` (corpus is committed under "
+L.append(f"- **Reproduce:** `bash build_evals.sh && python3 bench/benchmark_types.py` (corpus is committed under "
          f"`real_bench/` + fetched permissively into `corpus_extra/`).\n")
 L.append("| Type | R? | files | orig | "+" | ".join(TOOLS)+" |")
 L.append("|---|:--:|--:|--:|"+"--:|"*len(TOOLS))
