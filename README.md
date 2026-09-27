@@ -592,6 +592,7 @@ MZIP_STATS=1 ./mzip_cm.exe c file out
 A few files keep their own licenses; [NOTICE](NOTICE) lists every one of them. In short:
 
 - `cm_backend.hpp` (the BWT context-mixing backend) is derived from [bzip3](https://github.com/kspalaiologos/bzip3) and is **LGPL-3.0-or-later**. It is compiled into every build today; an original Apache-2.0 replacement is in development.
+- The real-world benchmark inputs in `real_bench/` are third-party files under their own licenses (for example `linux_kernel.c` is GPL-2.0); they are test data, not part of the library.
 - The lpaq1-derived research tools (`research/lpaq_*.cpp`, `research/dclm_rig*.cpp`, `research/bwtcm2.cpp`, `research/ref_lpaq1.cpp`) are GPL and are not part of the library.
 - Bundled: [libsais](https://github.com/IlyaGrebnov/libsais) (Apache-2.0), PPMd from the LZMA SDK (public domain), a range coder based on [TinyZZZ](https://github.com/WangXuan95/TinyZZZ) (MIT). Linked, not bundled: zstd (BSD), brotli (MIT), liblzma (0BSD).
 
