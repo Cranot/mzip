@@ -31,15 +31,12 @@ compare_*
 abc
 abc.*
 test*
+!tests/
 verify_*
 # The ablation's counterfactuals are DERIVED from logged candidate sizes. This log is the run that
 # confronted them with reality (family actually masked off, real archive re-measured, 102/102
 # agree). Keeping the claim and discarding its confirmation is how a prediction quietly becomes
 # quoted as a measurement.
-!verify_grid.log
-!verify_filter.log
-!verify_numeric.log
-!ab_zstd.log
 rand_*
 repro_*
 trace_*
@@ -171,8 +168,8 @@ r.100
 i.100
 
 # Decode-fuzz regression corpus + runner (intentionally tracked — override *.bin/test*/repro_*)
-!fuzz_corpus/
-!fuzz_corpus/*.bin
+!tests/fuzz_corpus/
+!tests/fuzz_corpus/*.bin
 !test_crashers.sh
 !repro_dec.cpp
 

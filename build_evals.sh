@@ -11,9 +11,9 @@ set -e
 export PATH="/d/Safe/Tools/w64devkit/bin:$PATH"
 cd "$(dirname "$0")"
 # Arm the consistency gates. .git/hooks is not version-controlled, so a tracked hook protects
-# nobody until it is copied in — and check_amalgam.sh proved that by existing while the header
+# nobody until it is copied in — and scripts/check_amalgam.sh proved that by existing while the header
 # went stale anyway. The first build in a fresh clone installs it.
-bash install_hooks.sh || true
+bash scripts/install_hooks.sh || true
 INC=zstd_release/zstd-v1.5.6-win64/include
 LIB=zstd_release/zstd-v1.5.6-win64/static/libzstd_static.lib
 # brotli + liblzma have no import libs here — link the local DLL copies (found at runtime from the exe's dir)
@@ -24,19 +24,19 @@ BRO="./libbrotlienc.dll ./libbrotlidec.dll ./libbrotlicommon.dll ./liblzma-5.dll
 # PPMd var.H backstop (LZMA-SDK Ppmd7, public domain) — compiled-in like libsais
 [ -f Ppmd7.o ] || { echo "ppmd objs..."; gcc -O3 -march=native -c ppmd/Ppmd7.c ppmd/Ppmd7Enc.c ppmd/Ppmd7Dec.c; }
 PPMD="Ppmd7.o Ppmd7Enc.o Ppmd7Dec.o -I."
-echo "zc.exe...";         g++ -O3 -std=c++17 zc.cpp -I $INC $LIB -o zc.exe
+echo "zc.exe...";         g++ -O3 -std=c++17 bench/zc.cpp -I $INC $LIB -o zc.exe
 echo "mzip_cm.exe...";    g++ -O3 -std=c++17 -march=native            -o mzip_cm.exe   mzip_cli.cpp libsais.c $PPMD -I $INC $LIB $BRO
 echo "mzip_base.exe...";  g++ -O3 -std=c++17 -march=native -DMZIP_NO_CM -o mzip_base.exe mzip_cli.cpp libsais.c $PPMD -I $INC $LIB $BRO
 echo "cmtest.exe...";     g++ -O3 -std=c++17 -DCM_BACKEND_TEST -DCM_BACKEND_USE_BWT -x c++ cm_backend.hpp -x none libsais.o -o cmtest.exe
-echo "bwt9_probe.exe..."; g++ -O3 -std=c++17 bwt9_probe.cpp libsais.o -o bwt9_probe.exe
-echo "mzip_ut.exe...";    g++ -O3 -std=c++17 -march=native -D_USE_MATH_DEFINES -o mzip_ut.exe mzip_unit_tests.cpp libsais.c $PPMD -I $INC $LIB $BRO
-echo "repro_dec.exe...";  g++ -O2 -std=c++17 -o repro_dec.exe repro_dec.cpp libsais.c $PPMD -I $INC $LIB $BRO
-# crash-corpus regression: every stream in fuzz_corpus/ must decompress without crashing (SIGSEGV/abort)
+echo "bwt9_probe.exe..."; g++ -O3 -std=c++17 bench/bwt9_probe.cpp libsais.o -o bwt9_probe.exe
+echo "mzip_ut.exe...";    g++ -O3 -std=c++17 -march=native -D_USE_MATH_DEFINES -o mzip_ut.exe tests/mzip_unit_tests.cpp libsais.c $PPMD -I $INC $LIB $BRO
+echo "repro_dec.exe...";  g++ -O2 -std=c++17 -o repro_dec.exe tests/repro_dec.cpp libsais.c $PPMD -I $INC $LIB $BRO
+# crash-corpus regression: every stream in tests/fuzz_corpus/ must decompress without crashing (SIGSEGV/abort)
 GATE_FAILED=0
-if [ -f test_crashers.sh ] && [ -d fuzz_corpus ]; then echo "crash-corpus regression..."; bash test_crashers.sh || { echo "GATE FAILED: crash-corpus regression"; GATE_FAILED=1; }; fi
+if [ -f tests/test_crashers.sh ] && [ -d tests/fuzz_corpus ]; then echo "crash-corpus regression..."; bash tests/test_crashers.sh || { echo "GATE FAILED: crash-corpus regression"; GATE_FAILED=1; }; fi
 # amalgamated single-header: regenerate, then verify it compiles standalone (stb pattern) + roundtrips.
 # Catches the header going stale vs the source (it had drifted months behind, missing every fix).
-if [ -f amalgamate.py ] && [ -f amalg_test.cpp ]; then
+if [ -f amalgamate.py ] && [ -f tests/amalg_test.cpp ]; then
   echo "mzip_amalgamated.hpp (regen + check)..."
   # Regenerate to a TEMP file first. The old `python3 amalgamate.py > mzip_amalgamated.hpp` wrote
   # in place, so any generator failure truncated a tracked 1.6 MB artifact to zero bytes and the
@@ -49,24 +49,24 @@ if [ -f amalgamate.py ] && [ -f amalg_test.cpp ]; then
   fi
   # Independent staleness gate: regenerate to a temp file and compare CONTENT (not timestamps).
   # The header went stale twice, the second time missing four consecutive commits' security fixes.
-  bash check_amalgam.sh || { echo "GATE FAILED: amalgamated header stale"; GATE_FAILED=1; }
+  bash scripts/check_amalgam.sh || { echo "GATE FAILED: amalgamated header stale"; GATE_FAILED=1; }
   AMALG_FILES=$(ls real_bench/* 2>/dev/null | head -3)
   if [ -z "$AMALG_FILES" ]; then
     echo "GATE FAILED: no real_bench files to roundtrip the amalgamated header against"; GATE_FAILED=1
-  elif g++ -O2 -std=c++17 -march=native amalg_test.cpp -I $INC $LIB $BRO -o amalg_test.exe 2>amalg_build.err; then
+  elif g++ -O2 -std=c++17 -march=native tests/amalg_test.cpp -I $INC $LIB $BRO -o amalg_test.exe 2>amalg_build.err; then
     ./amalg_test.exe $AMALG_FILES || { echo "GATE FAILED: amalgamated roundtrip"; GATE_FAILED=1; }
   else
     echo "GATE FAILED: amalgamated header does not compile. See amalg_build.err"; GATE_FAILED=1
   fi
 fi
-# prep extra real corpora for benchmark_types.py v2 (numeric time-series truncated to 4MB + repo shell scripts)
+# prep extra real corpora for bench/benchmark_types.py v2 (numeric time-series truncated to 4MB + repo shell scripts)
 if [ -d benchmark_data ] && [ ! -f corpus_extra/citytemp_float.bin ]; then
   mkdir -p corpus_extra/shell
   head -c 4194304 benchmark_data/citytemp.bin   > corpus_extra/citytemp_float.bin    2>/dev/null || true
   head -c 4194304 benchmark_data/phone-gyro.bin > corpus_extra/phonegyro_sensor.bin  2>/dev/null || true
   head -c 4194304 benchmark_data/ts_gas.bin     > corpus_extra/tsgas_series.bin      2>/dev/null || true
   head -c 4194304 benchmark_data/nyc-taxi.bin   > corpus_extra/nyctaxi_cols.bin      2>/dev/null || true
-  cp build_evals.sh run_final.sh run_mem.sh match3.sh dict.sh phase23.sh overnight.sh screen_run.sh corpus_extra/shell/ 2>/dev/null || true
+  cp build_evals.sh research/run_final.sh research/run_mem.sh research/match3.sh research/dict.sh research/phase23.sh research/overnight.sh research/screen_run.sh corpus_extra/shell/ 2>/dev/null || true
   echo "prepped corpus_extra/ (numeric + shell)"
 fi
 # real representative TypeScript (type-def/interface-heavy — where mzip's structure encoders win); optional, needs net
@@ -93,7 +93,7 @@ if [ ! -f corpus_extra/misc/descriptor.proto ]; then
   echo "prepped real new-type corpus"
 fi
 # NEW real-class benchmark corpora (2026-08-08) — PERMISSIVE licenses only, fetch-or-skip (categories in
-# benchmark_types.py skip cleanly if absent). Fills the corpus blind spots the gap-analysis sweeps found;
+# bench/benchmark_types.py skip cleanly if absent). Fills the corpus blind spots the gap-analysis sweeps found;
 # each showcases an encoder shipped this cycle (MY/MF/BCJ/PPMd/CHAR_TEMPLATE).
 if command -v curl >/dev/null 2>&1; then
   mkdir -p corpus_extra/yaml corpus_extra/fastq corpus_extra/wasm corpus_extra/binarm corpus_extra/minified
@@ -111,7 +111,7 @@ if command -v curl >/dev/null 2>&1; then
   [ -s corpus_extra/minified/bootstrap.min.css ]     || curl -sL --max-time 30 "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" -o corpus_extra/minified/bootstrap.min.css 2>/dev/null || true
   [ -s corpus_extra/minified/bootstrap.min.css.map ] || curl -sL --max-time 30 "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css.map" -o corpus_extra/minified/bootstrap.min.css.map 2>/dev/null || true
   # audio (WAV/PCM) -> BWT_TEXT. Real permissive test WAV (pydub, MIT). mzip beats general tools ~-30%;
-  # the specialist FLAC still wins (mzip is a general compressor, not an audio codec -- see EVALS.md).
+  # the specialist FLAC still wins (mzip is a general compressor, not an audio codec -- see docs/EVALS.md).
   mkdir -p corpus_extra/audio
   [ -s corpus_extra/audio/test1.wav ] || curl -sL --max-time 45 "https://raw.githubusercontent.com/jiaaro/pydub/master/test/data/test1.wav" -o corpus_extra/audio/test1.wav 2>/dev/null || true
   find corpus_extra/yaml corpus_extra/fastq corpus_extra/wasm corpus_extra/binarm corpus_extra/minified corpus_extra/audio -size 0 -delete 2>/dev/null || true

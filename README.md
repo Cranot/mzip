@@ -82,7 +82,7 @@ The first four wins come from formula or template detection — algorithmic subs
 
 **This is mzip's fairest real-world measure and the current source of truth.** The corpus is **52 content types / 102 files** — 93 real (real GitHub source in 15+ languages, real scientific time-series, k8s/CRD YAML, FASTQ genomics, x86 + ARM/PPC/RISC-V executables, WASM, minified JS/CSS + source-maps, uncompressed raster, WAV audio, fetched `proto`/`rst`/`tsv`/`svg`/`ndjson`/`diff`) plus 9 labeled synthetic — against **every standard at max settings** (gzip 1.14, bzip2 1.0.8, zstd-19/22, xz 5.8.3, brotli 1.2.0).
 
-Measurement and reporting are now **separate programs**: `bench_run.py` writes an append-only observation matrix (`bench_matrix.jsonl`) and `bench_report.py` derives every figure from that matrix and nothing else. Reproduce: `bash build_evals.sh && python3 bench_run.py && python3 bench_report.py`. **Full tables: [bench_report_v3.md](bench_report_v3.md) · methodology and per-type detail: [EVALS.md](EVALS.md).**
+Measurement and reporting are now **separate programs**: `bench/bench_run.py` writes an append-only observation matrix (`bench/bench_matrix.jsonl`) and `bench/bench_report.py` derives every figure from that matrix and nothing else. Reproduce: `bash build_evals.sh && python3 bench/bench_run.py && python3 bench/bench_report.py`. **Full tables: [bench/bench_report_v3.md](bench/bench_report_v3.md) · methodology and per-type detail: [docs/EVALS.md](docs/EVALS.md).**
 
 *Latest run: 918 observations, **0 invalid**, and **612 independent decompressions that matched the input byte for byte, 0 failures** — every comparator is verified now, not just mzip.*
 
@@ -108,7 +108,7 @@ At the 10th percentile mzip is at **parity** with brotli, not ahead. A micro ave
 
 **The CM backend's own marginal contribution is smaller than it looks:** mzip+CM vs mzip(noCM) is micro 1.045×, geometric mean 1.019×, **median 1.000×**. On the median file the CM backend changes nothing; it earns its place on a minority of blocks.
 
-**Fairness — mzip beats dict-equipped compressors, not just no-dict ones.** mzip uses trained dictionaries, so a fair comparator must too. Two do: **brotli-11** (a ~120 KB built-in dictionary) is the headline comparator (**mzip −28.5%** over 93 real files); and, as the strongest possible test, **zstd-19 handed mzip's *own* dictionary** (`train_corpus/code_dict.bin`, the exact one mzip's ZSTD_DICT encoder uses) — mzip is **−35.3%** against it corpus-wide. On the dict-relevant regime alone (source-code + config + markup, 58 real files) the honest figures are **−18.0% vs zstd-19+dict and −14.8% vs brotli**: that is where dictionaries actually bite, and mzip's margin there is real but a third of the corpus-wide number. (Plain zstd/xz run without a dictionary, so mzip's margin over *them* additionally includes a dict advantage — stated, not hidden. The code dictionary is inert on the numeric/binary/WASM portion, which is why the corpus-wide dict figure is larger than the code-only one. Full per-type column: [EVALS.md](EVALS.md).)
+**Fairness — mzip beats dict-equipped compressors, not just no-dict ones.** mzip uses trained dictionaries, so a fair comparator must too. Two do: **brotli-11** (a ~120 KB built-in dictionary) is the headline comparator (**mzip −28.5%** over 93 real files); and, as the strongest possible test, **zstd-19 handed mzip's *own* dictionary** (`train_corpus/code_dict.bin`, the exact one mzip's ZSTD_DICT encoder uses) — mzip is **−35.3%** against it corpus-wide. On the dict-relevant regime alone (source-code + config + markup, 58 real files) the honest figures are **−18.0% vs zstd-19+dict and −14.8% vs brotli**: that is where dictionaries actually bite, and mzip's margin there is real but a third of the corpus-wide number. (Plain zstd/xz run without a dictionary, so mzip's margin over *them* additionally includes a dict advantage — stated, not hidden. The code dictionary is inert on the numeric/binary/WASM portion, which is why the corpus-wide dict figure is larger than the code-only one. Full per-type column: [docs/EVALS.md](docs/EVALS.md).)
 
 ⚠ **This corpus is not blind.** mzip's encoders were built and tuned against these exact files. It is held out from mzip's *dictionary training* (`train_corpus/`), which is a different and weaker claim than being a blind evaluation set, and the report says so in its own header rather than leaving a reader to assume otherwise.
 
@@ -126,9 +126,9 @@ Where mzip pulls ahead hardest (mzip+CM ratio vs the best standard for that type
 | **Scientific-Matrix** (sparse `.mtx`) | **4.25×** | xz 3.41× | `'MM'` skeleton + column-transpose (real matrices reach −58.6%) |
 | Audio (WAV/PCM) | **1.76×** | xz 1.22× | 16-bit samples → BWT/CM (general tools get ~1.1×) |
 
-*Matrix caveat (honest):* the **4.25×** row is a generated, license-clean synthetic with *random* values, so it **understates** the real win — on real Matrix Market matrices (whose values carry FEM-assembly structure) the `'MM'` encoder reaches **−20 % to −58.6 % vs xz** (bcsstk16.mtx: 4.5 MB → 129,668 B). Whitespace-delimited numeric grids (`.mtx`, XYZ point clouds, space/tab-aligned tables) are a class general compressors and mzip's own CSV transpose both miss. Full matrix table: [EVALS.md](EVALS.md).
+*Matrix caveat (honest):* the **4.25×** row is a generated, license-clean synthetic with *random* values, so it **understates** the real win — on real Matrix Market matrices (whose values carry FEM-assembly structure) the `'MM'` encoder reaches **−20 % to −58.6 % vs xz** (bcsstk16.mtx: 4.5 MB → 129,668 B). Whitespace-delimited numeric grids (`.mtx`, XYZ point clouds, space/tab-aligned tables) are a class general compressors and mzip's own CSV transpose both miss. Full matrix table: [docs/EVALS.md](docs/EVALS.md).
 
-*Audio caveat (honest):* on real WAVs mzip beats every **general** compressor by 15–38% (and comes within 4.9% of FLAC on piano), but the purpose-built lossless audio codec **FLAC still wins** (test1.wav: mzip 1.76× vs FLAC 2.30×). mzip is a general compressor, not an audio codec — for audio, use FLAC. Full audio table + FLAC numbers: [EVALS.md](EVALS.md).
+*Audio caveat (honest):* on real WAVs mzip beats every **general** compressor by 15–38% (and comes within 4.9% of FLAC on piano), but the purpose-built lossless audio codec **FLAC still wins** (test1.wav: mzip 1.76× vs FLAC 2.30×). mzip is a general compressor, not an audio codec — for audio, use FLAC. Full audio table + FLAC numbers: [docs/EVALS.md](docs/EVALS.md).
 
 Two 2026 correctness fixes turned former blow-ups into wins: repetitive **syslog** now compresses **35.45×** (was a 22× archive-inflation bug), and **BIGINT-UNSIGNED SQL** now compresses **70.19×** (was a 65–139× bug where an oversized-integer parse dumped the whole file near-raw). Both are now guarded by unit tests.
 
@@ -136,7 +136,7 @@ Two 2026 correctness fixes turned former blow-ups into wins: repetitive **syslog
 
 - **CM backend (`cm_backend.hpp`)** — a BWT + context-mixing range coder (bzip3-class), wired into `bwt9` as **mode 2**, so *every* BWT call-site (general blocks, DBF, CSV, BWT_TEXT) trials it and keeps it when smaller. This carries most of mzip's edge on text / code / logs.
 - **Ensemble backstop** — each block also trials **xz (liblzma -9e)** and **brotli-11** and keeps the smallest, so mzip never loses where those tools would win (this flipped SQL / YAML / config). `bwt9` is itself a universal backstop that catches BWT-friendly data the type detectors miss (this flipped real float / sensor arrays that previously lost to bzip2).
-- **Encoder-firing audit (`diagnose_encoders.py`)** — per-block telemetry (`MZIP_STATS=1`) cross-referenced with each type's expected encoder and win-gap, to systematically find where a specialized encoder *doesn't fire*. This is how the numeric losses and an under-representative TypeScript sample were found and fixed.
+- **Encoder-firing audit (`bench/diagnose_encoders.py`)** — per-block telemetry (`MZIP_STATS=1`) cross-referenced with each type's expected encoder and win-gap, to systematically find where a specialized encoder *doesn't fire*. This is how the numeric losses and an under-representative TypeScript sample were found and fixed.
 
 > **Fairness notes.** `real_bench/` is held-out; the dictionaries are trained on a *separate* `train_corpus/` (mzip is never benchmarked on its own training data); binary/YAML/FASTQ/minified corpora are fetched permissively (MIT/public-domain — no GPL) by `build_evals.sh`; `samples/` are synthetic (labeled). mzip is a trial-everything ensemble — it trades **compression speed** for ratio: **~0.1 MB/s compress** on this box (single-shot, indicative), but **~11 MB/s decompress** (decode just inverts the winning transform). zstd / brotli compress 10–100×+ faster; if write-side latency matters, use them. Ratios are exact and machine-independent; the speed figures are not.
 
@@ -511,10 +511,10 @@ If your zstd headers are not on the default search path, add `-I/path/to/zstd/in
 
 ```bash
 # Build (assumes zstd is installed; otherwise add -I/-L flags as in Quick Start above)
-g++ -std=c++17 -O3 -march=native -o mzip_bench mzip_bench.cpp libsais.c -lzstd
+g++ -std=c++17 -O3 -march=native -o mzip_bench bench/mzip_bench.cpp libsais.c -lzstd
 
 # Synthetic suite — 50 types × 5 sizes = 250 tests, ~10–15 min
-./mzip_bench --csv full_bench.csv
+./mzip_bench --csv bench/full_bench.csv
 
 # Quick (64 KB only)
 ./mzip_bench --quick
@@ -529,7 +529,7 @@ g++ -std=c++17 -O3 -march=native -o mzip_bench mzip_bench.cpp libsais.c -lzstd
 ./mzip_bench --file real_bench/*
 
 # Regenerate the README tables from a fresh CSV
-python generate_readme_tables.py full_bench.csv
+python bench/generate_readme_tables.py bench/full_bench.csv
 ```
 
 ### Held-out type benchmark + encoder audit (CM backend)
@@ -539,10 +539,10 @@ python generate_readme_tables.py full_bench.csv
 bash build_evals.sh
 
 # Type-stratified benchmark vs gzip/bzip2/zstd-19/zstd-22/xz-9e/brotli-11, held-out real files, roundtrip-verified
-python3 benchmark_types.py            # -> bench_types_report.md  (38 types / 76 files)
+python3 bench/benchmark_types.py            # -> bench_types_report.md  (38 types / 76 files)
 
 # Systematic "which encoder fired / what didn't fire" audit (LOSS / MISSED-SPECIAL / BACKSTOP-RELIANT)
-python3 diagnose_encoders.py          # -> encoder_audit.md
+python3 bench/diagnose_encoders.py          # -> encoder_audit.md
 
 # Per-block encoder telemetry on any file
 MZIP_STATS=1 ./mzip_cm.exe c file out
@@ -566,22 +566,22 @@ MZIP_STATS=1 ./mzip_cm.exe c file out
 | `lzma_optimal2.hpp`, `lzma_decoder.hpp` | LZMA optimal encoder + decoder (LZMA_OPTIMAL strategy) |
 | `mzip_base64.hpp` | Base64 detect / decode helper (BASE64_DECODE strategy) |
 | `generators.hpp` | Single source of truth for benchmark / test data |
-| `libsais.h` | BWT suffix array (Apache 2.0) |
-| `stb_image.h`, `stb_image_write.h` | Image IO (Public Domain) — for image strategies |
-| `mzip_bench.cpp` | Benchmark tool — `--csv` exports results |
+| `libsais.c`, `libsais.h` | BWT suffix array (Apache 2.0) |
+| `ppmd/`, `ppmd_backend.hpp` | PPMd var.H from the LZMA SDK (public domain) — ensemble backstop |
 | `mzip_cli.cpp` | Command-line interface |
-| `mzip_test.cpp` | Quick debug / single-type test |
-| `mzip_unit_tests.cpp` | Unit tests for core strategies |
 | `cm_backend.hpp` | **BWT + context-mixing (bzip3-class) entropy backend** — wired as `bwt9` mode 2 + ensemble candidate |
 | `brotli_shim.hpp` / `liblzma_shim.hpp` | Minimal decls to link brotli / liblzma as ensemble backstop candidates |
 | `build_evals.sh` | Builds all eval binaries (mzip+CM, baseline, zstd sizer, probes) + fetches/derives the held-out corpora |
-| `benchmark_types.py` | **Held-out type-stratified benchmark** (mzip+CM vs gzip/bzip2/zstd/xz/brotli) → `bench_types_report.md` |
-| `diagnose_encoders.py` | **Encoder-firing audit** (`MZIP_STATS` telemetry → LOSS / MISSED-SPECIAL / BACKSTOP) → `encoder_audit.md` |
-| `generate_readme_tables.py` | Auto-generate the markdown tables above from `full_bench.csv` |
-| `summarize_real_bench.py` | Auto-generate `real_bench_summary.md` from `real_bench_results.txt` |
-| `samples/` | Sample files at 4 / 16 / 64 / 256 KB and 1 MB |
-| `real_bench/` | 47 real-world files used by the real-world benchmark |
-| `full_bench.csv` | Latest synthetic benchmark CSV (one row per (type, size)) |
+| `amalgamate.py` | Generates `mzip_amalgamated.hpp` (checked by `scripts/check_amalgam.sh`) |
+| `Makefile.linux` | `make -f Makefile.linux test` builds and runs the unit tests on Linux |
+| `tests/` | Unit tests (`mzip_unit_tests.cpp`), quick debug test (`mzip_test.cpp`), decode fuzzers, crash-corpus regression, sanitizer and byte-identity gates |
+| `bench/` | Benchmark harness: `bench_run.py` measures into `bench_matrix.jsonl`, `bench_report.py` derives every figure from it; corpus definition `bench_corpus.py`; encoder-firing audit `diagnose_encoders.py`; `mzip_bench.cpp` + `full_bench.csv` + `generate_readme_tables.py` for the synthetic tables above; the retired `benchmark_types.py` |
+| `real_bench/`, `samples/` | Benchmark inputs: 47 real-world files; synthetic samples at 4 / 16 / 64 / 256 KB and 1 MB |
+| `training/` | Dictionary training (`train_dicts*.cpp`, `emit_dicts_header.cpp` → `mzip_dicts.h`) |
+| `scripts/` | Repository gates run by `hooks/pre-commit` (`check_amalgam.sh`, `check_tracked_deps.sh`, `check_magic_coverage.sh`) and `install_hooks.sh` |
+| `docs/` | `EVALS.md` — how every figure in this README is measured |
+| `research/` | Context-mixing / enwik9 research code and run records; not part of the library (see `research/README.md`; the lpaq1-derived files are GPL) |
+| `hfbench/` | Hugging Face / Xet storage measurement programme |
 
 ---
 
@@ -592,7 +592,7 @@ MZIP_STATS=1 ./mzip_cm.exe c file out
 A few files keep their own licenses; [NOTICE](NOTICE) lists every one of them. In short:
 
 - `cm_backend.hpp` (the BWT context-mixing backend) is derived from [bzip3](https://github.com/kspalaiologos/bzip3) and is **LGPL-3.0-or-later**. It is compiled into every build today; an original Apache-2.0 replacement is in development.
-- The lpaq1-derived research tools (`lpaq_*.cpp`, `dclm_rig*.cpp`, `bwtcm2.cpp`, `ref_lpaq1.cpp`) are GPL and are not part of the library.
+- The lpaq1-derived research tools (`research/lpaq_*.cpp`, `research/dclm_rig*.cpp`, `research/bwtcm2.cpp`, `research/ref_lpaq1.cpp`) are GPL and are not part of the library.
 - Bundled: [libsais](https://github.com/IlyaGrebnov/libsais) (Apache-2.0), PPMd from the LZMA SDK (public domain), a range coder based on [TinyZZZ](https://github.com/WangXuan95/TinyZZZ) (MIT). Linked, not bundled: zstd (BSD), brotli (MIT), liblzma (0BSD).
 
 Bug reports, benchmarks on your own data and new strategies are welcome as [GitHub issues](https://github.com/Cranot/mzip/issues/new).

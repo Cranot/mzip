@@ -1,9 +1,9 @@
 # Linux build for the mzip unit tests.
 #
-# mzip_unit_tests.cpp includes zstd via a vendored Windows path
+# tests/mzip_unit_tests.cpp includes zstd via a vendored Windows path
 # (zstd_release/zstd-v1.5.6-win64/include/zstd.h), and the PPMd backend lives in
-# ppmd/*.c with no gate script that compiles it on Linux -- gate_all.sh and
-# gate_ppmd.sh are .dll/.exe lines. This target supplies both so the suite can run
+# ppmd/*.c with no gate script that compiles it on Linux -- tests/gate_all.sh and
+# tests/gate_ppmd.sh are .dll/.exe lines. This target supplies both so the suite can run
 # where the loop runs. It changes no source.
 #
 #   make -f Makefile.linux test
@@ -25,8 +25,8 @@ $(ZSTD_SHIM):
 	@test -e /usr/include/zstd.h || { echo "libzstd-dev not installed"; exit 1; }
 	@ln -sf /usr/include/zstd.h $@
 
-mzip_ut: $(ZSTD_SHIM) mzip_unit_tests.cpp mzip.hpp libsais.c $(PPMD)
-	$(CXX) $(CXXFLAGS) -o $@ mzip_unit_tests.cpp libsais.c $(PPMD) $(LIBS)
+mzip_ut: $(ZSTD_SHIM) tests/mzip_unit_tests.cpp mzip.hpp libsais.c $(PPMD)
+	$(CXX) $(CXXFLAGS) -o $@ tests/mzip_unit_tests.cpp libsais.c $(PPMD) $(LIBS)
 
 test: mzip_ut
 	./mzip_ut

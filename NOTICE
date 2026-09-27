@@ -7,7 +7,7 @@ their own licenses.
 
 
 1. Files derived from bzip3 - LGPL-3.0-or-later
-   cm_backend.hpp, bwtcm.cpp
+   cm_backend.hpp, research/bwtcm.cpp
 
    These contain a context-mixing model ported from bzip3 (libbz3.c),
    Copyright (C) 2022-2024 Kamila Szewczyk, distributed under the GNU Lesser
@@ -22,14 +22,15 @@ their own licenses.
 
 
 2. Research tools derived from lpaq1 - GPL (not part of the library)
-   lpaq_x.cpp, lpaq_iso.cpp, dclm_rig.cpp, dclm_rig_19.cpp, dclm_rig_23.cpp,
-   dclm_rig_lcg2.cpp .............................. GPL-2.0-or-later
-   bwtcm2.cpp ...................................... GPL-3.0-or-later
-   ref_lpaq1.cpp (unmodified lpaq1 reference) ..... GPL-2.0-or-later
+   research/lpaq_x.cpp, research/lpaq_iso.cpp, research/dclm_rig.cpp,
+   research/dclm_rig_19.cpp, research/dclm_rig_23.cpp,
+   research/dclm_rig_lcg2.cpp ......................... GPL-2.0-or-later
+   research/bwtcm2.cpp ................................ GPL-3.0-or-later
+   research/ref_lpaq1.cpp (unmodified lpaq1 reference)  GPL-2.0-or-later
 
    lpaq1 is Copyright (C) 2007 Matt Mahoney, distributed under the GNU General
    Public License, version 2 or (at your option) any later version.
-   bwtcm2.cpp also includes libsais (Apache-2.0), which is compatible with GPLv3
+   research/bwtcm2.cpp also includes libsais (Apache-2.0), which is compatible with GPLv3
    but not GPLv2, so that file is GPL-3.0-or-later as a whole. None of these
    files is included by mzip.hpp or mzip_amalgamated.hpp.
 
@@ -68,7 +69,7 @@ their own licenses.
      https://github.com/IlyaGrebnov/libsais
    ppmd/ - Ppmd7 (PPMdH) from the LZMA SDK by Igor Pavlov, public domain;
      based on PPMd var.H (2001) by Dmitry Shkarin, public domain
-   zdict_minimal.h - declarations from zstd v1.5.6 (Meta Platforms, Inc.), BSD-3-Clause
+   training/zdict_minimal.h - declarations from zstd v1.5.6 (Meta Platforms, Inc.), BSD-3-Clause
 
 
 5. Libraries linked at build time (not bundled)
