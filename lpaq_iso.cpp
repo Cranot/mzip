@@ -1,3 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+//
+// MODIFIED WORK NOTICE
+// This file is a modified version of lpaq1.cpp, (C) 2007 Matt Mahoney, which is
+// distributed under the GNU General Public License, version 2 or (at your
+// option) any later version.  The original notice is preserved below verbatim.
+//
+// Modifications (c) 2026 Cranot.  Changed in 2026: isolation/reference build used as the A/B control for lpaq_x.cpp
+// The modifications are released under the SAME terms (GPL-2.0-or-later).
+// This file is NOT covered by the repository's Apache-2.0 license (see LICENSE and NOTICE).
+//
 /* lpaq1.cpp file compressor, July 24, 2007.
 (C) 2007, Matt Mahoney, matmahoney@yahoo.com
 

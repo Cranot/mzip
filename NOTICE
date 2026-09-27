@@ -1,0 +1,83 @@
+mzip - detection-based compression library
+Copyright 2025-2026 Cranot
+
+Licensed under the Apache License, Version 2.0 (see LICENSE). This applies to every
+file in this repository EXCEPT the files and components listed below, which keep
+their own licenses.
+
+
+1. Files derived from bzip3 - LGPL-3.0-or-later
+   cm_backend.hpp, bwtcm.cpp
+
+   These contain a context-mixing model ported from bzip3 (libbz3.c),
+   Copyright (C) 2022-2024 Kamila Szewczyk, distributed under the GNU Lesser
+   General Public License, version 3 or (at your option) any later version.
+   https://github.com/kspalaiologos/bzip3
+
+   cm_backend.hpp is included by mzip.hpp and bwt_compress_v9.hpp, and so by
+   mzip_amalgamated.hpp, in EVERY build. -DMZIP_NO_CM only stops the encoder from
+   producing CM streams; the decoder still compiles this code in. Until the
+   original replacement backend (in development) lands, builds of mzip contain
+   this LGPL-3.0-or-later component.
+
+
+2. Research tools derived from lpaq1 - GPL (not part of the library)
+   lpaq_x.cpp, lpaq_iso.cpp, dclm_rig.cpp, dclm_rig_19.cpp, dclm_rig_23.cpp,
+   dclm_rig_lcg2.cpp .............................. GPL-2.0-or-later
+   bwtcm2.cpp ...................................... GPL-3.0-or-later
+   ref_lpaq1.cpp (unmodified lpaq1 reference) ..... GPL-2.0-or-later
+
+   lpaq1 is Copyright (C) 2007 Matt Mahoney, distributed under the GNU General
+   Public License, version 2 or (at your option) any later version.
+   bwtcm2.cpp also includes libsais (Apache-2.0), which is compatible with GPLv3
+   but not GPLv2, so that file is GPL-3.0-or-later as a whole. None of these
+   files is included by mzip.hpp or mzip_amalgamated.hpp.
+
+
+3. Range coder based on TinyZZZ - MIT
+   range_coder.hpp, and any portions of lzma_optimal2.hpp / lzma_decoder.hpp that
+   build on it
+
+   Based on the TinyZZZ implementation, https://github.com/WangXuan95/TinyZZZ
+
+   MIT License
+
+   Copyright (c) 2025 https://github.com/WangXuan95
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to deal
+   in the Software without restriction, including without limitation the rights
+   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+   copies of the Software, and to permit persons to whom the Software is
+   furnished to do so, subject to the following conditions:
+
+   The above copyright notice and this permission notice shall be included in all
+   copies or substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+
+
+4. Bundled third-party code
+   libsais.c, libsais.h - Copyright (c) 2021-2024 Ilya Grebnov, Apache-2.0
+     https://github.com/IlyaGrebnov/libsais
+   ppmd/ - Ppmd7 (PPMdH) from the LZMA SDK by Igor Pavlov, public domain;
+     based on PPMd var.H (2001) by Dmitry Shkarin, public domain
+   zdict_minimal.h - declarations from zstd v1.5.6 (Meta Platforms, Inc.), BSD-3-Clause
+
+
+5. Libraries linked at build time (not bundled)
+   zstd (BSD-3-Clause or GPL-2.0), brotli (MIT), liblzma / xz (0BSD / public domain)
+
+
+6. Trained dictionaries
+   mzip_dicts.h holds zstd dictionaries trained on publicly available README,
+   CHANGELOG and configuration files (the sources are listed in
+   train_corpus/fetch.sh). Those source files carry their own licenses, some of
+   them GPL-2.0. The dictionaries are scheduled to be retrained from permissively
+   licensed sources only.

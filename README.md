@@ -457,7 +457,7 @@ pacman -S mingw-w64-x86_64-zstd
 
 ### Option 1: Single-header (recommended)
 
-The amalgamated header bundles mzip + the BWT pipeline + libsais. You only need to add zstd.
+The amalgamated header bundles mzip + the BWT pipeline + libsais + PPMd. You need to link zstd, brotli (enc, dec, common) and liblzma.
 
 ```cpp
 // In ONE translation unit:
@@ -587,9 +587,12 @@ MZIP_STATS=1 ./mzip_cm.exe c file out
 
 ## License & Contact
 
-**Dual-licensed: AGPL-3.0 OR commercial.**
+**Apache License 2.0** — use it, modify it, ship it in open or closed products. See [LICENSE](LICENSE).
 
-- **AGPL-3.0** — free for open-source projects. If you deploy mzip as part of a network service (SaaS, hosted API, etc.), the AGPL requires you to make your source available.
-- **Commercial** — for proprietary or closed-source use, open a [GitHub issue](https://github.com/Cranot/mzip/issues/new) tagged `commercial-license` and I'll follow up. Same for bug reports, benchmarks on your own data, or proposing a new strategy.
+A few files keep their own licenses; [NOTICE](NOTICE) lists every one of them. In short:
 
-Third-party code bundled in the repo: [libsais](https://github.com/IlyaGrebnov/libsais) (Apache 2.0), [stb_image](https://github.com/nothings/stb) (Public Domain). zstd is required at link-time but not bundled (BSD).
+- `cm_backend.hpp` (the BWT context-mixing backend) is derived from [bzip3](https://github.com/kspalaiologos/bzip3) and is **LGPL-3.0-or-later**. It is compiled into every build today; an original Apache-2.0 replacement is in development.
+- The lpaq1-derived research tools (`lpaq_*.cpp`, `dclm_rig*.cpp`, `bwtcm2.cpp`, `ref_lpaq1.cpp`) are GPL and are not part of the library.
+- Bundled: [libsais](https://github.com/IlyaGrebnov/libsais) (Apache-2.0), PPMd from the LZMA SDK (public domain), a range coder based on [TinyZZZ](https://github.com/WangXuan95/TinyZZZ) (MIT). Linked, not bundled: zstd (BSD), brotli (MIT), liblzma (0BSD).
+
+Bug reports, benchmarks on your own data and new strategies are welcome as [GitHub issues](https://github.com/Cranot/mzip/issues/new).

@@ -1,3 +1,14 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
+//
+// MODIFIED WORK NOTICE
+// The context-mixing model in this file is ported from bzip3 (libbz3.c),
+// Copyright (C) 2022-2024 Kamila Szewczyk, distributed under the GNU Lesser
+// General Public License, version 3 or (at your option) any later version.
+// https://github.com/kspalaiologos/bzip3
+//
+// Modifications (c) 2026 Cranot, released under the same terms (LGPL-3.0-or-later).
+// This file is NOT covered by the repository's Apache-2.0 license (see LICENSE and NOTICE).
+//
 // bwtcm — standalone: libsais BWT + bzip3-style context-mixing arithmetic coder.
 // Validates our Phase-A coder on REAL enwik at scale. Lossless round-trip verified.
 // build: gcc -O3 -c libsais.c -o libsais.o && g++ -O3 -std=c++17 bwtcm.cpp libsais.o -o bwtcm

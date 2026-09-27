@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: MIT
+//
+// Based on TinyZZZ, Copyright (c) 2025 https://github.com/WangXuan95, MIT License
+// (the full license text is in NOTICE). Modifications (c) 2026 Cranot, same terms.
+//
 // Range Coder - LZMA-style adaptive binary entropy coding
 // Based on LZMA specification and TinyZZZ implementation
 #pragma once

@@ -1,3 +1,19 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// MODIFIED WORK NOTICE
+// Portions of this file are ported from lpaq1.cpp, (C) 2007 Matt Mahoney
+// (bit-history ICM / StateMap / logistic Mixer / APM), distributed under the
+// GNU General Public License, version 2 or (at your option) any later version.
+//
+// Modifications and surrounding work (c) 2026 Cranot.  Changed in 2026: BWT
+// front end via libsais, orthogonal APM chain, BWT-byte context set.
+//
+// This translation unit also includes libsais (Ilya Grebnov, Apache-2.0).
+// Apache-2.0 is compatible with GPLv3 but NOT with GPLv2, so the "or later"
+// option of the lpaq1 grant is exercised here at version 3: this file is
+// GPL-3.0-or-later as a whole.
+// This file is NOT covered by the repository's Apache-2.0 license (see LICENSE and NOTICE).
+//
 // bwtcm2 — Path A: lpaq-style ICM (bit-history->StateMap) + logistic Mixer + orthogonal APMs
 // on raw BWT bytes. Goal: pass bsc-m03 (1.280 bpc). Components ported from lpaq1 (Mahoney).
 // build: g++ -O3 -std=c++17 bwtcm2.cpp libsais.o -o bwtcm2.exe
