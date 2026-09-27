@@ -83,6 +83,7 @@ The first four wins come from formula or template detection — algorithmic subs
 > **Caveats found in a provenance audit on 2026-09-27, not yet reflected in the numbers below.**
 > 1. **22 of the files counted as "real" were generated for the benchmark**, not copied from real projects — for example `app.log`, `events.csv`, `dashboard.html` and `users.json`. [`real_bench/SOURCES.md`](real_bench/SOURCES.md) records the origin of every `real_bench/` file.
 > 2. **The benchmark is not fully held out from dictionary training.** `train_corpus/fetch.sh` downloads the upstream sources of three benchmark files, and the trained dictionaries contain verbatim fragments of them. Measured by 64-byte windows: 72% of `sql_schema.sql`, 11% of `java_arraylist.java` and 4% of `go_http.go`; four more files share 5 windows or fewer. Their ratios are flattered by an unknown amount until the dictionaries are retrained without those sources.
+> 3. **`real_bench/apache_log_sample.log` was modified on 2026-09-27**: its real client IP addresses were replaced with consistent addresses from the 198.18.0.0/15 benchmarking range. The figures below were measured on the original bytes; with the current build the file compresses to 78,524 B instead of 81,905 B.
 
 **This is mzip's fairest real-world measure and the current source of truth.** The corpus is **52 content types / 102 files** — 93 real (real GitHub source in 15+ languages, real scientific time-series, k8s/CRD YAML, FASTQ genomics, x86 + ARM/PPC/RISC-V executables, WASM, minified JS/CSS + source-maps, uncompressed raster, WAV audio, fetched `proto`/`rst`/`tsv`/`svg`/`ndjson`/`diff`) plus 9 labeled synthetic — against **every standard at max settings** (gzip 1.14, bzip2 1.0.8, zstd-19/22, xz 5.8.3, brotli 1.2.0).
 
@@ -374,8 +375,8 @@ The synthetic 94.0% does not survive intact on real GitHub source code — the s
 |------|-----:|-----------:|----------|-----------|
 | sql_schema.sql | 4.1 KB | **20.86×** | brotli: 1.1 KB | **+81.8%** |
 | java_arraylist.java | 64.6 KB | 9.00× | brotli: 11.2 KB | +36.1% |
+| apache_log_sample.log † | 2.26 MB | 30.22× | xz: 111 KB | +30.8% |
 | xml_maven.xml | 45.4 KB | 11.29× | brotli: 5.8 KB | +30.3% |
-| apache_log_sample.log | 2.26 MB | 22.83× | brotli: 116 KB | +12.5% |
 | go_http.go | 128 KB | 4.23× | brotli: 34.3 KB | +11.7% |
 | docker-compose.yml | 3.9 KB | 4.23× | brotli: 1.0 KB | +8.2% |
 | dashboard.html | 42.5 KB | 34.04× | brotli: 1.3 KB | +7.1% |
@@ -390,6 +391,8 @@ The synthetic 94.0% does not survive intact on real GitHub source code — the s
 | metrics.prom | 176 KB | 10.12× | bzip2: 17.5 KB | +1.1% |
 | users.json | 170 KB | 10.11× | bzip2: 17.0 KB | +1.0% |
 | linux_kernel.c | 281 KB | 4.41× | bzip2: 64.3 KB | +1.0% |
+
+† Re-measured on 2026-09-27 with the current build, after the file's client IP addresses were replaced (see [`real_bench/SOURCES.md`](real_bench/SOURCES.md)); compared against brotli-11, xz-9e, bzip2-9, zstd-19 and gzip-9. The other rows are from the January run. On the original bytes the same build gives 28.95× against xz's 118,072 B (+30.6%), so the replacement barely moves the result; the older +12.5% reflected the January build.
 
 ### Where brotli still wins
 

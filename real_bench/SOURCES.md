@@ -11,14 +11,18 @@ upstream byte for byte at the linked commit; `php_laravel.php` differs by one la
 file is a live API response. The README's older real-world tables count 47 files: that is these 50 minus the
 three dotfiles, which a shell glob such as `real_bench/*` does not match.
 
-- `apache_log_sample.log` is Elastic's public `apache_logs` sample: a real May 2015 access log of
-  semicomplete.com, including real client IP addresses.
+- `apache_log_sample.log` is Elastic's public `apache_logs` sample, a real May 2015 access log of
+  semicomplete.com (not mzip's). **This copy is modified:** on 2026-09-27 its 1,753 distinct client IP addresses,
+  and one address inside a search referrer, were replaced with consistent addresses drawn at random from the
+  198.18.0.0/15 benchmarking range (the same original address always maps to the same replacement; the draw was not
+  recorded, so the mapping cannot be rebuilt). Everything else in each line, including browser version strings, is
+  unchanged.
 - `vscode_main.ts` is VS Code's `src/vs/workbench/browser/workbench.ts`, not `src/main.ts`.
 - `sql_schema.sql` (MySQL employees sample database) is CC BY-SA 3.0: credits are in the file's header.
 
 | file | source | license | license text |
 |---|---|---|---|
-| `apache_log_sample.log` | [elastic/examples (archived)](https://github.com/elastic/examples/blob/master/Common%20Data%20Formats/apache_logs/apache_logs) `Common Data Formats/apache_logs/apache_logs` | Apache-2.0 | ../LICENSE (Apache-2.0) |
+| `apache_log_sample.log` | [elastic/examples (archived)](https://github.com/elastic/examples/blob/master/Common%20Data%20Formats/apache_logs/apache_logs) `Common Data Formats/apache_logs/apache_logs` — modified copy, client IPs replaced (see above) | Apache-2.0 | ../LICENSE (Apache-2.0) |
 | `api_docs.md` | none found — generated for this benchmark (generator fingerprints) | unknown | — |
 | `app.log` | none found — generated for this benchmark (generator fingerprints) | unknown | — |
 | `bootstrap.css` | [twbs/bootstrap](https://github.com/twbs/bootstrap/blob/25aa8cc0b32f0d1a54be575347e6d84b70b1acd7/dist/css/bootstrap.css) `dist/css/bootstrap.css` | MIT | bootstrap-MIT.txt |
